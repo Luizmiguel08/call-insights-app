@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SessoesRouteImport } from './routes/sessoes'
+import { Route as FilaRouteImport } from './routes/fila'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CorretoresRouteImport } from './routes/corretores'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +19,16 @@ import { Route as IndexRouteImport } from './routes/index'
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessoesRoute = SessoesRouteImport.update({
+  id: '/sessoes',
+  path: '/sessoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FilaRoute = FilaRouteImport.update({
+  id: '/fila',
+  path: '/fila',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -39,12 +51,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/corretores': typeof CorretoresRoute
   '/dashboard': typeof DashboardRoute
+  '/fila': typeof FilaRoute
+  '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/corretores': typeof CorretoresRoute
   '/dashboard': typeof DashboardRoute
+  '/fila': typeof FilaRoute
+  '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRoutesById {
@@ -52,20 +68,37 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/corretores': typeof CorretoresRoute
   '/dashboard': typeof DashboardRoute
+  '/fila': typeof FilaRoute
+  '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/corretores' | '/dashboard' | '/sitemap.xml'
+  fullPaths:
+    | '/'
+    | '/corretores'
+    | '/dashboard'
+    | '/fila'
+    | '/sessoes'
+    | '/sitemap.xml'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/corretores' | '/dashboard' | '/sitemap.xml'
-  id: '__root__' | '/' | '/corretores' | '/dashboard' | '/sitemap.xml'
+  to: '/' | '/corretores' | '/dashboard' | '/fila' | '/sessoes' | '/sitemap.xml'
+  id:
+    | '__root__'
+    | '/'
+    | '/corretores'
+    | '/dashboard'
+    | '/fila'
+    | '/sessoes'
+    | '/sitemap.xml'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CorretoresRoute: typeof CorretoresRoute
   DashboardRoute: typeof DashboardRoute
+  FilaRoute: typeof FilaRoute
+  SessoesRoute: typeof SessoesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
@@ -76,6 +109,20 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sessoes': {
+      id: '/sessoes'
+      path: '/sessoes'
+      fullPath: '/sessoes'
+      preLoaderRoute: typeof SessoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fila': {
+      id: '/fila'
+      path: '/fila'
+      fullPath: '/fila'
+      preLoaderRoute: typeof FilaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -106,6 +153,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CorretoresRoute: CorretoresRoute,
   DashboardRoute: DashboardRoute,
+  FilaRoute: FilaRoute,
+  SessoesRoute: SessoesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport

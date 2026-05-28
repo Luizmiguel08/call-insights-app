@@ -14,6 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      broker_pauses: {
+        Row: {
+          broker_id: string
+          created_at: string
+          duration_seconds: number
+          ended_at: string | null
+          id: string
+          reason: string
+          session_id: string
+          started_at: string
+        }
+        Insert: {
+          broker_id: string
+          created_at?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          id?: string
+          reason: string
+          session_id: string
+          started_at?: string
+        }
+        Update: {
+          broker_id?: string
+          created_at?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          id?: string
+          reason?: string
+          session_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_pauses_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_pauses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "broker_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broker_sessions: {
+        Row: {
+          broker_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          started_at: string
+        }
+        Insert: {
+          broker_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+        }
+        Update: {
+          broker_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_sessions_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brokers: {
         Row: {
           color: string
@@ -40,11 +120,13 @@ export type Database = {
           attended: boolean
           broker_id: string
           client_name: string
+          contact_id: string | null
           created_at: string
           duration_seconds: number
           ended_at: string | null
           id: string
           notes: string | null
+          outcome: Database["public"]["Enums"]["call_outcome"] | null
           phone: string | null
           scheduled: boolean
           started_at: string | null
@@ -53,11 +135,13 @@ export type Database = {
           attended?: boolean
           broker_id: string
           client_name: string
+          contact_id?: string | null
           created_at?: string
           duration_seconds?: number
           ended_at?: string | null
           id?: string
           notes?: string | null
+          outcome?: Database["public"]["Enums"]["call_outcome"] | null
           phone?: string | null
           scheduled?: boolean
           started_at?: string | null
@@ -66,11 +150,13 @@ export type Database = {
           attended?: boolean
           broker_id?: string
           client_name?: string
+          contact_id?: string | null
           created_at?: string
           duration_seconds?: number
           ended_at?: string | null
           id?: string
           notes?: string | null
+          outcome?: Database["public"]["Enums"]["call_outcome"] | null
           phone?: string | null
           scheduled?: boolean
           started_at?: string | null
@@ -78,6 +164,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "calls_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts_queue: {
+        Row: {
+          broker_id: string | null
+          call_attempts: number
+          created_at: string
+          id: string
+          last_called_at: string | null
+          name: string
+          notes: string | null
+          phone: string
+          priority: number
+          status: string
+        }
+        Insert: {
+          broker_id?: string | null
+          call_attempts?: number
+          created_at?: string
+          id?: string
+          last_called_at?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          priority?: number
+          status?: string
+        }
+        Update: {
+          broker_id?: string | null
+          call_attempts?: number
+          created_at?: string
+          id?: string
+          last_called_at?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          priority?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_queue_broker_id_fkey"
             columns: ["broker_id"]
             isOneToOne: false
             referencedRelation: "brokers"
@@ -93,7 +226,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      call_outcome:
+        | "attended"
+        | "no_answer"
+        | "voicemail"
+        | "wrong_number"
+        | "callback"
+        | "not_interested"
+        | "scheduled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -220,6 +360,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      call_outcome: [
+        "attended",
+        "no_answer",
+        "voicemail",
+        "wrong_number",
+        "callback",
+        "not_interested",
+        "scheduled",
+      ],
+    },
   },
 } as const
