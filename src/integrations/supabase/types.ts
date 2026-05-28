@@ -14,7 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      brokers: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      calls: {
+        Row: {
+          attended: boolean
+          broker_id: string
+          client_name: string
+          created_at: string
+          duration_seconds: number
+          ended_at: string | null
+          id: string
+          notes: string | null
+          phone: string | null
+          scheduled: boolean
+          started_at: string | null
+        }
+        Insert: {
+          attended?: boolean
+          broker_id: string
+          client_name: string
+          created_at?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          scheduled?: boolean
+          started_at?: string | null
+        }
+        Update: {
+          attended?: boolean
+          broker_id?: string
+          client_name?: string
+          created_at?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          scheduled?: boolean
+          started_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
