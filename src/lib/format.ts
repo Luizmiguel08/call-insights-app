@@ -21,3 +21,29 @@ export function todayRange() {
   end.setHours(23, 59, 59, 999);
   return { start: start.toISOString(), end: end.toISOString() };
 }
+
+export type OutcomeKey =
+  | "attended" | "no_answer" | "voicemail" | "wrong_number"
+  | "callback" | "not_interested" | "scheduled";
+
+export const OUTCOME_LABELS: Record<OutcomeKey, string> = {
+  attended: "Atendeu",
+  scheduled: "Agendou",
+  no_answer: "Não atendeu",
+  voicemail: "Caixa postal",
+  wrong_number: "Nº errado",
+  callback: "Retornar",
+  not_interested: "Sem interesse",
+};
+
+export const OUTCOME_TONES: Record<OutcomeKey, string> = {
+  attended: "bg-success/15 text-success border-success/30",
+  scheduled: "bg-warning/20 text-warning-foreground border-warning/40",
+  no_answer: "bg-muted text-muted-foreground border-border",
+  voicemail: "bg-muted text-muted-foreground border-border",
+  wrong_number: "bg-destructive/10 text-destructive border-destructive/30",
+  callback: "bg-primary/10 text-primary border-primary/30",
+  not_interested: "bg-destructive/10 text-destructive border-destructive/30",
+};
+
+export const PAUSE_REASONS = ["Almoço", "Banheiro", "Reunião", "Café", "Outro"] as const;

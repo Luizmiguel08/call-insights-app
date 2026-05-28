@@ -1,12 +1,14 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Phone, BarChart3, Users } from "lucide-react";
+import { Phone, BarChart3, Users, ListChecks, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const nav = [
     { to: "/", label: "Discador", icon: Phone },
+    { to: "/fila", label: "Fila", icon: ListChecks },
     { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
+    { to: "/sessoes", label: "Sessões", icon: Activity },
     { to: "/corretores", label: "Corretores", icon: Users },
   ];
 
@@ -32,14 +34,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors sm:px-3",
                     active
                       ? "bg-primary text-primary-foreground shadow-elegant"
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  <span className="hidden md:inline">{item.label}</span>
                 </Link>
               );
             })}
