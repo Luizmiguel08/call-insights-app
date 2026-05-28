@@ -285,10 +285,9 @@ function DialerPage() {
       if (cErr) throw cErr;
 
       // Update related contact
-      const call = calls.find((c) => c.id === activeCallId) ?? nextContact && {
-        contact_id: nextContact.id, call_attempts: nextContact.call_attempts,
-      } as any;
-      const contactId = (call as any)?.contact_id ?? null;
+      const existingCall = calls.find((c) => c.id === activeCallId);
+      const contactId = existingCall?.contact_id ?? nextContact?.id ?? null;
+
       if (contactId) {
         const newStatus = pickedOutcome === "callback" ? "pending" : "done";
         await db.from("contacts_queue").update({
