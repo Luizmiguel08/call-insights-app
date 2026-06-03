@@ -63,18 +63,14 @@ function telHref(phone: string) {
 type Tab = "discador" | "fila" | "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
 
 function LigaCtrlApp() {
-  const [state, setState] = useState<State>(() => defaultState());
-  const [hydrated, setHydrated] = useState(false);
+  const navigate = useNavigate();
+  const { state, setState, hydrated } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
-  useEffect(() => {
-    setState(loadState());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, hydrated]);
+  async function signOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
 
   const tabs: { id: Tab; label: string; icon: typeof Phone }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
