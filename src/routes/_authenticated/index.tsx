@@ -85,7 +85,7 @@ function telHref(phone: string) {
   return p ? `tel:${p}` : "#";
 }
 
-type Tab = "discador" | "fila" | "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
+type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores";
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
