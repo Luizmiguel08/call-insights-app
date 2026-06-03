@@ -1121,7 +1121,7 @@ function CallTimer({ startedAt }: { startedAt: number }) {
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");
   const ss = String(secs % 60).padStart(2, "0");
   return (
-    <div className="mt-1 text-3xl font-extrabold tabular-nums text-emerald-400" style={fontDisplay}>{mm}:{ss}</div>
+    <div className="mt-1 text-4xl tracking-tight text-emerald-400" style={fontNumeric}>{mm}:{ss}</div>
   );
 }
 
