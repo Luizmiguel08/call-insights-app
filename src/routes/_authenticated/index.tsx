@@ -51,8 +51,33 @@ function uid() {
   return newId();
 }
 
+// Normaliza para formato E.164 com fallback Brasil (+55).
+// - Aceita números com "+" e DDI (qualquer país): mantém como está.
+// - Aceita "00" como prefixo internacional → vira "+".
+// - Sem DDI: assume Brasil. 10 ou 11 dígitos (DDD + número) → +55XXXXXXXXXX.
+// - 12 ou 13 dígitos começando com 55 → +55... (DDI já presente sem o "+").
+// - Demais comprimentos: prefixa "+" para tentar discar como internacional.
 function normalizePhone(s: string) {
-  return s.replace(/[^\d+]/g, "");
+  if (!s) return "";
+  const trimmed = s.trim();
+  const hasPlus = trimmed.startsWith("+");
+  let digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+  if (!hasPlus && digits.startsWith("00")) {
+    digits = digits.slice(2);
+    return "+" + digits;
+  }
+  if (hasPlus) return "+" + digits;
+  // Sem "+": decidir DDI
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    return "+" + digits;
+  }
+  if (digits.length === 10 || digits.length === 11) {
+    // Brasil: DDD + número (fixo 10 / móvel 11)
+    return "+55" + digits;
+  }
+  // Outros tamanhos: trata como internacional já com DDI
+  return "+" + digits;
 }
 
 function telHref(phone: string) {
@@ -159,7 +184,7 @@ function LigaCtrlApp() {
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} />}
-        {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} />}
+        {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "registrar" && <RegistrarTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} />}
@@ -1199,12 +1224,16 @@ function CallTimer({ startedAt }: { startedAt: number }) {
 
 /* ---------------- FILA (importação de contatos) ---------------- */
 
-function FilaTab({ state, setState, isAdmin }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean }) {
-  void isAdmin;
+function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
   const [bulk, setBulk] = useState("");
-  const [assignTo, setAssignTo] = useState<string>(""); // "" = geral
+  const [assignTo, setAssignTo] = useState<string>(() => (isAdmin ? "" : (me?.brokerId ?? "")));
   const [filterBroker, setFilterBroker] = useState<string>("all");
   const [metaInput, setMetaInput] = useState(String(state.metaDaily || 50));
+
+  // Corretor: sempre força auto-atribuição pra ele mesmo
+  useEffect(() => {
+    if (!isAdmin && me?.brokerId && assignTo !== me.brokerId) setAssignTo(me.brokerId);
+  }, [isAdmin, me?.brokerId, assignTo]);
 
   function parseLines(text: string): { name: string; phone: string }[] {
     const out: { name: string; phone: string }[] = [];
@@ -1327,18 +1356,26 @@ function FilaTab({ state, setState, isAdmin }: { state: State; setState: React.D
             className={inputCls + " min-h-[220px] resize-y py-2 font-mono text-xs"}
           />
           <div className="space-y-3">
-            <Field label="Atribuir a">
-              <select
-                value={assignTo}
-                onChange={(e) => setAssignTo(e.target.value)}
-                className={inputCls + " appearance-none"}
-              >
-                <option value="" className="bg-[#171a23]">Fila geral (qualquer corretor)</option>
-                {state.brokers.map((b) => (
-                  <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
-                ))}
-              </select>
-            </Field>
+            {isAdmin ? (
+              <Field label="Atribuir a">
+                <select
+                  value={assignTo}
+                  onChange={(e) => setAssignTo(e.target.value)}
+                  className={inputCls + " appearance-none"}
+                >
+                  <option value="" className="bg-[#171a23]">Fila geral (qualquer corretor)</option>
+                  {state.brokers.map((b) => (
+                    <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                  ))}
+                </select>
+              </Field>
+            ) : (
+              <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
+                <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Atribuído a</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-100">{me?.brokerName ?? "—"}</div>
+                <div className="text-xs text-zinc-500">Contatos importados ficam só com você.</div>
+              </div>
+            )}
             <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Pré-visualização</div>
               <div className="mt-1 text-4xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
@@ -1397,16 +1434,20 @@ function FilaTab({ state, setState, isAdmin }: { state: State; setState: React.D
                   <Td className="font-semibold text-zinc-100">{c.name}</Td>
                   <Td className="tabular-nums text-zinc-300">{c.phone || "—"}</Td>
                   <Td>
-                    <select
-                      value={c.brokerId ?? ""}
-                      onChange={(e) => reassign(c.id, e.target.value || null)}
-                      className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#c9a24c]"
-                    >
-                      <option value="" className="bg-[#171a23]">Geral</option>
-                      {state.brokers.map((b) => (
-                        <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
-                      ))}
-                    </select>
+                    {isAdmin ? (
+                      <select
+                        value={c.brokerId ?? ""}
+                        onChange={(e) => reassign(c.id, e.target.value || null)}
+                        className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#c9a24c]"
+                      >
+                        <option value="" className="bg-[#171a23]">Geral</option>
+                        {state.brokers.map((b) => (
+                          <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-zinc-400">{state.brokers.find(b => b.id === c.brokerId)?.name ?? "—"}</span>
+                    )}
                   </Td>
                   <Td className="text-right tabular-nums text-zinc-400">{c.attempts}</Td>
                   <Td>
