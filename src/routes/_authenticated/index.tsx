@@ -704,26 +704,60 @@ function DashboardTab({ state }: { state: State }) {
                       {row.total} ligação(ões) · pico às <b className="text-[#c9a24c]">{String(peakIdx).padStart(2, "0")}h</b>
                     </span>
                   </div>
-                  <div className="flex h-24 items-end gap-px rounded-md bg-zinc-900/60 p-2">
-                    {row.hours.map((v, h) => {
-                      const pct = (v / maxHour) * 100;
-                      return (
-                        <div
-                          key={h}
-                          className="flex-1 rounded-sm bg-[#c9a24c] transition-all"
-                          style={{
-                            height: `${pct}%`,
-                            minHeight: v > 0 ? 2 : 0,
-                            opacity: v > 0 ? 1 : 0.15,
-                          }}
-                          title={`${String(h).padStart(2, "0")}h — ${v} ligação(ões)`}
-                        />
-                      );
-                    })}
-                  </div>
-                  <div className="flex justify-between text-[10px] tabular-nums text-zinc-600">
+                  {(() => {
+                    const W = 600, H = 110, P = 6;
+                    const n = row.hours.length;
+                    const stepX = (W - P * 2) / (n - 1);
+                    const pts = row.hours.map((v, h) => {
+                      const x = P + h * stepX;
+                      const y = H - P - (v / maxHour) * (H - P * 2);
+                      return [x, y] as const;
+                    });
+                    // Catmull-Rom -> Bezier para curva suave
+                    const path = pts.reduce((acc, p, i, arr) => {
+                      if (i === 0) return `M ${p[0]},${p[1]}`;
+                      const p0 = arr[i - 1];
+                      const p2 = arr[i + 1] ?? p;
+                      const pm1 = arr[i - 2] ?? p0;
+                      const c1x = p0[0] + (p[0] - pm1[0]) / 6;
+                      const c1y = p0[1] + (p[1] - pm1[1]) / 6;
+                      const c2x = p[0] - (p2[0] - p0[0]) / 6;
+                      const c2y = p[1] - (p2[1] - p0[1]) / 6;
+                      return `${acc} C ${c1x},${c1y} ${c2x},${c2y} ${p[0]},${p[1]}`;
+                    }, "");
+                    const area = `${path} L ${P + (n - 1) * stepX},${H - P} L ${P},${H - P} Z`;
+                    const peakX = P + peakIdx * stepX;
+                    const peakY = H - P - (row.hours[peakIdx] / maxHour) * (H - P * 2);
+                    const gid = `grad-${row.broker.id}`;
+                    return (
+                      <div className="rounded-md bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 p-2">
+                        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-24 w-full">
+                          <defs>
+                            <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stopColor="#c9a24c" stopOpacity="0.55" />
+                              <stop offset="100%" stopColor="#c9a24c" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          {[0.25, 0.5, 0.75].map((f) => (
+                            <line key={f} x1={P} x2={W - P} y1={P + (H - P * 2) * f} y2={P + (H - P * 2) * f}
+                              stroke="#3f3f46" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
+                          ))}
+                          <path d={area} fill={`url(#${gid})`} />
+                          <path d={path} fill="none" stroke="#c9a24c" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          {row.hours[peakIdx] > 0 && (
+                            <>
+                              <line x1={peakX} x2={peakX} y1={peakY} y2={H - P} stroke="#c9a24c" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.6" />
+                              <circle cx={peakX} cy={peakY} r="3.5" fill="#0b0d12" stroke="#c9a24c" strokeWidth="1.6" />
+                            </>
+                          )}
+                        </svg>
+                      </div>
+                    );
+                  })()}
+                  <div className="flex justify-between px-1 text-[10px] tabular-nums text-zinc-600">
                     <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
                   </div>
+
                 </div>
               );
             })}
