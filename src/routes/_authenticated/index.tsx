@@ -1669,8 +1669,21 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
                   <Td>
                     <StatusDot status={c.status} />
                   </Td>
-                  <Td className="font-semibold text-zinc-100">{c.name}</Td>
-                  <Td className="tabular-nums text-zinc-300">{c.phone || "—"}</Td>
+                  <Td className="font-semibold text-zinc-100">
+                    <EditableCell
+                      value={c.name}
+                      onSave={(v) => updateContactName(c.id, v)}
+                      placeholder="Nome"
+                    />
+                  </Td>
+                  <Td className="tabular-nums text-zinc-300">
+                    <EditableCell
+                      value={c.phone || ""}
+                      onSave={(v) => updateContactPhone(c.id, v)}
+                      placeholder="Telefone"
+                      inputMode="tel"
+                    />
+                  </Td>
                   <Td>
                     {isAdmin ? (
                       <select
