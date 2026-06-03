@@ -185,7 +185,6 @@ function LigaCtrlApp() {
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
-        {tab === "registrar" && <RegistrarTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
         {tab === "corretores" && <CorretoresTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
