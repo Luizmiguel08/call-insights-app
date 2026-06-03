@@ -1,13 +1,13 @@
 {
-  "name": "LIGACTRL — Controle de Ligações",
-  "short_name": "LIGACTRL",
-  "description": "Discador e controle de ligações para corretores.",
+  "name": "FORTAL — Inteligência Imobiliária",
+  "short_name": "FORTAL",
+  "description": "Plataforma de inteligência imobiliária e controle de ligações da Fortal.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f1117",
-  "theme_color": "#f97316",
+  "theme_color": "#c9a24c",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

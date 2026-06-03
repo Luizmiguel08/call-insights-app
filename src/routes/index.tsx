@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus } from "lucide-react";
+import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "LIGACTRL — Controle de Ligações" },
+      { title: "FORTAL — Inteligência Imobiliária" },
       { name: "description", content: "Sistema de controle de ligações para corretores imobiliários." },
     ],
   }),
@@ -118,12 +119,16 @@ function LigaCtrlApp() {
       <header className="border-b border-zinc-800/80 bg-[#0b0d13]/90 backdrop-blur sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-md bg-[#f97316] shadow-[0_0_24px_-6px_#f97316]">
-              <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-black" strokeWidth={2.5} />
-            </div>
+            <img
+              src={fortalLogo.url}
+              alt="Fortal Inteligência Imobiliária"
+              width={40}
+              height={40}
+              className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-[0_0_12px_rgba(201,162,76,0.35)]"
+            />
             <div className="leading-none">
-              <div className="font-bold tracking-[0.18em] text-lg sm:text-xl" style={fontDisplay}>LIGACTRL</div>
-              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1">Controle de Ligações</div>
+              <div className="font-semibold tracking-[0.32em] text-base sm:text-lg text-[#c9a24c]" style={fontDisplay}>FORTAL</div>
+              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1.5">Inteligência Imobiliária</div>
             </div>
           </div>
           <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
@@ -141,7 +146,7 @@ function LigaCtrlApp() {
                 onClick={() => setTab(t.id)}
                 className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${
                   active
-                    ? "border-[#f97316] text-[#f97316]"
+                    ? "border-[#c9a24c] text-[#c9a24c]"
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
                 }`}
                 style={fontDisplay}
@@ -167,7 +172,7 @@ function LigaCtrlApp() {
   );
 }
 
-const fontDisplay = { fontFamily: "'Barlow Condensed', 'Space Grotesk', sans-serif" } as const;
+const fontDisplay = { fontFamily: "'Cormorant Garamond', 'Playfair Display', Georgia, serif" } as const;
 
 /* ---------------- REGISTRAR ---------------- */
 
@@ -276,7 +281,7 @@ function RegistrarTab({ state, setState }: { state: State; setState: React.Dispa
 
         <button
           type="submit"
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-[#f97316] py-3 text-sm font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_24px_-6px_#f97316] transition hover:bg-[#fb8a3d] active:scale-[0.99]"
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-[#c9a24c] py-3 text-sm font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_24px_-6px_#c9a24c] transition hover:bg-[#e6c878] active:scale-[0.99]"
           style={fontDisplay}
         >
           <Phone className="h-4 w-4" strokeWidth={2.5} />
@@ -294,7 +299,7 @@ function RegistrarTab({ state, setState }: { state: State; setState: React.Dispa
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Kpi label="Ligações" value={k.total} color="#f97316" />
+          <Kpi label="Ligações" value={k.total} color="#c9a24c" />
           <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
           <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
           <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
@@ -400,10 +405,10 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
       </div>
 
       {/* Input principal + botões grandes */}
-      <div className="rounded-lg border-2 border-[#f97316]/40 bg-[#171a23] p-6 shadow-[0_0_40px_-12px_#f97316]">
+      <div className="rounded-lg border-2 border-[#c9a24c]/40 bg-[#171a23] p-6 shadow-[0_0_40px_-12px_#c9a24c]">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
-            <Zap className="inline h-5 w-5 text-[#f97316] mb-1" /> Modo Rápido — {brokerName}
+            <Zap className="inline h-5 w-5 text-[#c9a24c] mb-1" /> Modo Rápido — {brokerName}
           </h2>
           <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
             Atalhos: <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">1</kbd>=Não <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">2</kbd>=Atendeu <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">3</kbd>=Agendou <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">Ctrl+Z</kbd>=Desfazer
@@ -416,7 +421,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           onChange={(e) => setClient(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Digite o nome do cliente e aperte 1, 2 ou 3..."
-          className="h-14 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-xl font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/30"
+          className="h-14 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-xl font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
           autoFocus
         />
 
@@ -435,7 +440,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
       {/* KPIs ao vivo */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Ligações hoje" value={k.total} color="#f97316" />
+        <Kpi label="Ligações hoje" value={k.total} color="#c9a24c" />
         <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
         <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
         <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
@@ -448,14 +453,14 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           className="flex w-full items-center justify-between px-5 py-4 text-left"
         >
           <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-200" style={fontDisplay}>
-            <Upload className="h-4 w-4 text-[#f97316]" /> Importar lista em lote
+            <Upload className="h-4 w-4 text-[#c9a24c]" /> Importar lista em lote
           </span>
           <ChevronDown className={`h-4 w-4 text-zinc-500 transition ${showImport ? "rotate-180" : ""}`} />
         </button>
         {showImport && (
           <div className="border-t border-zinc-800 p-5 space-y-3">
             <p className="text-xs text-zinc-400">
-              Uma ligação por linha. Formato: <code className="text-[#f97316]">Nome; atendeu(s/n); agendou(s/n); observação</code>.
+              Uma ligação por linha. Formato: <code className="text-[#c9a24c]">Nome; atendeu(s/n); agendou(s/n); observação</code>.
               Apenas o nome também funciona (registra como não atendeu).
             </p>
             <textarea
@@ -473,7 +478,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
               >Limpar</button>
               <button
                 onClick={importBulk}
-                className="h-10 rounded-md bg-[#f97316] px-5 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#fb8a3d]"
+                className="h-10 rounded-md bg-[#c9a24c] px-5 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
                 style={fontDisplay}
               >Importar {bulk.split(/\r?\n/).filter((l) => l.trim()).length || ""} ligações</button>
             </div>
@@ -513,7 +518,7 @@ function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" |
   const map = {
     red: "border-red-500/50 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500",
     green: "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500",
-    orange: "border-[#f97316]/60 bg-[#f97316]/15 text-[#f97316] hover:bg-[#f97316]/25 hover:border-[#f97316]",
+    orange: "border-[#c9a24c]/60 bg-[#c9a24c]/15 text-[#c9a24c] hover:bg-[#c9a24c]/25 hover:border-[#c9a24c]",
   } as const;
   return (
     <button
@@ -653,11 +658,11 @@ function DashboardTab({ state }: { state: State }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Kpi label="Ligações" value={k.total} color="#f97316" />
+        <Kpi label="Ligações" value={k.total} color="#c9a24c" />
         <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
         <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
         <Kpi label="Agendamentos" value={k.scheduled} color="#eab308" />
-        <Kpi label="Taxa Agend." value={`${rate}%`} color="#f97316" />
+        <Kpi label="Taxa Agend." value={`${rate}%`} color="#c9a24c" />
       </div>
 
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
@@ -677,7 +682,7 @@ function DashboardTab({ state }: { state: State }) {
                   <Td>
                     <span
                       className={`inline-flex h-7 w-7 items-center justify-center rounded-md font-bold ${
-                        i === 0 ? "bg-[#f97316] text-black" : i === 1 ? "bg-zinc-700 text-zinc-100" : i === 2 ? "bg-zinc-800 text-zinc-300" : "bg-zinc-900 text-zinc-500"
+                        i === 0 ? "bg-[#c9a24c] text-black" : i === 1 ? "bg-zinc-700 text-zinc-100" : i === 2 ? "bg-zinc-800 text-zinc-300" : "bg-zinc-900 text-zinc-500"
                       }`}
                       style={fontDisplay}
                     >{i + 1}</span>
@@ -686,12 +691,12 @@ function DashboardTab({ state }: { state: State }) {
                   <Td className="text-right tabular-nums text-2xl font-bold" style={fontDisplay}>{r.total}</Td>
                   <Td>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                      <div className="h-full rounded-full bg-[#f97316] transition-all" style={{ width: `${(r.total / max) * 100}%` }} />
+                      <div className="h-full rounded-full bg-[#c9a24c] transition-all" style={{ width: `${(r.total / max) * 100}%` }} />
                     </div>
                   </Td>
                   <Td className="text-right tabular-nums text-emerald-400">{r.attended}</Td>
                   <Td className="text-right tabular-nums text-yellow-400">{r.scheduled}</Td>
-                  <Td className="text-right tabular-nums font-semibold text-[#f97316]">{r.rate}%</Td>
+                  <Td className="text-right tabular-nums font-semibold text-[#c9a24c]">{r.rate}%</Td>
                 </tr>
               ))}
               {ranking.length === 0 && (
@@ -743,7 +748,7 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
         </Field>
         <button
           type="submit"
-          className="flex h-10 items-center gap-2 rounded-md bg-[#f97316] px-5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#fb8a3d]"
+          className="flex h-10 items-center gap-2 rounded-md bg-[#c9a24c] px-5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
           style={fontDisplay}
         >
           <Plus className="h-4 w-4" strokeWidth={2.5} /> Adicionar
@@ -790,7 +795,7 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
 /* ---------------- Atoms ---------------- */
 
 const inputCls =
-  "h-10 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/30";
+  "h-10 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30";
 
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -978,7 +983,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
             <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-800">
               <div
                 className="h-full rounded-full transition-all"
-                style={{ width: `${pct}%`, backgroundColor: reached ? "#22c55e" : "#f97316" }}
+                style={{ width: `${pct}%`, backgroundColor: reached ? "#22c55e" : "#c9a24c" }}
               />
             </div>
           </div>
@@ -987,7 +992,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
       {/* Cartão do contato atual */}
       {current ? (
-        <div className="rounded-xl border-2 border-[#f97316]/40 bg-gradient-to-b from-[#171a23] to-[#0f1117] p-6 shadow-[0_0_60px_-20px_#f97316]">
+        <div className="rounded-xl border-2 border-[#c9a24c]/40 bg-gradient-to-b from-[#171a23] to-[#0f1117] p-6 shadow-[0_0_60px_-20px_#c9a24c]">
           <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
             <span>Próximo da fila — {brokerName}</span>
             <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
@@ -997,7 +1002,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
             <div className="text-4xl sm:text-5xl font-extrabold leading-tight text-zinc-50" style={fontDisplay}>
               {current.name}
             </div>
-            <div className="mt-2 text-2xl font-bold tabular-nums text-[#f97316]" style={fontDisplay}>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-[#c9a24c]" style={fontDisplay}>
               {current.phone || "(sem telefone)"}
             </div>
             {current.attempts > 0 && (
@@ -1013,7 +1018,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
             <a
               href={telHref(current.phone)}
               onClick={startCall}
-              className="flex w-full items-center justify-center gap-3 rounded-md bg-[#f97316] py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#f97316] transition hover:bg-[#fb8a3d] active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-3 rounded-md bg-[#c9a24c] py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#c9a24c] transition hover:bg-[#e6c878] active:scale-[0.99]"
               style={fontDisplay}
             >
               <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
@@ -1081,7 +1086,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
           <p className="mt-1 text-sm text-zinc-500">Importe contatos do Excel/CRM pra começar a discar.</p>
           <button
             onClick={goFila}
-            className="mt-4 inline-flex items-center gap-2 rounded-md bg-[#f97316] px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#fb8a3d]"
+            className="mt-4 inline-flex items-center gap-2 rounded-md bg-[#c9a24c] px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
             style={fontDisplay}
           >
             <ListPlus className="h-4 w-4" /> Ir pra Fila
@@ -1091,7 +1096,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Ligações hoje" value={k.total} color="#f97316" />
+        <Kpi label="Ligações hoje" value={k.total} color="#c9a24c" />
         <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
         <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
         <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
@@ -1212,13 +1217,13 @@ function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<R
             />
             <button
               onClick={saveMeta}
-              className="h-10 rounded-md bg-[#f97316] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#fb8a3d]"
+              className="h-10 rounded-md bg-[#c9a24c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
               style={fontDisplay}
             >Salvar</button>
           </div>
         </Field>
         <div className="flex flex-1 gap-3 justify-end">
-          <Kpi label="Pendentes" value={pending} color="#f97316" />
+          <Kpi label="Pendentes" value={pending} color="#c9a24c" />
           <Kpi label="Feitos" value={done} color="#22c55e" />
           <Kpi label="Pulados" value={skipped} color="#71717a" />
         </div>
@@ -1227,11 +1232,11 @@ function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<R
       {/* Importar */}
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
         <h2 className="mb-4 text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
-          <Upload className="inline h-5 w-5 text-[#f97316] mb-1 mr-2" />
+          <Upload className="inline h-5 w-5 text-[#c9a24c] mb-1 mr-2" />
           Importar contatos do Excel
         </h2>
         <p className="mb-3 text-xs text-zinc-400">
-          Cole 1 contato por linha. Formatos aceitos: <code className="text-[#f97316]">Nome, Telefone</code> · <code className="text-[#f97316]">Nome; Telefone</code> · <code className="text-[#f97316]">Nome \t Telefone</code> (cópia direta do Excel).
+          Cole 1 contato por linha. Formatos aceitos: <code className="text-[#c9a24c]">Nome, Telefone</code> · <code className="text-[#c9a24c]">Nome; Telefone</code> · <code className="text-[#c9a24c]">Nome \t Telefone</code> (cópia direta do Excel).
         </p>
 
         <div className="grid gap-3 sm:grid-cols-[1fr_280px]">
@@ -1257,14 +1262,14 @@ function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<R
             </Field>
             <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Pré-visualização</div>
-              <div className="mt-1 text-3xl font-extrabold text-[#f97316] tabular-nums" style={fontDisplay}>
+              <div className="mt-1 text-3xl font-extrabold text-[#c9a24c] tabular-nums" style={fontDisplay}>
                 {preview.length}
               </div>
               <div className="text-xs text-zinc-500">contato(s) válido(s)</div>
             </div>
             <button
               onClick={importContacts}
-              className="h-12 w-full rounded-md bg-[#f97316] text-sm font-bold uppercase tracking-[0.2em] text-black hover:bg-[#fb8a3d]"
+              className="h-12 w-full rounded-md bg-[#c9a24c] text-sm font-bold uppercase tracking-[0.2em] text-black hover:bg-[#e6c878]"
               style={fontDisplay}
             >
               Importar {preview.length > 0 ? `${preview.length} contato(s)` : ""}
@@ -1316,7 +1321,7 @@ function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<R
                     <select
                       value={c.brokerId ?? ""}
                       onChange={(e) => reassign(c.id, e.target.value || null)}
-                      className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#f97316]"
+                      className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#c9a24c]"
                     >
                       <option value="" className="bg-[#171a23]">Geral</option>
                       {state.brokers.map((b) => (
@@ -1345,7 +1350,7 @@ function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<R
 
 function StatusDot({ status }: { status: Contact["status"] }) {
   const map = {
-    pendente: { color: "#f97316", label: "Pendente" },
+    pendente: { color: "#c9a24c", label: "Pendente" },
     feito: { color: "#22c55e", label: "Feito" },
     pulado: { color: "#71717a", label: "Pulado" },
   } as const;
