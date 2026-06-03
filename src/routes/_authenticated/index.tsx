@@ -709,50 +709,71 @@ function DashboardTab({ state }: { state: State }) {
   );
 }
 
-/* ---------------- CORRETORES ---------------- */
+/* ---------------- CORRETORES / EQUIPE ---------------- */
 
-function CorretoresTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
-  const [name, setName] = useState("");
+function CorretoresTab({ state, setState, isAdmin, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
+  const { fullState } = useCloudState();
 
-  function add(e: React.FormEvent) {
-    e.preventDefault();
-    const n = name.trim();
-    if (!n) return;
-    if (state.brokers.some((b) => b.name.toLowerCase() === n.toLowerCase())) {
-      return toast.error("Corretor já existe");
-    }
-    setState((s) => ({ ...s, brokers: [...s.brokers, { id: uid(), name: n }] }));
-    toast.success("Corretor adicionado");
-    setName("");
+  // Visão corretor: só vê o próprio cadastro
+  if (!isAdmin) {
+    const myBroker = state.brokers[0];
+    const myCalls = state.calls;
+    const sch = myCalls.filter((c) => c.scheduled).length;
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Sua conta</div>
+          <div className="mt-2 text-3xl font-bold text-zinc-100" style={fontDisplay}>{myBroker?.name ?? me?.email}</div>
+          <div className="mt-1 text-sm text-zinc-500">{me?.email}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Kpi label="Total ligações" value={myCalls.length} color="#c9a24c" />
+          <Kpi label="Agendamentos" value={sch} color="#eab308" />
+          <Kpi label="Meta diária" value={state.metaDaily} color="#22c55e" />
+        </div>
+      </div>
+    );
   }
 
+  // ADMIN: gerenciar equipe
+  function approve(id: string) {
+    setState((s) => ({ ...s, brokers: s.brokers.map((b) => b.id === id ? { ...b, approved: true } : b) }));
+    toast.success("Corretor aprovado");
+  }
+  function rename(id: string, name: string) {
+    setState((s) => ({ ...s, brokers: s.brokers.map((b) => b.id === id ? { ...b, name } : b) }));
+  }
   function remove(id: string) {
-    const broker = state.brokers.find((b) => b.id === id);
-    const count = state.calls.filter((c) => c.brokerId === id).length;
+    const broker = fullState.brokers.find((b) => b.id === id);
+    const count = fullState.calls.filter((c) => c.brokerId === id).length;
     const msg = count ? `Remover ${broker?.name}? ${count} ligação(ões) também serão excluídas.` : `Remover ${broker?.name}?`;
     if (!confirm(msg)) return;
     setState((s) => ({
       ...s,
       brokers: s.brokers.filter((b) => b.id !== id),
       calls: s.calls.filter((c) => c.brokerId !== id),
+      contacts: s.contacts.filter((c) => c.brokerId !== id),
     }));
     toast.success("Corretor removido");
   }
 
+  const pending = fullState.brokers.filter((b) => !b.approved);
+  const approved = fullState.brokers.filter((b) => b.approved);
+
   return (
     <div className="space-y-4">
-      <form onSubmit={add} className="rounded-lg border border-zinc-800 bg-[#171a23] p-4 flex gap-3 items-end flex-wrap">
-        <Field label="Novo corretor" className="flex-1 min-w-[240px]">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do corretor" className={inputCls} />
-        </Field>
-        <button
-          type="submit"
-          className="flex h-10 items-center gap-2 rounded-md bg-[#c9a24c] px-5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
-          style={fontDisplay}
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} /> Adicionar
-        </button>
-      </form>
+      {pending.length > 0 && (
+        <div className="rounded-lg border border-[#c9a24c]/40 bg-[#c9a24c]/10 p-4">
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-[#c9a24c]" style={fontDisplay}>
+            Aguardando aprovação ({pending.length})
+          </h3>
+          <div className="space-y-2">
+            {pending.map((b) => (
+              <PendingRow key={b.id} broker={b} onRename={(n) => rename(b.id, n)} onApprove={() => approve(b.id)} onReject={() => remove(b.id)} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-[#171a23]">
         <table className="w-full text-sm">
@@ -765,8 +786,8 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
             </tr>
           </thead>
           <tbody>
-            {state.brokers.map((b) => {
-              const own = state.calls.filter((c) => c.brokerId === b.id);
+            {approved.map((b) => {
+              const own = fullState.calls.filter((c) => c.brokerId === b.id);
               const sch = own.filter((c) => c.scheduled).length;
               return (
                 <tr key={b.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
@@ -781,12 +802,41 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
                 </tr>
               );
             })}
-            {state.brokers.length === 0 && (
-              <tr><td colSpan={4} className="py-10 text-center text-zinc-500">Nenhum corretor cadastrado.</td></tr>
+            {approved.length === 0 && (
+              <tr><td colSpan={4} className="py-10 text-center text-zinc-500">Nenhum corretor aprovado ainda.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function PendingRow({ broker, onRename, onApprove, onReject }: { broker: Broker; onRename: (n: string) => void; onApprove: () => void; onReject: () => void }) {
+  const [name, setName] = useState(broker.name);
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-800 bg-[#171a23] p-3">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => name.trim() && name !== broker.name && onRename(name.trim())}
+        className="flex-1 min-w-[180px] h-9 rounded-md border border-zinc-700 bg-[#0f1117] px-3 text-sm text-zinc-100 outline-none focus:border-[#c9a24c]"
+        placeholder="Nome do corretor"
+      />
+      <button
+        onClick={() => { if (name.trim() && name !== broker.name) onRename(name.trim()); onApprove(); }}
+        className="h-9 rounded-md bg-[#c9a24c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
+        style={fontDisplay}
+      >
+        <Check className="inline h-3.5 w-3.5 mr-1" strokeWidth={3} /> Aprovar
+      </button>
+      <button
+        onClick={onReject}
+        className="h-9 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-400 hover:bg-red-500/10 hover:text-red-400"
+        style={fontDisplay}
+      >
+        <X className="inline h-3.5 w-3.5" strokeWidth={3} /> Rejeitar
+      </button>
     </div>
   );
 }
