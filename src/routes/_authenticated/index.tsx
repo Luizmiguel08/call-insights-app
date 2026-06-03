@@ -652,6 +652,18 @@ function DashboardTab({ state }: { state: State }) {
 
   const max = Math.max(1, ...ranking.map((r) => r.total));
 
+  // Distribuição por hora (0-23) por corretor — identifica horário de pico
+  const hourly = state.brokers.map((b) => {
+    const hours = new Array(24).fill(0) as number[];
+    for (const c of calls) {
+      if (c.brokerId !== b.id) continue;
+      const h = new Date(c.createdAt).getHours();
+      hours[h] += 1;
+    }
+    return { broker: b, hours, total: hours.reduce((s, v) => s + v, 0) };
+  }).filter((r) => r.total > 0);
+  const maxHour = Math.max(1, ...hourly.flatMap((r) => r.hours));
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-4 flex flex-wrap items-end gap-3">
@@ -673,6 +685,50 @@ function DashboardTab({ state }: { state: State }) {
         <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
         <Kpi label="Agendamentos" value={k.scheduled} color="#eab308" />
         <Kpi label="Taxa Agend." value={`${rate}%`} color="#c9a24c" />
+      </div>
+
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+        <h3 className="mb-1 text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Horário de Pico por Corretor</h3>
+        <p className="mb-5 text-xs text-zinc-500">Distribuição de ligações ao longo do dia (0h–23h)</p>
+        {hourly.length === 0 ? (
+          <p className="py-8 text-center text-sm text-zinc-500">Sem ligações no período selecionado.</p>
+        ) : (
+          <div className="space-y-5">
+            {hourly.map((row) => {
+              const peakIdx = row.hours.indexOf(Math.max(...row.hours));
+              return (
+                <div key={row.broker.id} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold text-zinc-100">{row.broker.name}</span>
+                    <span className="text-xs text-zinc-500">
+                      {row.total} ligação(ões) · pico às <b className="text-[#c9a24c]">{String(peakIdx).padStart(2, "0")}h</b>
+                    </span>
+                  </div>
+                  <div className="flex h-24 items-end gap-px rounded-md bg-zinc-900/60 p-2">
+                    {row.hours.map((v, h) => {
+                      const pct = (v / maxHour) * 100;
+                      return (
+                        <div
+                          key={h}
+                          className="flex-1 rounded-sm bg-[#c9a24c] transition-all"
+                          style={{
+                            height: `${pct}%`,
+                            minHeight: v > 0 ? 2 : 0,
+                            opacity: v > 0 ? 1 : 0.15,
+                          }}
+                          title={`${String(h).padStart(2, "0")}h — ${v} ligação(ões)`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between text-[10px] tabular-nums text-zinc-600">
+                    <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
