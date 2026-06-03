@@ -1149,14 +1149,6 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
-  const [lockUntil, setLockUntil] = useState<number>(0);
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    if (lockUntil <= Date.now()) return;
-    const t = setTimeout(() => forceTick((n) => n + 1), lockUntil - Date.now() + 50);
-    return () => clearTimeout(t);
-  }, [lockUntil]);
-  const locked = Date.now() < lockUntil;
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
   const [waEditing, setWaEditing] = useState(false);
 
@@ -1225,7 +1217,6 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     }));
     setNote("");
     setCalledAt(null);
-    setLockUntil(Date.now() + 2000);
     // Verifica meta
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
@@ -1317,22 +1308,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
           </div>
 
           {/* Botão LIGAR */}
-          {calledAt ? (
-            <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>Em ligação</div>
-              <CallTimer startedAt={calledAt} />
-            </div>
-          ) : locked ? (
-            <div
-              aria-disabled
-              className="flex w-full items-center justify-center gap-3 rounded-md bg-zinc-800 py-5 text-lg font-bold uppercase tracking-[0.2em] text-zinc-500 cursor-not-allowed select-none"
-              style={fontDisplay}
-              onClick={(e) => e.preventDefault()}
-            >
-              <Check className="h-6 w-6" strokeWidth={2.5} />
-              Tabulação registrada
-            </div>
-          ) : (
+          {!calledAt ? (
             <a
               href={telHref(current.phone)}
               onClick={startCall}
@@ -1342,6 +1318,11 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
               <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
               Ligar agora
             </a>
+          ) : (
+            <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>Em ligação</div>
+              <CallTimer startedAt={calledAt} />
+            </div>
           )}
 
           {/* WhatsApp — mensagem editável por corretor / por ligação */}
