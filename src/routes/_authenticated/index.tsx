@@ -1356,18 +1356,26 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
             className={inputCls + " min-h-[220px] resize-y py-2 font-mono text-xs"}
           />
           <div className="space-y-3">
-            <Field label="Atribuir a">
-              <select
-                value={assignTo}
-                onChange={(e) => setAssignTo(e.target.value)}
-                className={inputCls + " appearance-none"}
-              >
-                <option value="" className="bg-[#171a23]">Fila geral (qualquer corretor)</option>
-                {state.brokers.map((b) => (
-                  <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
-                ))}
-              </select>
-            </Field>
+            {isAdmin ? (
+              <Field label="Atribuir a">
+                <select
+                  value={assignTo}
+                  onChange={(e) => setAssignTo(e.target.value)}
+                  className={inputCls + " appearance-none"}
+                >
+                  <option value="" className="bg-[#171a23]">Fila geral (qualquer corretor)</option>
+                  {state.brokers.map((b) => (
+                    <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                  ))}
+                </select>
+              </Field>
+            ) : (
+              <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
+                <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Atribuído a</div>
+                <div className="mt-1 text-sm font-semibold text-zinc-100">{me?.brokerName ?? "—"}</div>
+                <div className="text-xs text-zinc-500">Contatos importados ficam só com você.</div>
+              </div>
+            )}
             <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Pré-visualização</div>
               <div className="mt-1 text-4xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
