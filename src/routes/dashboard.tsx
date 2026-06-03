@@ -112,6 +112,21 @@ function DashboardPage() {
 
   const max = Math.max(1, ...ranking.map((r) => r.total));
 
+  // Distribuição por hora (0-23) por corretor — identifica horário de pico
+  const hourly = useMemo(() => {
+    const byBroker = new Map<string, { broker: Broker; hours: number[] }>();
+    for (const b of brokers) byBroker.set(b.id, { broker: b, hours: new Array(24).fill(0) });
+    for (const c of calls) {
+      const row = byBroker.get(c.broker_id);
+      if (!row) continue;
+      const h = new Date(c.created_at).getHours();
+      row.hours[h] += 1;
+    }
+    const rows = Array.from(byBroker.values()).filter((r) => r.hours.some((v) => v > 0));
+    const maxH = Math.max(1, ...rows.flatMap((r) => r.hours));
+    return { rows, maxH };
+  }, [brokers, calls]);
+
   return (
     <AppLayout>
       <div className="space-y-6">
