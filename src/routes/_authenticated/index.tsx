@@ -413,6 +413,20 @@ function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState
     toast.success("Ligação excluída");
   }
 
+  function clearHistory() {
+    if (!isAdmin) return;
+    const ids = new Set(filtered.map((c) => c.id));
+    if (ids.size === 0) { toast.error("Nada para excluir"); return; }
+    const scopeLabel = effectiveBrokerId
+      ? `de ${state.brokers.find((b) => b.id === effectiveBrokerId)?.name ?? ""}`
+      : "de todos os corretores";
+    const dateLabel = date ? `do dia ${new Date(date + "T00:00").toLocaleDateString("pt-BR")}` : "de todos os dias";
+    if (!confirm(`Excluir TODO o histórico ${scopeLabel} ${dateLabel}? Esta ação não pode ser desfeita.\n\n${ids.size} ligação(ões) serão removidas.`)) return;
+    if (!confirm("Tem certeza absoluta? Confirme novamente para apagar permanentemente.")) return;
+    setState((s) => ({ ...s, calls: s.calls.filter((c) => !ids.has(c.id)) }));
+    toast.success(`${ids.size} ligação(ões) excluída(s)`);
+  }
+
   // ---------- Analytics do corretor selecionado ----------
   const analytics = useMemo(() => {
     const hourBuckets = Array.from({ length: 24 }, () => 0);
