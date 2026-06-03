@@ -1225,6 +1225,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     }));
     setNote("");
     setCalledAt(null);
+    setLockUntil(Date.now() + 2000);
     // Verifica meta
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
