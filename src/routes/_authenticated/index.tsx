@@ -85,15 +85,22 @@ function telHref(phone: string) {
   return p ? `tel:${p}` : "#";
 }
 
-function waHref(phone: string, clientName?: string) {
+const DEFAULT_WA_TEMPLATE =
+  "Olá, {nome}! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.";
+
+function renderWaMessage(template: string, clientName?: string) {
+  const firstName = (clientName ?? "").trim().split(/\s+/)[0] || "";
+  return (template || DEFAULT_WA_TEMPLATE)
+    .replaceAll("{nome}", firstName)
+    .replaceAll("{name}", firstName);
+}
+
+function waHrefFromMessage(phone: string, message: string) {
   const p = normalizePhone(phone);
   if (!p) return "#";
   const digits = p.replace(/\D/g, "");
-  const firstName = (clientName ?? "").trim().split(/\s+/)[0] || "";
-  const msg = firstName
-    ? `Olá, ${firstName}! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.`
-    : `Olá! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.`;
-  return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  const safe = (message || "").slice(0, 1000);
+  return `https://wa.me/${digits}?text=${encodeURIComponent(safe)}`;
 }
 
 type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores";
