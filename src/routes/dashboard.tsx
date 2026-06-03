@@ -156,6 +156,58 @@ function DashboardPage() {
 
         <Card className="p-6">
           <div className="mb-5 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" />
+            <div>
+              <h2 className="font-display text-lg font-bold text-foreground">Horário de pico por corretor</h2>
+              <p className="text-xs text-muted-foreground">Distribuição de ligações ao longo do dia (0–23h)</p>
+            </div>
+          </div>
+          {hourly.rows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Sem ligações no período.</p>
+          ) : (
+            <div className="space-y-5">
+              {hourly.rows.map((row) => {
+                const total = row.hours.reduce((s, v) => s + v, 0);
+                const peakIdx = row.hours.indexOf(Math.max(...row.hours));
+                return (
+                  <div key={row.broker.id} className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-foreground">{row.broker.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {total} ligações · pico às <b className="text-foreground">{String(peakIdx).padStart(2, "0")}h</b>
+                      </p>
+                    </div>
+                    <div className="flex h-20 items-end gap-px rounded-md bg-muted/40 p-2">
+                      {row.hours.map((v, h) => {
+                        const pct = (v / hourly.maxH) * 100;
+                        return (
+                          <div key={h} className="group relative flex flex-1 flex-col items-center justify-end">
+                            <div
+                              className="w-full rounded-sm transition-all"
+                              style={{
+                                height: `${pct}%`,
+                                minHeight: v > 0 ? 2 : 0,
+                                backgroundColor: row.broker.color,
+                                opacity: v > 0 ? 1 : 0.15,
+                              }}
+                              title={`${String(h).padStart(2, "0")}h — ${v} ligação(ões)`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-[10px] tabular-nums text-muted-foreground">
+                      <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-6">
+          <div className="mb-5 flex items-center gap-2">
             <Trophy className="h-5 w-5 text-warning" />
             <h2 className="font-display text-lg font-bold text-foreground">Ranking de corretores</h2>
           </div>
