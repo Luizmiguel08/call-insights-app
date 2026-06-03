@@ -1719,7 +1719,35 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
   );
 }
 
-function StatusDot({ status }: { status: Contact["status"] }) {
+function EditableCell({
+  value,
+  onSave,
+  placeholder,
+  inputMode,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  inputMode?: "tel" | "text";
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { if (draft !== value) onSave(draft); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") { setDraft(value); (e.target as HTMLInputElement).blur(); }
+      }}
+      inputMode={inputMode}
+      placeholder={placeholder}
+      className="w-full bg-transparent px-1 py-0.5 outline-none rounded hover:bg-zinc-800/40 focus:bg-zinc-800/60 focus:ring-1 focus:ring-[#c9a24c]/50"
+    />
+  );
+}
+
   const map = {
     pendente: { color: "#c9a24c", label: "Pendente" },
     feito: { color: "#22c55e", label: "Feito" },
