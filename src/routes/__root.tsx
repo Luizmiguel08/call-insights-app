@@ -71,17 +71,17 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
-      { title: "Discador — Controle de Ligações" },
-      { name: "description", content: "Controle de ligações dos corretores com discador e dashboard em tempo real." },
-      { name: "author", content: "WarRoom" },
+      { title: "FORTAL — Inteligência Imobiliária" },
+      { name: "description", content: "Plataforma de inteligência imobiliária e controle de ligações da Fortal." },
+      { name: "author", content: "Fortal" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#f97316" },
+      { name: "theme-color", content: "#0b0d13" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "LIGACTRL" },
-      { property: "og:title", content: "Discador — Controle de Ligações" },
-      { property: "og:description", content: "Controle de ligações dos corretores com discador e dashboard em tempo real." },
+      { name: "apple-mobile-web-app-title", content: "FORTAL" },
+      { property: "og:title", content: "FORTAL — Inteligência Imobiliária" },
+      { property: "og:description", content: "Plataforma de inteligência imobiliária e controle de ligações da Fortal." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=Playfair+Display:wght@600;700&display=swap",
       },
     ],
   }),
