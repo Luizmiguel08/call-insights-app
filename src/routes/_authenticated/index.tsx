@@ -1275,6 +1275,14 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
     toast.success("Lista limpa");
   }
 
+  function clearAll() {
+    const count = state.contacts.length;
+    if (count === 0) { toast.error("Fila já está vazia"); return; }
+    if (!confirm(`Apagar todos os ${count} contato(s) da fila? Essa ação não pode ser desfeita.`)) return;
+    setState((s) => ({ ...s, contacts: [] }));
+    toast.success(`${count} contato(s) removido(s)`);
+  }
+
   function reassign(id: string, brokerId: string | null) {
     setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, brokerId } : c) }));
   }
