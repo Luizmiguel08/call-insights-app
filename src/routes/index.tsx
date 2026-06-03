@@ -115,7 +115,7 @@ function LigaCtrlApp() {
   ];
 
   return (
-    <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <header className="border-b border-zinc-800/80 bg-[#0b0d13]/90 backdrop-blur sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -127,8 +127,8 @@ function LigaCtrlApp() {
               className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-[0_0_12px_rgba(201,162,76,0.35)]"
             />
             <div className="leading-none">
-              <div className="font-semibold tracking-[0.32em] text-base sm:text-lg text-[#c9a24c]" style={fontDisplay}>FORTAL</div>
-              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1.5">Inteligência Imobiliária</div>
+              <div className="text-xl sm:text-2xl text-[#c9a24c] tracking-[0.24em] font-medium" style={fontDisplay}>FORTAL</div>
+              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.34em] text-zinc-500 mt-1.5 italic" style={fontDisplay}>Inteligência Imobiliária</div>
             </div>
           </div>
           <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
@@ -172,7 +172,8 @@ function LigaCtrlApp() {
   );
 }
 
-const fontDisplay = { fontFamily: "'Cormorant Garamond', 'Playfair Display', Georgia, serif" } as const;
+const fontDisplay = { fontFamily: "'Fraunces', 'Playfair Display', Georgia, serif", fontOpticalSizing: "auto" } as const;
+const fontNumeric = { fontFamily: "'Fraunces', Georgia, serif", fontVariantNumeric: "tabular-nums lining-nums", fontFeatureSettings: "'ss01'" } as const;
 
 /* ---------------- REGISTRAR ---------------- */
 
@@ -688,7 +689,7 @@ function DashboardTab({ state }: { state: State }) {
                     >{i + 1}</span>
                   </Td>
                   <Td className="font-semibold text-zinc-100">{r.broker.name}</Td>
-                  <Td className="text-right tabular-nums text-2xl font-bold" style={fontDisplay}>{r.total}</Td>
+                  <Td className="text-right text-3xl tracking-tight" style={fontNumeric}>{r.total}</Td>
                   <Td>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
                       <div className="h-full rounded-full bg-[#c9a24c] transition-all" style={{ width: `${(r.total / max) * 100}%` }} />
@@ -772,8 +773,8 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
               return (
                 <tr key={b.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
                   <Td className="font-semibold text-zinc-100">{b.name}</Td>
-                  <Td className="text-right tabular-nums text-xl font-bold" style={fontDisplay}>{own.length}</Td>
-                  <Td className="text-right tabular-nums text-xl font-bold text-yellow-400" style={fontDisplay}>{sch}</Td>
+                  <Td className="text-right text-2xl tracking-tight" style={fontNumeric}>{own.length}</Td>
+                  <Td className="text-right text-2xl tracking-tight text-yellow-400" style={fontNumeric}>{sch}</Td>
                   <Td>
                     <button onClick={() => remove(b.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400">
                       <Trash2 className="h-4 w-4" />
@@ -839,9 +840,14 @@ function YesNo({ value, onChange }: { value: boolean | null; onChange: (v: boole
 
 function Kpi({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-[#0f1117] p-4">
-      <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>{label}</div>
-      <div className="mt-1 text-4xl font-extrabold tabular-nums leading-none" style={{ ...fontDisplay, color }}>{value}</div>
+    <div className="rounded-xl border border-zinc-800/80 bg-gradient-to-b from-[#13161f] to-[#0f1117] p-4 sm:p-5">
+      <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-zinc-500">{label}</div>
+      <div
+        className="mt-2 text-[44px] sm:text-[56px] font-semibold leading-[0.95] tracking-[-0.04em]"
+        style={{ ...fontNumeric, color }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -999,10 +1005,10 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
           </div>
 
           <div className="my-4">
-            <div className="text-4xl sm:text-5xl font-extrabold leading-tight text-zinc-50" style={fontDisplay}>
+            <div className="text-[40px] sm:text-[56px] leading-[1.02] tracking-[-0.02em] font-semibold text-zinc-50" style={fontDisplay}>
               {current.name}
             </div>
-            <div className="mt-2 text-2xl font-bold tabular-nums text-[#c9a24c]" style={fontDisplay}>
+            <div className="mt-3 text-2xl sm:text-3xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
               {current.phone || "(sem telefone)"}
             </div>
             {current.attempts > 0 && (
@@ -1115,7 +1121,7 @@ function CallTimer({ startedAt }: { startedAt: number }) {
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");
   const ss = String(secs % 60).padStart(2, "0");
   return (
-    <div className="mt-1 text-3xl font-extrabold tabular-nums text-emerald-400" style={fontDisplay}>{mm}:{ss}</div>
+    <div className="mt-1 text-4xl tracking-tight text-emerald-400" style={fontNumeric}>{mm}:{ss}</div>
   );
 }
 
@@ -1262,7 +1268,7 @@ function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<R
             </Field>
             <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Pré-visualização</div>
-              <div className="mt-1 text-3xl font-extrabold text-[#c9a24c] tabular-nums" style={fontDisplay}>
+              <div className="mt-1 text-4xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
                 {preview.length}
               </div>
               <div className="text-xs text-zinc-500">contato(s) válido(s)</div>
