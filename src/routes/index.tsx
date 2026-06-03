@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2 } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -58,12 +58,12 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-type Tab = "registrar" | "historico" | "dashboard" | "corretores";
+type Tab = "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
 
 function LigaCtrlApp() {
   const [state, setState] = useState<State>(() => ({ brokers: DEFAULT_BROKERS, calls: [] }));
   const [hydrated, setHydrated] = useState(false);
-  const [tab, setTab] = useState<Tab>("registrar");
+  const [tab, setTab] = useState<Tab>("rapido");
 
   useEffect(() => {
     setState(loadState());
@@ -75,6 +75,7 @@ function LigaCtrlApp() {
   }, [state, hydrated]);
 
   const tabs: { id: Tab; label: string; icon: typeof Phone }[] = [
+    { id: "rapido", label: "Rápido", icon: Zap },
     { id: "registrar", label: "Registrar", icon: Phone },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -123,6 +124,7 @@ function LigaCtrlApp() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "registrar" && <RegistrarTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
@@ -266,6 +268,230 @@ function RegistrarTab({ state, setState }: { state: State; setState: React.Dispa
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------------- MODO RÁPIDO ---------------- */
+
+function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
+  const [date, setDate] = useState(todayISO());
+  const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
+  const [client, setClient] = useState("");
+  const [showImport, setShowImport] = useState(false);
+  const [bulk, setBulk] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+  useEffect(() => { inputRef.current?.focus(); }, [brokerId, date]);
+
+  function quickSave(attended: boolean, scheduled: boolean) {
+    const name = client.trim();
+    if (!name) { toast.error("Digite o nome do cliente"); inputRef.current?.focus(); return; }
+    if (!brokerId) { toast.error("Selecione um corretor"); return; }
+    const call: Call = { id: uid(), date, brokerId, client: name, attended, scheduled, note: "", createdAt: Date.now() };
+    setState((s) => ({ ...s, calls: [call, ...s.calls] }));
+    setClient("");
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function undoLast() {
+    const last = state.calls.find((c) => c.brokerId === brokerId && c.date === date);
+    if (!last) { toast.error("Nada para desfazer"); return; }
+    setState((s) => ({ ...s, calls: s.calls.filter((c) => c.id !== last.id) }));
+    toast.success("Desfeito", { description: last.client });
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") { e.preventDefault(); quickSave(false, false); }
+    else if (e.key === "1") { e.preventDefault(); quickSave(false, false); }
+    else if (e.key === "2") { e.preventDefault(); quickSave(true, false); }
+    else if (e.key === "3") { e.preventDefault(); quickSave(true, true); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undoLast(); }
+  }
+
+  function importBulk() {
+    if (!brokerId) { toast.error("Selecione um corretor"); return; }
+    const lines = bulk.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) { toast.error("Cole pelo menos um cliente"); return; }
+    const newCalls: Call[] = lines.map((line) => {
+      // Formato: Nome [; atendeu(s/n)] [; agendou(s/n)] [; observação]
+      const parts = line.split(/[;\t,|]/).map((p) => p.trim());
+      const name = parts[0] ?? line;
+      const parseBool = (v?: string) => /^(s|sim|y|yes|1|true)$/i.test(v ?? "");
+      const attended = parts[1] !== undefined ? parseBool(parts[1]) : false;
+      const scheduled = parts[2] !== undefined ? parseBool(parts[2]) : false;
+      const note = parts.slice(3).join("; ");
+      return { id: uid(), date, brokerId, client: name, attended, scheduled, note, createdAt: Date.now() };
+    });
+    setState((s) => ({ ...s, calls: [...newCalls, ...s.calls] }));
+    toast.success(`${newCalls.length} ligações importadas`);
+    setBulk("");
+    setShowImport(false);
+  }
+
+  const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
+  const k = {
+    total: today.length,
+    attended: today.filter((c) => c.attended).length,
+    notAttended: today.filter((c) => !c.attended).length,
+    scheduled: today.filter((c) => c.scheduled).length,
+  };
+  const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
+
+  return (
+    <div className="space-y-5">
+      {/* Barra fixa: corretor + data */}
+      <div className="grid gap-3 sm:grid-cols-[1fr_220px_auto] items-end rounded-lg border border-zinc-800 bg-[#171a23] p-4">
+        <Field label="Corretor (travado)">
+          <div className="relative">
+            <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " pl-9 appearance-none text-base font-semibold"}>
+              {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>)}
+            </select>
+          </div>
+        </Field>
+        <Field label="Data">
+          <div className="relative">
+            <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls + " pl-9"} />
+          </div>
+        </Field>
+        <button
+          onClick={undoLast}
+          className="h-10 flex items-center justify-center gap-2 rounded-md border border-zinc-700 px-4 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+          style={fontDisplay}
+          title="Ctrl+Z"
+        >
+          <Undo2 className="h-4 w-4" /> Desfazer
+        </button>
+      </div>
+
+      {/* Input principal + botões grandes */}
+      <div className="rounded-lg border-2 border-[#f97316]/40 bg-[#171a23] p-6 shadow-[0_0_40px_-12px_#f97316]">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
+            <Zap className="inline h-5 w-5 text-[#f97316] mb-1" /> Modo Rápido — {brokerName}
+          </h2>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+            Atalhos: <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">1</kbd>=Não <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">2</kbd>=Atendeu <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">3</kbd>=Agendou <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">Ctrl+Z</kbd>=Desfazer
+          </div>
+        </div>
+
+        <input
+          ref={inputRef}
+          value={client}
+          onChange={(e) => setClient(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Digite o nome do cliente e aperte 1, 2 ou 3..."
+          className="h-14 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-xl font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/30"
+          autoFocus
+        />
+
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <BigKey kbd="1" color="red" onClick={() => quickSave(false, false)}>
+            <X className="h-5 w-5" strokeWidth={3} /> Não atendeu
+          </BigKey>
+          <BigKey kbd="2" color="green" onClick={() => quickSave(true, false)}>
+            <Check className="h-5 w-5" strokeWidth={3} /> Atendeu
+          </BigKey>
+          <BigKey kbd="3" color="orange" onClick={() => quickSave(true, true)}>
+            <Calendar className="h-5 w-5" strokeWidth={3} /> Agendou
+          </BigKey>
+        </div>
+      </div>
+
+      {/* KPIs ao vivo */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Kpi label="Ligações hoje" value={k.total} color="#f97316" />
+        <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
+        <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
+        <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
+      </div>
+
+      {/* Importar em lote */}
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23]">
+        <button
+          onClick={() => setShowImport((v) => !v)}
+          className="flex w-full items-center justify-between px-5 py-4 text-left"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-200" style={fontDisplay}>
+            <Upload className="h-4 w-4 text-[#f97316]" /> Importar lista em lote
+          </span>
+          <ChevronDown className={`h-4 w-4 text-zinc-500 transition ${showImport ? "rotate-180" : ""}`} />
+        </button>
+        {showImport && (
+          <div className="border-t border-zinc-800 p-5 space-y-3">
+            <p className="text-xs text-zinc-400">
+              Uma ligação por linha. Formato: <code className="text-[#f97316]">Nome; atendeu(s/n); agendou(s/n); observação</code>.
+              Apenas o nome também funciona (registra como não atendeu).
+            </p>
+            <textarea
+              value={bulk}
+              onChange={(e) => setBulk(e.target.value)}
+              rows={8}
+              placeholder={"João Silva; s; n\nMaria Souza; s; s; cliente quente\nPedro Lima"}
+              className={inputCls + " min-h-[180px] resize-y py-2 font-mono text-xs"}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setBulk("")}
+                className="h-10 rounded-md border border-zinc-700 px-4 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                style={fontDisplay}
+              >Limpar</button>
+              <button
+                onClick={importBulk}
+                className="h-10 rounded-md bg-[#f97316] px-5 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#fb8a3d]"
+                style={fontDisplay}
+              >Importar {bulk.split(/\r?\n/).filter((l) => l.trim()).length || ""} ligações</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Últimas registradas hoje */}
+      {today.length > 0 && (
+        <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-zinc-400" style={fontDisplay}>
+            Últimas registradas — {brokerName}
+          </h3>
+          <div className="space-y-1.5 max-h-[280px] overflow-y-auto">
+            {today.slice(0, 30).map((c) => (
+              <div key={c.id} className="flex items-center gap-3 rounded border border-zinc-800 bg-[#0f1117] px-3 py-2">
+                <span className="flex-1 truncate text-sm font-medium text-zinc-100">{c.client}</span>
+                <Badge ok={c.attended} />
+                {c.scheduled && <Badge ok={true} />}
+                <span className="text-[10px] uppercase tracking-wider text-zinc-500 tabular-nums">
+                  {new Date(c.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <button
+                  onClick={() => setState((s) => ({ ...s, calls: s.calls.filter((x) => x.id !== c.id) }))}
+                  className="rounded p-1 text-zinc-600 hover:bg-red-500/10 hover:text-red-400"
+                ><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" | "green" | "orange"; onClick: () => void; children: React.ReactNode }) {
+  const map = {
+    red: "border-red-500/50 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500",
+    green: "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500",
+    orange: "border-[#f97316]/60 bg-[#f97316]/15 text-[#f97316] hover:bg-[#f97316]/25 hover:border-[#f97316]",
+  } as const;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex h-16 items-center justify-center gap-2 rounded-md border-2 text-base font-bold uppercase tracking-wider transition ${map[color]}`}
+      style={fontDisplay}
+    >
+      {children}
+      <kbd className="absolute top-1.5 right-2 px-1.5 py-0.5 text-[10px] font-bold bg-black/40 rounded">{kbd}</kbd>
+    </button>
   );
 }
 
