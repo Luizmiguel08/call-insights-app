@@ -86,6 +86,20 @@ function AuthPage() {
             {mode === "signin" ? "Entre com seu e-mail e senha" : "Crie sua conta de corretor"}
           </div>
 
+          {mode === "signup" && (
+            <div className="relative">
+              <User className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <input
+                type="text"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome (ex.: Miguel)"
+                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+              />
+            </div>
+          )}
+
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <input
