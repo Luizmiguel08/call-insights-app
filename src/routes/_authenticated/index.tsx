@@ -759,9 +759,33 @@ function CorretoresTab({ state, setState, isAdmin, me }: { state: State; setStat
 
   const pending = fullState.brokers.filter((b) => !b.approved);
   const approved = fullState.brokers.filter((b) => b.approved);
+  const myBrokerExists = !!fullState.brokers.find((b) => b.userId === me?.userId);
+
+  async function addMeAsBroker() {
+    if (!me) return;
+    const name = prompt("Seu nome de corretor:", me.email.split("@")[0]);
+    if (!name?.trim()) return;
+    const { error } = await supabase
+      .from("brokers")
+      .insert({ name: name.trim(), user_id: me.userId, email: me.email, approved: true });
+    if (error) return toast.error(error.message);
+    toast.success("Você foi adicionado como corretor");
+  }
 
   return (
     <div className="space-y-4">
+      {!myBrokerExists && (
+        <div className="rounded-lg border border-[#c9a24c]/40 bg-[#c9a24c]/10 p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-sm font-bold uppercase tracking-[0.2em] text-[#c9a24c]" style={fontDisplay}>Você ainda não é corretor</div>
+            <div className="text-xs text-zinc-400 mt-1">Adicione-se à equipe pra ter sua própria fila de contatos.</div>
+          </div>
+          <button onClick={addMeAsBroker} className="h-10 rounded-md bg-[#c9a24c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]" style={fontDisplay}>
+            <Plus className="inline h-4 w-4 mr-1" strokeWidth={3} /> Me adicionar como corretor
+          </button>
+        </div>
+      )}
+
       {pending.length > 0 && (
         <div className="rounded-lg border border-[#c9a24c]/40 bg-[#c9a24c]/10 p-4">
           <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-[#c9a24c]" style={fontDisplay}>
