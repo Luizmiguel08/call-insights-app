@@ -1149,14 +1149,6 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
-  const [lockUntil, setLockUntil] = useState<number>(0);
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    if (lockUntil <= Date.now()) return;
-    const t = setTimeout(() => forceTick((n) => n + 1), lockUntil - Date.now() + 50);
-    return () => clearTimeout(t);
-  }, [lockUntil]);
-  const locked = Date.now() < lockUntil;
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
   const [waEditing, setWaEditing] = useState(false);
 
