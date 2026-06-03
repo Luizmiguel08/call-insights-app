@@ -58,12 +58,12 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-type Tab = "registrar" | "historico" | "dashboard" | "corretores";
+type Tab = "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
 
 function LigaCtrlApp() {
   const [state, setState] = useState<State>(() => ({ brokers: DEFAULT_BROKERS, calls: [] }));
   const [hydrated, setHydrated] = useState(false);
-  const [tab, setTab] = useState<Tab>("registrar");
+  const [tab, setTab] = useState<Tab>("rapido");
 
   useEffect(() => {
     setState(loadState());
@@ -75,6 +75,7 @@ function LigaCtrlApp() {
   }, [state, hydrated]);
 
   const tabs: { id: Tab; label: string; icon: typeof Phone }[] = [
+    { id: "rapido", label: "Rápido", icon: Zap },
     { id: "registrar", label: "Registrar", icon: Phone },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
