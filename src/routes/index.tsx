@@ -114,24 +114,24 @@ function LigaCtrlApp() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0f1117] text-zinc-100" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <header className="border-b border-zinc-800/80 bg-[#0b0d13]/80 backdrop-blur sticky top-0 z-30">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#f97316] shadow-[0_0_24px_-6px_#f97316]">
-              <Phone className="h-5 w-5 text-black" strokeWidth={2.5} />
+    <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+      <header className="border-b border-zinc-800/80 bg-[#0b0d13]/90 backdrop-blur sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-md bg-[#f97316] shadow-[0_0_24px_-6px_#f97316]">
+              <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-black" strokeWidth={2.5} />
             </div>
             <div className="leading-none">
-              <div className="font-bold tracking-[0.18em] text-xl" style={fontDisplay}>LIGACTRL</div>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1">Controle de Ligações</div>
+              <div className="font-bold tracking-[0.18em] text-lg sm:text-xl" style={fontDisplay}>LIGACTRL</div>
+              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1">Controle de Ligações</div>
             </div>
           </div>
-          <div className="text-right text-xs uppercase tracking-widest text-zinc-500">
-            <div>{new Date().toLocaleDateString("pt-BR", { weekday: "long" })}</div>
+          <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
+            <div className="hidden sm:block">{new Date().toLocaleDateString("pt-BR", { weekday: "long" })}</div>
             <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 px-2 sm:px-4">
+        <nav className="mx-auto flex max-w-6xl gap-1 px-2 sm:px-4 overflow-x-auto no-scrollbar">
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = tab === t.id;
@@ -139,7 +139,7 @@ function LigaCtrlApp() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${
+                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${
                   active
                     ? "border-[#f97316] text-[#f97316]"
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
@@ -154,7 +154,7 @@ function LigaCtrlApp() {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
