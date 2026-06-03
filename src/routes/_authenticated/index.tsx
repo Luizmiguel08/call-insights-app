@@ -417,6 +417,8 @@ function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" |
 function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; me: Me | null; isAdmin: boolean }) {
   const [date, setDate] = useState("");
   const [brokerId, setBrokerId] = useState(isAdmin ? "" : (me?.brokerId ?? ""));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ client: string; phone: string; attended: boolean; scheduled: boolean; note: string }>({ client: "", phone: "", attended: false, scheduled: false, note: "" });
 
   // Não-admin sempre vê apenas o próprio histórico
   const effectiveBrokerId = isAdmin ? brokerId : (me?.brokerId ?? "");
@@ -425,11 +427,29 @@ function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState
     .filter((c) => (date ? c.date === date : true))
     .filter((c) => (effectiveBrokerId ? c.brokerId === effectiveBrokerId : true));
 
+  function startEdit(c: Call) {
+    setEditingId(c.id);
+    setEditDraft({ client: c.client, phone: c.phone ?? "", attended: c.attended, scheduled: c.scheduled, note: c.note ?? "" });
+  }
+  function cancelEdit() { setEditingId(null); }
+  function saveEdit() {
+    if (!editingId) return;
+    const id = editingId;
+    const d = editDraft;
+    setState((s) => ({
+      ...s,
+      calls: s.calls.map((c) => c.id === id ? { ...c, client: d.client.trim() || c.client, phone: d.phone.trim() || undefined, attended: d.attended, scheduled: d.scheduled, note: d.note } : c),
+    }));
+    setEditingId(null);
+    toast.success("Ligação atualizada");
+  }
+
   function remove(id: string) {
     if (!confirm("Excluir esta ligação?")) return;
     setState((s) => ({ ...s, calls: s.calls.filter((c) => c.id !== id) }));
     toast.success("Ligação excluída");
   }
+
 
   function clearHistory() {
     if (!isAdmin) return;
