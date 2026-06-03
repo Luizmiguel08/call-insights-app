@@ -651,33 +651,69 @@ function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState
         <table className="w-full text-sm">
           <thead className="bg-[#0f1117] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
             <tr>
-              <Th>Data</Th><Th>Hora</Th><Th>Corretor</Th><Th>Cliente</Th>
-              <Th>Atendeu</Th><Th>Agendou</Th><Th>Observação</Th><Th className="w-10"></Th>
+              <Th>Data</Th><Th>Hora</Th><Th>Corretor</Th><Th>Cliente</Th><Th>Telefone</Th>
+              <Th>Atendeu</Th><Th>Agendou</Th><Th>Observação</Th><Th className="w-20"></Th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={8} className="py-10 text-center text-zinc-500">Nenhuma ligação registrada.</td></tr>
+              <tr><td colSpan={9} className="py-10 text-center text-zinc-500">Nenhuma ligação registrada.</td></tr>
             )}
             {filtered.map((c) => {
               const b = state.brokers.find((x) => x.id === c.brokerId);
+              const isEditing = editingId === c.id;
+              if (isEditing) {
+                return (
+                  <tr key={c.id} className="border-t border-zinc-800/80 bg-zinc-900/60">
+                    <Td className="tabular-nums">{new Date(c.date + "T00:00").toLocaleDateString("pt-BR")}</Td>
+                    <Td className="tabular-nums text-zinc-400">{new Date(c.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</Td>
+                    <Td className="font-semibold text-zinc-100">{b?.name ?? "—"}</Td>
+                    <Td><input value={editDraft.client} onChange={(e) => setEditDraft({ ...editDraft, client: e.target.value })} className={inputCls + " h-8 text-sm"} /></Td>
+                    <Td><input value={editDraft.phone} onChange={(e) => setEditDraft({ ...editDraft, phone: e.target.value })} className={inputCls + " h-8 text-sm tabular-nums w-32"} placeholder="(00) 0000-0000" /></Td>
+                    <Td>
+                      <button onClick={() => setEditDraft({ ...editDraft, attended: !editDraft.attended })} className={`rounded px-2 py-1 text-xs font-bold ${editDraft.attended ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-500"}`}>
+                        {editDraft.attended ? "SIM" : "NÃO"}
+                      </button>
+                    </Td>
+                    <Td>
+                      <button onClick={() => setEditDraft({ ...editDraft, scheduled: !editDraft.scheduled })} className={`rounded px-2 py-1 text-xs font-bold ${editDraft.scheduled ? "bg-yellow-500/20 text-yellow-400" : "bg-zinc-800 text-zinc-500"}`}>
+                        {editDraft.scheduled ? "SIM" : "NÃO"}
+                      </button>
+                    </Td>
+                    <Td><input value={editDraft.note} onChange={(e) => setEditDraft({ ...editDraft, note: e.target.value })} className={inputCls + " h-8 text-sm"} /></Td>
+                    <Td>
+                      <div className="flex gap-1">
+                        <button onClick={saveEdit} className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10" title="Salvar"><Save className="h-4 w-4" /></button>
+                        <button onClick={cancelEdit} className="rounded p-1.5 text-zinc-400 hover:bg-zinc-800" title="Cancelar"><X className="h-4 w-4" /></button>
+                      </div>
+                    </Td>
+                  </tr>
+                );
+              }
               return (
                 <tr key={c.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
                   <Td className="tabular-nums">{new Date(c.date + "T00:00").toLocaleDateString("pt-BR")}</Td>
                   <Td className="tabular-nums text-zinc-400">{new Date(c.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</Td>
                   <Td className="font-semibold text-zinc-100">{b?.name ?? "—"}</Td>
                   <Td>{c.client}</Td>
+                  <Td className="tabular-nums text-zinc-300">{c.phone || "—"}</Td>
                   <Td><Badge ok={c.attended} /></Td>
                   <Td><Badge ok={c.scheduled} /></Td>
                   <Td className="max-w-[280px] truncate text-zinc-400" title={c.note}>{c.note || "—"}</Td>
                   <Td>
-                    <button onClick={() => remove(c.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex gap-1">
+                      <button onClick={() => startEdit(c)} className="rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-[#c9a24c]" title="Editar">
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => remove(c.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400" title="Excluir">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </Td>
                 </tr>
               );
             })}
+
           </tbody>
         </table>
       </div>
