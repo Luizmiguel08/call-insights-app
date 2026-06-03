@@ -226,6 +226,18 @@ async function syncTo(prev: State, next: State, me: Me) {
       })),
     );
   }
+  for (const c of kd.changed) {
+    await supabase
+      .from("calls")
+      .update({
+        client_name: c.client,
+        phone: c.phone ?? null,
+        attended: c.attended,
+        scheduled: c.scheduled,
+        notes: c.note || null,
+      })
+      .eq("id", c.id);
+  }
   if (kd.removed.length) await supabase.from("calls").delete().in("id", kd.removed.map((c) => c.id));
 
   // meta — só admin
