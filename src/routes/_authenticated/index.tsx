@@ -1246,6 +1246,17 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
             </div>
           )}
 
+          {/* WhatsApp — abre conversa pronta com o cliente */}
+          <a
+            href={waHref(current.phone, current.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-emerald-600/60 bg-emerald-600/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-300 transition hover:bg-emerald-600/20"
+            style={fontDisplay}
+          >
+            <MessageCircle className="h-4 w-4" /> WhatsApp
+          </a>
+
           {/* Tabulação */}
           <div className="mt-4">
             <textarea
