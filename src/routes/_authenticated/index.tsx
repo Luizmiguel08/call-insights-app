@@ -1326,17 +1326,35 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
   }
 
   function clearDone() {
-    if (!confirm("Remover todos os contatos já finalizados?")) return;
-    setState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.status === "pendente") }));
+    // Corretor só limpa seus próprios contatos; admin respeita o filtro selecionado
+    const targetBrokerId = !isAdmin ? (me?.brokerId ?? null) : (filterBroker === "all" ? null : filterBroker === "geral" ? null : filterBroker);
+    const label = !isAdmin ? "seus contatos" : (filterBroker === "all" ? "todos os contatos" : filterBroker === "geral" ? "da fila geral" : `de ${state.brokers.find(b => b.id === filterBroker)?.name ?? ""}`);
+    if (!confirm(`Remover todos os contatos já finalizados ${label}?`)) return;
+    setState((s) => ({
+      ...s,
+      contacts: s.contacts.filter((c) => {
+        if (c.status !== "pendente") {
+          // É finalizado — verifica se pertence ao escopo de exclusão
+          if (targetBrokerId === null) return false; // admin com "todos" → remove todos finalizados
+          return c.brokerId !== targetBrokerId; // remove apenas do broker alvo
+        }
+        return true; // mantém pendentes
+      }),
+    }));
     toast.success("Lista limpa");
   }
 
   function clearAll() {
-    const count = state.contacts.length;
-    if (count === 0) { toast.error("Fila já está vazia"); return; }
-    if (!confirm(`Apagar todos os ${count} contato(s) da fila? Essa ação não pode ser desfeita.`)) return;
-    setState((s) => ({ ...s, contacts: [] }));
-    toast.success(`${count} contato(s) removido(s)`);
+    const targetBrokerId = !isAdmin ? (me?.brokerId ?? null) : (filterBroker === "all" ? null : filterBroker === "geral" ? null : filterBroker);
+    const label = !isAdmin ? "da sua fila" : (filterBroker === "all" ? "todos" : filterBroker === "geral" ? "da fila geral" : `de ${state.brokers.find(b => b.id === filterBroker)?.name ?? ""}`);
+    const toRemove = state.contacts.filter((c) => targetBrokerId === null ? true : c.brokerId === targetBrokerId);
+    if (toRemove.length === 0) { toast.error("Nenhum contato para remover no escopo selecionado"); return; }
+    if (!confirm(`Apagar ${toRemove.length} contato(s) ${label}? Essa ação não pode ser desfeita.`)) return;
+    setState((s) => ({
+      ...s,
+      contacts: s.contacts.filter((c) => targetBrokerId === null ? false : c.brokerId !== targetBrokerId),
+    }));
+    toast.success(`${toRemove.length} contato(s) removido(s)`);
   }
 
   function reassign(id: string, brokerId: string | null) {
