@@ -172,7 +172,8 @@ function LigaCtrlApp() {
   );
 }
 
-const fontDisplay = { fontFamily: "'Cormorant Garamond', 'Playfair Display', Georgia, serif" } as const;
+const fontDisplay = { fontFamily: "'Fraunces', 'Playfair Display', Georgia, serif", fontOpticalSizing: "auto" } as const;
+const fontNumeric = { fontFamily: "'Fraunces', Georgia, serif", fontVariantNumeric: "tabular-nums lining-nums", fontFeatureSettings: "'ss01'" } as const;
 
 /* ---------------- REGISTRAR ---------------- */
 
