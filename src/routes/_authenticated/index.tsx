@@ -185,7 +185,7 @@ function LigaCtrlApp() {
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
-        {tab === "historico" && <HistoricoTab state={state} setState={setState} />}
+        {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
         {tab === "corretores" && <CorretoresTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
       </main>
@@ -396,13 +396,16 @@ function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" |
 
 /* ---------------- HISTÓRICO ---------------- */
 
-function HistoricoTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
+function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; me: Me | null; isAdmin: boolean }) {
   const [date, setDate] = useState("");
-  const [brokerId, setBrokerId] = useState("");
+  const [brokerId, setBrokerId] = useState(isAdmin ? "" : (me?.brokerId ?? ""));
+
+  // Não-admin sempre vê apenas o próprio histórico
+  const effectiveBrokerId = isAdmin ? brokerId : (me?.brokerId ?? "");
 
   const filtered = state.calls
     .filter((c) => (date ? c.date === date : true))
-    .filter((c) => (brokerId ? c.brokerId === brokerId : true));
+    .filter((c) => (effectiveBrokerId ? c.brokerId === effectiveBrokerId : true));
 
   function remove(id: string) {
     if (!confirm("Excluir esta ligação?")) return;
@@ -410,22 +413,70 @@ function HistoricoTab({ state, setState }: { state: State; setState: React.Dispa
     toast.success("Ligação excluída");
   }
 
+  // ---------- Analytics do corretor selecionado ----------
+  const analytics = useMemo(() => {
+    const hourBuckets = Array.from({ length: 24 }, () => 0);
+    for (const c of filtered) {
+      const h = new Date(c.createdAt).getHours();
+      hourBuckets[h] += 1;
+    }
+    const maxHour = Math.max(...hourBuckets);
+    const peakHour = maxHour > 0 ? hourBuckets.indexOf(maxHour) : -1;
+    const activeHours = hourBuckets.filter((v) => v > 0).length;
+    const idleHours = 24 - activeHours;
+
+    // Top contatos (por nome+telefone) mais ligados
+    const contactMap = new Map<string, { client: string; phone?: string; total: number; attended: number; scheduled: number }>();
+    for (const c of filtered) {
+      const key = (c.phone || "") + "|" + c.client;
+      const cur = contactMap.get(key) ?? { client: c.client, phone: c.phone, total: 0, attended: 0, scheduled: 0 };
+      cur.total += 1;
+      if (c.attended) cur.attended += 1;
+      if (c.scheduled) cur.scheduled += 1;
+      contactMap.set(key, cur);
+    }
+    const topContacts = Array.from(contactMap.values()).sort((a, b) => b.total - a.total).slice(0, 8);
+
+    // Maior intervalo ocioso (em minutos) entre ligações no mesmo dia
+    const byDay = new Map<string, number[]>();
+    for (const c of filtered) {
+      const arr = byDay.get(c.date) ?? [];
+      arr.push(c.createdAt);
+      byDay.set(c.date, arr);
+    }
+    let longestGapMin = 0;
+    for (const arr of byDay.values()) {
+      arr.sort((a, b) => a - b);
+      for (let i = 1; i < arr.length; i++) {
+        const gap = (arr[i] - arr[i - 1]) / 60000;
+        if (gap > longestGapMin) longestGapMin = gap;
+      }
+    }
+
+    return { hourBuckets, maxHour, peakHour, activeHours, idleHours, topContacts, longestGapMin };
+  }, [filtered]);
+
+  const showCharts = !!effectiveBrokerId && filtered.length > 0;
+  const selectedBroker = state.brokers.find((b) => b.id === effectiveBrokerId);
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-4 flex flex-wrap gap-3 items-end">
         <Field label="Data" className="min-w-[180px]">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
         </Field>
-        <Field label="Corretor" className="min-w-[200px]">
-          <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " appearance-none"}>
-            <option value="" className="bg-[#171a23]">Todos</option>
-            {state.brokers.map((b) => (
-              <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
-            ))}
-          </select>
-        </Field>
+        {isAdmin && (
+          <Field label="Corretor" className="min-w-[200px]">
+            <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " appearance-none"}>
+              <option value="" className="bg-[#171a23]">Todos</option>
+              {state.brokers.map((b) => (
+                <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+              ))}
+            </select>
+          </Field>
+        )}
         <button
-          onClick={() => { setDate(""); setBrokerId(""); }}
+          onClick={() => { setDate(""); if (isAdmin) setBrokerId(""); }}
           className="h-10 rounded-md border border-zinc-700 px-4 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
           style={fontDisplay}
         >
@@ -436,23 +487,121 @@ function HistoricoTab({ state, setState }: { state: State; setState: React.Dispa
         </div>
       </div>
 
+      {showCharts && (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Kpi label="Ligações" value={filtered.length} color="#c9a24c" />
+            <Kpi label="Horas ativas" value={analytics.activeHours} color="#22c55e" />
+            <Kpi label="Horas ociosas" value={analytics.idleHours} color="#ef4444" />
+            <Kpi
+              label="Maior ócio"
+              value={analytics.longestGapMin >= 60 ? `${Math.floor(analytics.longestGapMin / 60)}h${Math.round(analytics.longestGapMin % 60).toString().padStart(2, "0")}` : `${Math.round(analytics.longestGapMin)}m`}
+              color="#eab308"
+            />
+          </div>
+
+          <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <h3 className="text-lg font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>Pico de ligações por hora</h3>
+                <p className="text-xs text-zinc-500 mt-1">
+                  {selectedBroker?.name ?? "Corretor"}{date ? ` · ${new Date(date + "T00:00").toLocaleDateString("pt-BR")}` : " · todos os dias"}
+                </p>
+              </div>
+              {analytics.peakHour >= 0 && (
+                <div className="text-right">
+                  <div className="text-[10px] uppercase tracking-widest text-zinc-500" style={fontDisplay}>Pico</div>
+                  <div className="text-2xl font-bold text-[#c9a24c]" style={fontNumeric}>
+                    {analytics.peakHour.toString().padStart(2, "0")}h · {analytics.maxHour}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-end gap-1 h-40">
+              {analytics.hourBuckets.map((v, h) => {
+                const pct = analytics.maxHour ? (v / analytics.maxHour) * 100 : 0;
+                const isPeak = v > 0 && v === analytics.maxHour;
+                return (
+                  <div key={h} className="flex-1 flex flex-col items-center gap-1 group">
+                    <div className="w-full flex-1 flex items-end">
+                      <div
+                        className={`w-full rounded-t transition-all ${isPeak ? "bg-[#c9a24c]" : v > 0 ? "bg-emerald-600/70" : "bg-zinc-800"}`}
+                        style={{ height: `${Math.max(pct, v > 0 ? 6 : 2)}%` }}
+                        title={`${h.toString().padStart(2, "0")}h — ${v} ligaç${v === 1 ? "ão" : "ões"}`}
+                      />
+                    </div>
+                    <div className={`text-[9px] tabular-nums ${isPeak ? "text-[#c9a24c] font-bold" : "text-zinc-600"}`}>
+                      {h.toString().padStart(2, "0")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex gap-4 text-[11px] text-zinc-500">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#c9a24c]" /> Hora de pico</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-emerald-600/70" /> Ativa</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-zinc-800" /> Ociosa</span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+            <h3 className="mb-4 text-lg font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>Contatos mais ligados</h3>
+            {analytics.topContacts.length === 0 ? (
+              <p className="text-sm text-zinc-500">Sem dados.</p>
+            ) : (
+              <div className="space-y-2">
+                {analytics.topContacts.map((c, i) => {
+                  const max = analytics.topContacts[0].total;
+                  const pct = (c.total / max) * 100;
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="truncate">
+                          <span className="font-semibold text-zinc-100">{c.client}</span>
+                          {c.phone && <span className="text-zinc-500 ml-2 text-xs">{c.phone}</span>}
+                        </div>
+                        <div className="text-xs text-zinc-400 shrink-0 ml-3">
+                          <span className="text-zinc-100 font-bold" style={fontNumeric}>{c.total}</span> tentativas
+                          {c.attended > 0 && <span className="text-emerald-400 ml-2">{c.attended} atend.</span>}
+                          {c.scheduled > 0 && <span className="text-yellow-400 ml-2">{c.scheduled} agend.</span>}
+                        </div>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                        <div className="h-full rounded-full bg-[#c9a24c]" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {!showCharts && isAdmin && !effectiveBrokerId && filtered.length > 0 && (
+        <div className="rounded-lg border border-zinc-800/60 bg-[#171a23]/50 p-4 text-xs text-zinc-500">
+          Selecione um corretor para visualizar gráfico de pico, horas ativas/ociosas e contatos mais ligados.
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-[#171a23]">
         <table className="w-full text-sm">
           <thead className="bg-[#0f1117] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
             <tr>
-              <Th>Data</Th><Th>Corretor</Th><Th>Cliente</Th>
+              <Th>Data</Th><Th>Hora</Th><Th>Corretor</Th><Th>Cliente</Th>
               <Th>Atendeu</Th><Th>Agendou</Th><Th>Observação</Th><Th className="w-10"></Th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="py-10 text-center text-zinc-500">Nenhuma ligação registrada.</td></tr>
+              <tr><td colSpan={8} className="py-10 text-center text-zinc-500">Nenhuma ligação registrada.</td></tr>
             )}
             {filtered.map((c) => {
               const b = state.brokers.find((x) => x.id === c.brokerId);
               return (
                 <tr key={c.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
                   <Td className="tabular-nums">{new Date(c.date + "T00:00").toLocaleDateString("pt-BR")}</Td>
+                  <Td className="tabular-nums text-zinc-400">{new Date(c.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</Td>
                   <Td className="font-semibold text-zinc-100">{b?.name ?? "—"}</Td>
                   <Td>{c.client}</Td>
                   <Td><Badge ok={c.attended} /></Td>
