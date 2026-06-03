@@ -1748,6 +1748,7 @@ function EditableCell({
   );
 }
 
+function StatusDot({ status }: { status: Contact["status"] }) {
   const map = {
     pendente: { color: "#c9a24c", label: "Pendente" },
     feito: { color: "#22c55e", label: "Feito" },
