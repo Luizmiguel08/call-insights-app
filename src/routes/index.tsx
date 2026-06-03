@@ -119,12 +119,16 @@ function LigaCtrlApp() {
       <header className="border-b border-zinc-800/80 bg-[#0b0d13]/90 backdrop-blur sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-md bg-[#c9a24c] shadow-[0_0_24px_-6px_#c9a24c]">
-              <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-black" strokeWidth={2.5} />
-            </div>
+            <img
+              src={fortalLogo.url}
+              alt="Fortal Inteligência Imobiliária"
+              width={40}
+              height={40}
+              className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-[0_0_12px_rgba(201,162,76,0.35)]"
+            />
             <div className="leading-none">
-              <div className="font-bold tracking-[0.18em] text-lg sm:text-xl" style={fontDisplay}>FORTAL</div>
-              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1">Inteligência Imobiliária</div>
+              <div className="font-semibold tracking-[0.32em] text-base sm:text-lg text-[#c9a24c]" style={fontDisplay}>FORTAL</div>
+              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1.5">Inteligência Imobiliária</div>
             </div>
           </div>
           <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
