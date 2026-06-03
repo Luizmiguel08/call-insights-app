@@ -1515,6 +1515,17 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
     setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, brokerId } : c) }));
   }
 
+  function updateContactPhone(id: string, rawPhone: string) {
+    const phone = normalizePhone(rawPhone.trim());
+    setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, phone } : c) }));
+  }
+
+  function updateContactName(id: string, name: string) {
+    const trimmed = name.trim().slice(0, 120);
+    if (!trimmed) return;
+    setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, name: trimmed } : c) }));
+  }
+
   function saveMeta() {
     const n = Math.max(1, Math.min(999, Number(metaInput) || 50));
     setState((s) => ({ ...s, metaDaily: n }));
