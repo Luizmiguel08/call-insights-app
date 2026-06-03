@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
-import { useCloudState, newId } from "@/lib/cloud-state";
+import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -64,7 +64,7 @@ type Tab = "discador" | "fila" | "rapido" | "registrar" | "historico" | "dashboa
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
-  const { state, setState, hydrated } = useCloudState();
+  const { state, setState, hydrated, me } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
   async function signOut() {
@@ -72,15 +72,36 @@ function LigaCtrlApp() {
     navigate({ to: "/auth", replace: true });
   }
 
-  const tabs: { id: Tab; label: string; icon: typeof Phone }[] = [
+  // Aguardando aprovação do admin
+  if (hydrated && me && !me.isAdmin && !me.approved) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#0f1117] text-zinc-100 px-4" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+        <div className="w-full max-w-md text-center">
+          <img src={fortalLogo.url} alt="Fortal" width={96} height={96} className="mx-auto h-24 w-24 object-contain mb-6" />
+          <div className="text-2xl text-[#c9a24c] tracking-[0.28em] font-medium mb-2" style={fontDisplay}>FORTAL</div>
+          <div className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 mt-6">
+            <h1 className="text-xl font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>Aguardando aprovação</h1>
+            <p className="mt-3 text-sm text-zinc-400">Sua conta <strong className="text-zinc-200">{me.email}</strong> foi criada e está aguardando o Miguel aprovar e definir seu nome de corretor.</p>
+            <button onClick={signOut} className="mt-6 w-full h-11 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800" style={fontDisplay}>
+              <LogOut className="inline h-4 w-4 mr-2" /> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isAdmin = me?.isAdmin ?? false;
+  const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "fila", label: "Fila", icon: ListPlus },
     { id: "rapido", label: "Rápido", icon: Zap },
     { id: "registrar", label: "Registrar", icon: Phone },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { id: "corretores", label: "Corretores", icon: Users },
+    { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
   ];
+  const tabs = allTabs;
 
   return (
     <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -138,12 +159,12 @@ function LigaCtrlApp() {
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} />}
-        {tab === "fila" && <FilaTab state={state} setState={setState} />}
+        {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "registrar" && <RegistrarTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
-        {tab === "corretores" && <CorretoresTab state={state} setState={setState} />}
+        {tab === "corretores" && <CorretoresTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
       </main>
     </div>
   );
@@ -688,50 +709,71 @@ function DashboardTab({ state }: { state: State }) {
   );
 }
 
-/* ---------------- CORRETORES ---------------- */
+/* ---------------- CORRETORES / EQUIPE ---------------- */
 
-function CorretoresTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
-  const [name, setName] = useState("");
+function CorretoresTab({ state, setState, isAdmin, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
+  const { fullState } = useCloudState();
 
-  function add(e: React.FormEvent) {
-    e.preventDefault();
-    const n = name.trim();
-    if (!n) return;
-    if (state.brokers.some((b) => b.name.toLowerCase() === n.toLowerCase())) {
-      return toast.error("Corretor já existe");
-    }
-    setState((s) => ({ ...s, brokers: [...s.brokers, { id: uid(), name: n }] }));
-    toast.success("Corretor adicionado");
-    setName("");
+  // Visão corretor: só vê o próprio cadastro
+  if (!isAdmin) {
+    const myBroker = state.brokers[0];
+    const myCalls = state.calls;
+    const sch = myCalls.filter((c) => c.scheduled).length;
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Sua conta</div>
+          <div className="mt-2 text-3xl font-bold text-zinc-100" style={fontDisplay}>{myBroker?.name ?? me?.email}</div>
+          <div className="mt-1 text-sm text-zinc-500">{me?.email}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Kpi label="Total ligações" value={myCalls.length} color="#c9a24c" />
+          <Kpi label="Agendamentos" value={sch} color="#eab308" />
+          <Kpi label="Meta diária" value={state.metaDaily} color="#22c55e" />
+        </div>
+      </div>
+    );
   }
 
+  // ADMIN: gerenciar equipe
+  function approve(id: string) {
+    setState((s) => ({ ...s, brokers: s.brokers.map((b) => b.id === id ? { ...b, approved: true } : b) }));
+    toast.success("Corretor aprovado");
+  }
+  function rename(id: string, name: string) {
+    setState((s) => ({ ...s, brokers: s.brokers.map((b) => b.id === id ? { ...b, name } : b) }));
+  }
   function remove(id: string) {
-    const broker = state.brokers.find((b) => b.id === id);
-    const count = state.calls.filter((c) => c.brokerId === id).length;
+    const broker = fullState.brokers.find((b) => b.id === id);
+    const count = fullState.calls.filter((c) => c.brokerId === id).length;
     const msg = count ? `Remover ${broker?.name}? ${count} ligação(ões) também serão excluídas.` : `Remover ${broker?.name}?`;
     if (!confirm(msg)) return;
     setState((s) => ({
       ...s,
       brokers: s.brokers.filter((b) => b.id !== id),
       calls: s.calls.filter((c) => c.brokerId !== id),
+      contacts: s.contacts.filter((c) => c.brokerId !== id),
     }));
     toast.success("Corretor removido");
   }
 
+  const pending = fullState.brokers.filter((b) => !b.approved);
+  const approved = fullState.brokers.filter((b) => b.approved);
+
   return (
     <div className="space-y-4">
-      <form onSubmit={add} className="rounded-lg border border-zinc-800 bg-[#171a23] p-4 flex gap-3 items-end flex-wrap">
-        <Field label="Novo corretor" className="flex-1 min-w-[240px]">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do corretor" className={inputCls} />
-        </Field>
-        <button
-          type="submit"
-          className="flex h-10 items-center gap-2 rounded-md bg-[#c9a24c] px-5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
-          style={fontDisplay}
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} /> Adicionar
-        </button>
-      </form>
+      {pending.length > 0 && (
+        <div className="rounded-lg border border-[#c9a24c]/40 bg-[#c9a24c]/10 p-4">
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-[#c9a24c]" style={fontDisplay}>
+            Aguardando aprovação ({pending.length})
+          </h3>
+          <div className="space-y-2">
+            {pending.map((b) => (
+              <PendingRow key={b.id} broker={b} onRename={(n) => rename(b.id, n)} onApprove={() => approve(b.id)} onReject={() => remove(b.id)} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-[#171a23]">
         <table className="w-full text-sm">
@@ -744,8 +786,8 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
             </tr>
           </thead>
           <tbody>
-            {state.brokers.map((b) => {
-              const own = state.calls.filter((c) => c.brokerId === b.id);
+            {approved.map((b) => {
+              const own = fullState.calls.filter((c) => c.brokerId === b.id);
               const sch = own.filter((c) => c.scheduled).length;
               return (
                 <tr key={b.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
@@ -760,12 +802,41 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
                 </tr>
               );
             })}
-            {state.brokers.length === 0 && (
-              <tr><td colSpan={4} className="py-10 text-center text-zinc-500">Nenhum corretor cadastrado.</td></tr>
+            {approved.length === 0 && (
+              <tr><td colSpan={4} className="py-10 text-center text-zinc-500">Nenhum corretor aprovado ainda.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function PendingRow({ broker, onRename, onApprove, onReject }: { broker: Broker; onRename: (n: string) => void; onApprove: () => void; onReject: () => void }) {
+  const [name, setName] = useState(broker.name);
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-800 bg-[#171a23] p-3">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => name.trim() && name !== broker.name && onRename(name.trim())}
+        className="flex-1 min-w-[180px] h-9 rounded-md border border-zinc-700 bg-[#0f1117] px-3 text-sm text-zinc-100 outline-none focus:border-[#c9a24c]"
+        placeholder="Nome do corretor"
+      />
+      <button
+        onClick={() => { if (name.trim() && name !== broker.name) onRename(name.trim()); onApprove(); }}
+        className="h-9 rounded-md bg-[#c9a24c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
+        style={fontDisplay}
+      >
+        <Check className="inline h-3.5 w-3.5 mr-1" strokeWidth={3} /> Aprovar
+      </button>
+      <button
+        onClick={onReject}
+        className="h-9 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-400 hover:bg-red-500/10 hover:text-red-400"
+        style={fontDisplay}
+      >
+        <X className="inline h-3.5 w-3.5" strokeWidth={3} /> Rejeitar
+      </button>
     </div>
   );
 }
@@ -1104,7 +1175,8 @@ function CallTimer({ startedAt }: { startedAt: number }) {
 
 /* ---------------- FILA (importação de contatos) ---------------- */
 
-function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
+function FilaTab({ state, setState, isAdmin }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean }) {
+  void isAdmin;
   const [bulk, setBulk] = useState("");
   const [assignTo, setAssignTo] = useState<string>(""); // "" = geral
   const [filterBroker, setFilterBroker] = useState<string>("all");

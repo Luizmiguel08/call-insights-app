@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Broker = { id: string; name: string };
+export type Broker = { id: string; name: string; userId?: string | null; approved?: boolean };
 export type Call = {
   id: string;
   date: string;
@@ -23,14 +23,15 @@ export type Contact = {
   createdAt: number;
   attempts: number;
 };
+export type Me = {
+  userId: string;
+  email: string;
+  isAdmin: boolean;
+  brokerId: string | null;
+  brokerName: string | null;
+  approved: boolean;
+};
 export type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
-
-const DEFAULT_BROKERS: Broker[] = [
-  { id: "00000000-0000-4000-8000-000000000001", name: "Miguel" },
-  { id: "00000000-0000-4000-8000-000000000002", name: "Carlos" },
-  { id: "00000000-0000-4000-8000-000000000003", name: "Ana" },
-  { id: "00000000-0000-4000-8000-000000000004", name: "Fernanda" },
-];
 
 function defaultState(): State {
   return { brokers: [], calls: [], contacts: [], metaDaily: 50 };
@@ -45,6 +46,43 @@ function toLocalDate(iso: string) {
   return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
+async function loadMe(): Promise<Me | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (!user) return null;
+
+  const [rolesR, brokerR] = await Promise.all([
+    supabase.from("user_roles").select("role").eq("user_id", user.id),
+    supabase.from("brokers").select("id,name,approved").eq("user_id", user.id).maybeSingle(),
+  ]);
+
+  const isAdmin = (rolesR.data ?? []).some((r) => r.role === "admin");
+  const hasCorretorRole = (rolesR.data ?? []).some((r) => r.role === "corretor");
+  if (!isAdmin && !hasCorretorRole) {
+    await supabase.from("user_roles").insert({ user_id: user.id, role: "corretor" });
+  }
+
+  let broker = brokerR.data;
+  if (!broker && !isAdmin) {
+    // Cria broker pendente pra aprovação do admin
+    const ins = await supabase
+      .from("brokers")
+      .insert({ name: user.email ?? "Sem nome", user_id: user.id, email: user.email, approved: false })
+      .select("id,name,approved")
+      .single();
+    if (!ins.error && ins.data) broker = ins.data;
+  }
+
+  return {
+    userId: user.id,
+    email: user.email ?? "",
+    isAdmin,
+    brokerId: broker?.id ?? null,
+    brokerName: broker?.name ?? null,
+    approved: broker?.approved ?? false,
+  };
+}
+
 async function loadAll(): Promise<State> {
   const [brokersR, callsR, contactsR, settingsR] = await Promise.all([
     supabase.from("brokers").select("*").order("created_at"),
@@ -56,11 +94,12 @@ async function loadAll(): Promise<State> {
   if (callsR.error) throw callsR.error;
   if (contactsR.error) throw contactsR.error;
 
-  let brokers: Broker[] = (brokersR.data ?? []).map((b) => ({ id: b.id, name: b.name }));
-  if (brokers.length === 0) {
-    const ins = await supabase.from("brokers").insert(DEFAULT_BROKERS).select("*");
-    if (!ins.error && ins.data) brokers = ins.data.map((b) => ({ id: b.id, name: b.name }));
-  }
+  const brokers: Broker[] = (brokersR.data ?? []).map((b) => ({
+    id: b.id,
+    name: b.name,
+    userId: b.user_id ?? null,
+    approved: b.approved ?? true,
+  }));
   const calls: Call[] = (callsR.data ?? []).map((c) => ({
     id: c.id,
     date: toLocalDate(c.created_at),
@@ -97,14 +136,26 @@ function diff<T extends { id: string }>(prev: T[], next: T[]) {
   return { added, removed, changed };
 }
 
-async function syncTo(prev: State, next: State) {
-  // brokers
-  const bd = diff(prev.brokers, next.brokers);
-  if (bd.added.length) await supabase.from("brokers").insert(bd.added.map((b) => ({ id: b.id, name: b.name })));
-  for (const b of bd.changed) await supabase.from("brokers").update({ name: b.name }).eq("id", b.id);
-  if (bd.removed.length) await supabase.from("brokers").delete().in("id", bd.removed.map((b) => b.id));
+async function syncTo(prev: State, next: State, me: Me) {
+  // brokers — apenas admin pode mexer (RLS bloqueia os demais; ainda assim filtramos client-side)
+  if (me.isAdmin) {
+    const bd = diff(prev.brokers, next.brokers);
+    if (bd.added.length)
+      await supabase.from("brokers").insert(
+        bd.added.map((b) => ({ id: b.id, name: b.name, approved: b.approved ?? true })),
+      );
+    for (const b of bd.changed)
+      await supabase.from("brokers").update({ name: b.name, approved: b.approved ?? true }).eq("id", b.id);
+    if (bd.removed.length)
+      await supabase.from("brokers").delete().in("id", bd.removed.map((b) => b.id));
+  } else {
+    // corretor: só pode renomear o próprio (raramente usado pela UI)
+    for (const b of diff(prev.brokers, next.brokers).changed) {
+      if (b.userId === me.userId) await supabase.from("brokers").update({ name: b.name }).eq("id", b.id);
+    }
+  }
 
-  // contacts
+  // contacts — corretor força broker_id = seu próprio
   const cd = diff(prev.contacts, next.contacts);
   if (cd.added.length) {
     await supabase.from("contacts_queue").insert(
@@ -112,7 +163,7 @@ async function syncTo(prev: State, next: State) {
         id: c.id,
         name: c.name,
         phone: c.phone,
-        broker_id: c.brokerId,
+        broker_id: me.isAdmin ? c.brokerId : me.brokerId,
         status: statusLocalToDb[c.status],
         call_attempts: c.attempts,
       })),
@@ -124,7 +175,7 @@ async function syncTo(prev: State, next: State) {
       .update({
         name: c.name,
         phone: c.phone,
-        broker_id: c.brokerId,
+        broker_id: me.isAdmin ? c.brokerId : me.brokerId,
         status: statusLocalToDb[c.status],
         call_attempts: c.attempts,
       })
@@ -138,7 +189,7 @@ async function syncTo(prev: State, next: State) {
     await supabase.from("calls").insert(
       kd.added.map((c) => ({
         id: c.id,
-        broker_id: c.brokerId,
+        broker_id: me.isAdmin ? c.brokerId : (me.brokerId ?? c.brokerId),
         client_name: c.client,
         phone: c.phone ?? null,
         attended: c.attended,
@@ -150,16 +201,18 @@ async function syncTo(prev: State, next: State) {
   }
   if (kd.removed.length) await supabase.from("calls").delete().in("id", kd.removed.map((c) => c.id));
 
-  // meta
-  if (prev.metaDaily !== next.metaDaily) {
+  // meta — só admin
+  if (me.isAdmin && prev.metaDaily !== next.metaDaily) {
     await supabase.from("app_settings").upsert({ id: "global", meta_daily: next.metaDaily });
   }
 }
 
 export function useCloudState() {
   const [state, setStateRaw] = useState<State>(() => defaultState());
+  const [me, setMe] = useState<Me | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const lastSyncedRef = useRef<State>(defaultState());
+  const meRef = useRef<Me | null>(null);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refetch = useCallback(async () => {
@@ -172,6 +225,10 @@ export function useCloudState() {
     let alive = true;
     (async () => {
       try {
+        const m = await loadMe();
+        if (!alive) return;
+        meRef.current = m;
+        setMe(m);
         const s = await loadAll();
         if (!alive) return;
         lastSyncedRef.current = s;
@@ -179,6 +236,7 @@ export function useCloudState() {
         setHydrated(true);
       } catch (e) {
         console.error("Falha ao carregar dados", e);
+        setHydrated(true);
       }
     })();
 
@@ -197,20 +255,37 @@ export function useCloudState() {
   }, [refetch]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !meRef.current) return;
     if (pendingTimer.current) clearTimeout(pendingTimer.current);
     const prev = lastSyncedRef.current;
     pendingTimer.current = setTimeout(() => {
       const next = state;
       lastSyncedRef.current = next;
-      void syncTo(prev, next).catch((e) => console.error("Falha ao salvar na nuvem", e));
+      void syncTo(prev, next, meRef.current!).catch((e) => console.error("Falha ao salvar na nuvem", e));
     }, 350);
     return () => {
       if (pendingTimer.current) clearTimeout(pendingTimer.current);
     };
   }, [state, hydrated]);
 
-  return { state, setState: setStateRaw, hydrated };
+  // Visão filtrada: corretor só vê o próprio broker, contatos e ligações.
+  // Admin vê tudo, mas seletores escondem pendentes (CorretoresTab usa fullState).
+  const view: State = (() => {
+    if (!me) return state;
+    if (me.isAdmin) {
+      return { ...state, brokers: state.brokers.filter((b) => b.approved !== false) };
+    }
+    const myBrokerId = me.brokerId;
+    const myBroker = state.brokers.find((b) => b.id === myBrokerId);
+    return {
+      ...state,
+      brokers: myBroker ? [myBroker] : [],
+      contacts: state.contacts.filter((c) => c.brokerId === myBrokerId),
+      calls: state.calls.filter((c) => c.brokerId === myBrokerId),
+    };
+  })();
+
+  return { state: view, fullState: state, setState: setStateRaw, hydrated, me };
 }
 
 export function newId() {
