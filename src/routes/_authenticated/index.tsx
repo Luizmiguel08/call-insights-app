@@ -1308,22 +1308,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
           </div>
 
           {/* Botão LIGAR */}
-          {calledAt ? (
-            <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>Em ligação</div>
-              <CallTimer startedAt={calledAt} />
-            </div>
-          ) : locked ? (
-            <div
-              aria-disabled
-              className="flex w-full items-center justify-center gap-3 rounded-md bg-zinc-800 py-5 text-lg font-bold uppercase tracking-[0.2em] text-zinc-500 cursor-not-allowed select-none"
-              style={fontDisplay}
-              onClick={(e) => e.preventDefault()}
-            >
-              <Check className="h-6 w-6" strokeWidth={2.5} />
-              Tabulação registrada
-            </div>
-          ) : (
+          {!calledAt ? (
             <a
               href={telHref(current.phone)}
               onClick={startCall}
@@ -1333,6 +1318,11 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
               <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
               Ligar agora
             </a>
+          ) : (
+            <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>Em ligação</div>
+              <CallTimer startedAt={calledAt} />
+            </div>
           )}
 
           {/* WhatsApp — mensagem editável por corretor / por ligação */}
