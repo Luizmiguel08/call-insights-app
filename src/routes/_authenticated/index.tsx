@@ -1199,6 +1199,8 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    const label = scheduled ? "Agendou" : attended ? "Atendeu" : "Não atendeu";
+    const color: "red" | "green" | "orange" = scheduled ? "orange" : attended ? "green" : "red";
     const call: Call = {
       id: uid(),
       date,
@@ -1211,6 +1213,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
       createdAt: Date.now(),
       contactId: current.id,
     };
+    const recordedName = current.name;
     setState((s) => ({
       ...s,
       calls: [call, ...s.calls],
@@ -1218,6 +1221,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     }));
     setNote("");
     setCalledAt(null);
+    setJustRecorded({ name: recordedName, label, color });
     // Verifica meta
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
