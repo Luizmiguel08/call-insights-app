@@ -241,7 +241,7 @@ export function useCloudState() {
     })();
 
     const channel = supabase
-      .channel("ligactrl-sync")
+      .channel(`ligactrl-sync-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "brokers" }, () => void refetch())
       .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, () => void refetch())
       .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, () => void refetch())
