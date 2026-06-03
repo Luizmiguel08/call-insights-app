@@ -1005,10 +1005,10 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
           </div>
 
           <div className="my-4">
-            <div className="text-4xl sm:text-5xl font-extrabold leading-tight text-zinc-50" style={fontDisplay}>
+            <div className="text-[40px] sm:text-[56px] leading-[1.02] tracking-[-0.02em] font-semibold text-zinc-50" style={fontDisplay}>
               {current.name}
             </div>
-            <div className="mt-2 text-2xl font-bold tabular-nums text-[#c9a24c]" style={fontDisplay}>
+            <div className="mt-3 text-2xl sm:text-3xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
               {current.phone || "(sem telefone)"}
             </div>
             {current.attempts > 0 && (
