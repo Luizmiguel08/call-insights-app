@@ -99,9 +99,18 @@ function LigaCtrlApp() {
               <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.34em] text-zinc-500 mt-1.5 italic" style={fontDisplay}>Inteligência Imobiliária</div>
             </div>
           </div>
-          <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
-            <div className="hidden sm:block">{new Date().toLocaleDateString("pt-BR", { weekday: "long" })}</div>
-            <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
+          <div className="flex items-center gap-3">
+            <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
+              <div className="hidden sm:flex items-center justify-end gap-1 text-[#c9a24c]"><Cloud className="h-3 w-3" /> {hydrated ? "sincronizado" : "carregando..."}</div>
+              <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
+            </div>
+            <button
+              onClick={signOut}
+              title="Sair"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-400 hover:text-[#c9a24c] hover:border-[#c9a24c]/60"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 px-2 sm:px-4 overflow-x-auto no-scrollbar">
