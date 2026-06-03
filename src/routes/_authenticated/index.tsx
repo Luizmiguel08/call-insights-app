@@ -39,6 +39,8 @@ type Contact = {
   attempts: number;
 };
 
+type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
+
 function todayISO() {
   const d = new Date();
   const tz = d.getTimezoneOffset() * 60000;
