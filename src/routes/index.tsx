@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,13 +19,25 @@ type Call = {
   date: string; // YYYY-MM-DD
   brokerId: string;
   client: string;
+  phone?: string;
   attended: boolean;
   scheduled: boolean;
   note: string;
   createdAt: number;
+  contactId?: string;
+};
+type Contact = {
+  id: string;
+  name: string;
+  phone: string;
+  brokerId: string | null; // null = fila geral
+  status: "pendente" | "feito" | "pulado";
+  createdAt: number;
+  attempts: number;
 };
 
-const STORAGE_KEY = "ligactrl:v1";
+const STORAGE_KEY = "ligactrl:v2";
+const LEGACY_KEY = "ligactrl:v1";
 const DEFAULT_BROKERS: Broker[] = [
   { id: "b-miguel", name: "Miguel" },
   { id: "b-carlos", name: "Carlos" },
@@ -33,18 +45,26 @@ const DEFAULT_BROKERS: Broker[] = [
   { id: "b-fernanda", name: "Fernanda" },
 ];
 
-type State = { brokers: Broker[]; calls: Call[] };
+type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
+
+function defaultState(): State {
+  return { brokers: DEFAULT_BROKERS, calls: [], contacts: [], metaDaily: 50 };
+}
 
 function loadState(): State {
-  if (typeof window === "undefined") return { brokers: DEFAULT_BROKERS, calls: [] };
+  if (typeof window === "undefined") return defaultState();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { brokers: DEFAULT_BROKERS, calls: [] };
-    const parsed = JSON.parse(raw) as State;
-    if (!parsed.brokers?.length) parsed.brokers = DEFAULT_BROKERS;
-    return parsed;
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw) as Partial<State>;
+    return {
+      brokers: parsed.brokers?.length ? parsed.brokers : DEFAULT_BROKERS,
+      calls: parsed.calls ?? [],
+      contacts: parsed.contacts ?? [],
+      metaDaily: parsed.metaDaily ?? 50,
+    };
   } catch {
-    return { brokers: DEFAULT_BROKERS, calls: [] };
+    return defaultState();
   }
 }
 
@@ -58,12 +78,21 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-type Tab = "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
+function normalizePhone(s: string) {
+  return s.replace(/[^\d+]/g, "");
+}
+
+function telHref(phone: string) {
+  const p = normalizePhone(phone);
+  return p ? `tel:${p}` : "#";
+}
+
+type Tab = "discador" | "fila" | "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
 
 function LigaCtrlApp() {
-  const [state, setState] = useState<State>(() => ({ brokers: DEFAULT_BROKERS, calls: [] }));
+  const [state, setState] = useState<State>(() => defaultState());
   const [hydrated, setHydrated] = useState(false);
-  const [tab, setTab] = useState<Tab>("rapido");
+  const [tab, setTab] = useState<Tab>("discador");
 
   useEffect(() => {
     setState(loadState());
@@ -75,6 +104,8 @@ function LigaCtrlApp() {
   }, [state, hydrated]);
 
   const tabs: { id: Tab; label: string; icon: typeof Phone }[] = [
+    { id: "discador", label: "Discador", icon: PhoneCall },
+    { id: "fila", label: "Fila", icon: ListPlus },
     { id: "rapido", label: "Rápido", icon: Zap },
     { id: "registrar", label: "Registrar", icon: Phone },
     { id: "historico", label: "Histórico", icon: History },
