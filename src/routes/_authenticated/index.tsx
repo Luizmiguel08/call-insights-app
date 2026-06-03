@@ -1118,9 +1118,10 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     () => state.contacts
       .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
       .sort((a, b) => {
-        // Atribuídos primeiro, depois por ordem de criação
+        // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
         if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
-        return a.createdAt - b.createdAt;
+        if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
       }),
     [state.contacts, brokerId]
   );
