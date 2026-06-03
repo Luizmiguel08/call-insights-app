@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          id: string
+          meta_daily: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          meta_daily?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          meta_daily?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       broker_pauses: {
         Row: {
           broker_id: string
@@ -122,6 +140,7 @@ export type Database = {
           client_name: string
           contact_id: string | null
           created_at: string
+          created_by: string | null
           duration_seconds: number
           ended_at: string | null
           id: string
@@ -137,6 +156,7 @@ export type Database = {
           client_name: string
           contact_id?: string | null
           created_at?: string
+          created_by?: string | null
           duration_seconds?: number
           ended_at?: string | null
           id?: string
@@ -152,6 +172,7 @@ export type Database = {
           client_name?: string
           contact_id?: string | null
           created_at?: string
+          created_by?: string | null
           duration_seconds?: number
           ended_at?: string | null
           id?: string
@@ -176,6 +197,7 @@ export type Database = {
           broker_id: string | null
           call_attempts: number
           created_at: string
+          created_by: string | null
           id: string
           last_called_at: string | null
           name: string
@@ -188,6 +210,7 @@ export type Database = {
           broker_id?: string | null
           call_attempts?: number
           created_at?: string
+          created_by?: string | null
           id?: string
           last_called_at?: string | null
           name: string
@@ -200,6 +223,7 @@ export type Database = {
           broker_id?: string | null
           call_attempts?: number
           created_at?: string
+          created_by?: string | null
           id?: string
           last_called_at?: string | null
           name?: string

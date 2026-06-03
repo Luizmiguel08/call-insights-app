@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
+import { useCloudState, newId } from "@/lib/cloud-state";
+import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "FORTAL — Inteligência Imobiliária" },
@@ -37,37 +39,7 @@ type Contact = {
   attempts: number;
 };
 
-const STORAGE_KEY = "ligactrl:v2";
-const LEGACY_KEY = "ligactrl:v1";
-const DEFAULT_BROKERS: Broker[] = [
-  { id: "b-miguel", name: "Miguel" },
-  { id: "b-carlos", name: "Carlos" },
-  { id: "b-ana", name: "Ana" },
-  { id: "b-fernanda", name: "Fernanda" },
-];
-
 type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
-
-function defaultState(): State {
-  return { brokers: DEFAULT_BROKERS, calls: [], contacts: [], metaDaily: 50 };
-}
-
-function loadState(): State {
-  if (typeof window === "undefined") return defaultState();
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_KEY);
-    if (!raw) return defaultState();
-    const parsed = JSON.parse(raw) as Partial<State>;
-    return {
-      brokers: parsed.brokers?.length ? parsed.brokers : DEFAULT_BROKERS,
-      calls: parsed.calls ?? [],
-      contacts: parsed.contacts ?? [],
-      metaDaily: parsed.metaDaily ?? 50,
-    };
-  } catch {
-    return defaultState();
-  }
-}
 
 function todayISO() {
   const d = new Date();
@@ -76,7 +48,7 @@ function todayISO() {
 }
 
 function uid() {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  return newId();
 }
 
 function normalizePhone(s: string) {
@@ -91,18 +63,14 @@ function telHref(phone: string) {
 type Tab = "discador" | "fila" | "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
 
 function LigaCtrlApp() {
-  const [state, setState] = useState<State>(() => defaultState());
-  const [hydrated, setHydrated] = useState(false);
+  const navigate = useNavigate();
+  const { state, setState, hydrated } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
-  useEffect(() => {
-    setState(loadState());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, hydrated]);
+  async function signOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
 
   const tabs: { id: Tab; label: string; icon: typeof Phone }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
@@ -131,9 +99,18 @@ function LigaCtrlApp() {
               <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.34em] text-zinc-500 mt-1.5 italic" style={fontDisplay}>Inteligência Imobiliária</div>
             </div>
           </div>
-          <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
-            <div className="hidden sm:block">{new Date().toLocaleDateString("pt-BR", { weekday: "long" })}</div>
-            <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
+          <div className="flex items-center gap-3">
+            <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
+              <div className="hidden sm:flex items-center justify-end gap-1 text-[#c9a24c]"><Cloud className="h-3 w-3" /> {hydrated ? "sincronizado" : "carregando..."}</div>
+              <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
+            </div>
+            <button
+              onClick={signOut}
+              title="Sair"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-400 hover:text-[#c9a24c] hover:border-[#c9a24c]/60"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 px-2 sm:px-4 overflow-x-auto no-scrollbar">
