@@ -99,6 +99,7 @@ async function loadAll(): Promise<State> {
         .from("contacts_queue")
         .select("*")
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
       if (r.error) throw r.error;
       const rows = r.data ?? [];
