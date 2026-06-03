@@ -494,8 +494,19 @@ function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState
           className="h-10 rounded-md border border-zinc-700 px-4 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
           style={fontDisplay}
         >
-          Limpar
+          Limpar filtros
         </button>
+        {isAdmin && (
+          <button
+            onClick={clearHistory}
+            disabled={filtered.length === 0}
+            className="h-10 flex items-center gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-4 text-xs font-bold uppercase tracking-wider text-red-400 hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={fontDisplay}
+            title="Excluir todo o histórico filtrado"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Excluir histórico
+          </button>
+        )}
         <div className="ml-auto text-xs uppercase tracking-widest text-zinc-500" style={fontDisplay}>
           {filtered.length} registro{filtered.length === 1 ? "" : "s"}
         </div>
