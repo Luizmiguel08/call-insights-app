@@ -127,8 +127,8 @@ function LigaCtrlApp() {
               className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-[0_0_12px_rgba(201,162,76,0.35)]"
             />
             <div className="leading-none">
-              <div className="font-semibold tracking-[0.32em] text-base sm:text-lg text-[#c9a24c]" style={fontDisplay}>FORTAL</div>
-              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1.5">Inteligência Imobiliária</div>
+              <div className="text-xl sm:text-2xl text-[#c9a24c] tracking-[0.24em] font-medium" style={fontDisplay}>FORTAL</div>
+              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.34em] text-zinc-500 mt-1.5 italic" style={fontDisplay}>Inteligência Imobiliária</div>
             </div>
           </div>
           <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
