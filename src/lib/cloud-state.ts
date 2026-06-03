@@ -268,9 +268,13 @@ export function useCloudState() {
     };
   }, [state, hydrated]);
 
-  // Visão filtrada: corretor só vê o próprio broker, contatos e ligações
+  // Visão filtrada: corretor só vê o próprio broker, contatos e ligações.
+  // Admin vê tudo, mas seletores escondem pendentes (CorretoresTab usa fullState).
   const view: State = (() => {
-    if (!me || me.isAdmin) return state;
+    if (!me) return state;
+    if (me.isAdmin) {
+      return { ...state, brokers: state.brokers.filter((b) => b.approved !== false) };
+    }
     const myBrokerId = me.brokerId;
     const myBroker = state.brokers.find((b) => b.id === myBrokerId);
     return {
