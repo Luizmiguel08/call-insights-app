@@ -51,8 +51,33 @@ function uid() {
   return newId();
 }
 
+// Normaliza para formato E.164 com fallback Brasil (+55).
+// - Aceita números com "+" e DDI (qualquer país): mantém como está.
+// - Aceita "00" como prefixo internacional → vira "+".
+// - Sem DDI: assume Brasil. 10 ou 11 dígitos (DDD + número) → +55XXXXXXXXXX.
+// - 12 ou 13 dígitos começando com 55 → +55... (DDI já presente sem o "+").
+// - Demais comprimentos: prefixa "+" para tentar discar como internacional.
 function normalizePhone(s: string) {
-  return s.replace(/[^\d+]/g, "");
+  if (!s) return "";
+  const trimmed = s.trim();
+  const hasPlus = trimmed.startsWith("+");
+  let digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+  if (!hasPlus && digits.startsWith("00")) {
+    digits = digits.slice(2);
+    return "+" + digits;
+  }
+  if (hasPlus) return "+" + digits;
+  // Sem "+": decidir DDI
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    return "+" + digits;
+  }
+  if (digits.length === 10 || digits.length === 11) {
+    // Brasil: DDD + número (fixo 10 / móvel 11)
+    return "+55" + digits;
+  }
+  // Outros tamanhos: trata como internacional já com DDI
+  return "+" + digits;
 }
 
 function telHref(phone: string) {
