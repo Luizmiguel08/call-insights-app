@@ -1289,9 +1289,36 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
         </div>
       </div>
 
-      {/* Cartão do contato atual */}
-      {current ? (
+      {/* Confirmação pós-tabulação: evita toque acidental no "Ligar agora" do próximo contato */}
+      {justRecorded ? (
+        <div className="rounded-xl border-2 border-emerald-500/40 bg-gradient-to-b from-[#0f1f17] to-[#0f1117] p-6">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>
+            ✓ Tabulação registrada
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-zinc-100" style={fontDisplay}>
+            {justRecorded.name}
+          </div>
+          <div className="mt-1 text-sm uppercase tracking-wider text-zinc-400" style={fontDisplay}>
+            Marcado como <span className={
+              justRecorded.color === "green" ? "text-emerald-400" :
+              justRecorded.color === "orange" ? "text-[#c9a24c]" : "text-red-400"
+            }>{justRecorded.label}</span>
+          </div>
+          <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/80">
+            Termine a ligação no telefone com calma. Quando estiver pronto, toque abaixo pro próximo contato.
+          </div>
+          <button
+            type="button"
+            onClick={() => setJustRecorded(null)}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border-2 border-zinc-700 bg-zinc-800/40 py-4 text-sm font-bold uppercase tracking-[0.2em] text-zinc-200 hover:bg-zinc-800"
+            style={fontDisplay}
+          >
+            Próximo contato →
+          </button>
+        </div>
+      ) : current ? (
         <div className="rounded-xl border-2 border-[#c9a24c]/40 bg-gradient-to-b from-[#171a23] to-[#0f1117] p-6 shadow-[0_0_60px_-20px_#c9a24c]">
+
           <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
             <span>Próximo da fila — {brokerName}</span>
             <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
