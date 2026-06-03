@@ -1,8 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
+import { useCloudState, newId } from "@/lib/cloud-state";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -37,38 +39,6 @@ type Contact = {
   attempts: number;
 };
 
-const STORAGE_KEY = "ligactrl:v2";
-const LEGACY_KEY = "ligactrl:v1";
-const DEFAULT_BROKERS: Broker[] = [
-  { id: "b-miguel", name: "Miguel" },
-  { id: "b-carlos", name: "Carlos" },
-  { id: "b-ana", name: "Ana" },
-  { id: "b-fernanda", name: "Fernanda" },
-];
-
-type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
-
-function defaultState(): State {
-  return { brokers: DEFAULT_BROKERS, calls: [], contacts: [], metaDaily: 50 };
-}
-
-function loadState(): State {
-  if (typeof window === "undefined") return defaultState();
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_KEY);
-    if (!raw) return defaultState();
-    const parsed = JSON.parse(raw) as Partial<State>;
-    return {
-      brokers: parsed.brokers?.length ? parsed.brokers : DEFAULT_BROKERS,
-      calls: parsed.calls ?? [],
-      contacts: parsed.contacts ?? [],
-      metaDaily: parsed.metaDaily ?? 50,
-    };
-  } catch {
-    return defaultState();
-  }
-}
-
 function todayISO() {
   const d = new Date();
   const tz = d.getTimezoneOffset() * 60000;
@@ -76,7 +46,7 @@ function todayISO() {
 }
 
 function uid() {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  return newId();
 }
 
 function normalizePhone(s: string) {
