@@ -1175,7 +1175,8 @@ function CallTimer({ startedAt }: { startedAt: number }) {
 
 /* ---------------- FILA (importação de contatos) ---------------- */
 
-function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
+function FilaTab({ state, setState, isAdmin }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean }) {
+  void isAdmin;
   const [bulk, setBulk] = useState("");
   const [assignTo, setAssignTo] = useState<string>(""); // "" = geral
   const [filterBroker, setFilterBroker] = useState<string>("all");
