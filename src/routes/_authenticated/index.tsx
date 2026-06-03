@@ -1093,8 +1093,23 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
+  const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
+  const [waEditing, setWaEditing] = useState(false);
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+
+  // Carrega template salvo por corretor (localStorage)
+  useEffect(() => {
+    if (!brokerId) return;
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template:${brokerId}`) : null;
+    setWaMsg(saved && saved.trim() ? saved : DEFAULT_WA_TEMPLATE);
+  }, [brokerId]);
+
+  function saveWaTemplate() {
+    if (!brokerId) return;
+    window.localStorage.setItem(`wa-template:${brokerId}`, waMsg);
+    toast.success("Mensagem padrão salva pra este corretor");
+  }
 
   const date = todayISO();
 
