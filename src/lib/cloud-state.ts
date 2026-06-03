@@ -242,10 +242,15 @@ export function useCloudState() {
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refetch = useCallback(async () => {
+    // Ignora ecos do realtime logo após uma escrita local pra evitar "piscar"
+    // o estado antigo sobre a atualização otimista.
+    if (Date.now() < muteUntilRef.current) return;
     const s = await loadAll();
     lastSyncedRef.current = s;
     setStateRaw(s);
   }, []);
+
+  const muteUntilRef = useRef(0);
 
   useEffect(() => {
     let alive = true;
@@ -287,12 +292,16 @@ export function useCloudState() {
     pendingTimer.current = setTimeout(() => {
       const next = state;
       lastSyncedRef.current = next;
-      void syncTo(prev, next, meRef.current!).catch((e) => console.error("Falha ao salvar na nuvem", e));
-    }, 350);
+      // Silencia ecos do realtime por um curto período após escrever.
+      muteUntilRef.current = Date.now() + 1500;
+      void syncTo(prev, next, meRef.current!)
+        .catch((e) => console.error("Falha ao salvar na nuvem", e));
+    }, 80);
     return () => {
       if (pendingTimer.current) clearTimeout(pendingTimer.current);
     };
   }, [state, hydrated]);
+
 
   // Visão filtrada: corretor só vê o próprio broker, contatos e ligações.
   // Admin vê tudo, mas seletores escondem pendentes (CorretoresTab usa fullState).
