@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,6 +83,17 @@ function normalizePhone(s: string) {
 function telHref(phone: string) {
   const p = normalizePhone(phone);
   return p ? `tel:${p}` : "#";
+}
+
+function waHref(phone: string, clientName?: string) {
+  const p = normalizePhone(phone);
+  if (!p) return "#";
+  const digits = p.replace(/\D/g, "");
+  const firstName = (clientName ?? "").trim().split(/\s+/)[0] || "";
+  const msg = firstName
+    ? `Olá, ${firstName}! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.`
+    : `Olá! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
 }
 
 type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores";
@@ -1234,6 +1245,17 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
               <CallTimer startedAt={calledAt} />
             </div>
           )}
+
+          {/* WhatsApp — abre conversa pronta com o cliente */}
+          <a
+            href={waHref(current.phone, current.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-emerald-600/60 bg-emerald-600/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-300 transition hover:bg-emerald-600/20"
+            style={fontDisplay}
+          >
+            <MessageCircle className="h-4 w-4" /> WhatsApp
+          </a>
 
           {/* Tabulação */}
           <div className="mt-4">
