@@ -88,12 +88,34 @@ async function loadMe(): Promise<Me | null> {
 }
 
 async function loadAll(): Promise<State> {
-  const [brokersR, callsR, contactsR, settingsR] = await Promise.all([
+  // Paginate contacts_queue to load ALL contacts (Supabase caps at 1000/req by default).
+  async function loadAllContacts() {
+    const pageSize = 1000;
+    let from = 0;
+    const all: any[] = [];
+    // hard safety cap to avoid infinite loops
+    while (from < 100000) {
+      const r = await supabase
+        .from("contacts_queue")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (r.error) throw r.error;
+      const rows = r.data ?? [];
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
+  const [brokersR, callsR, contactsRows, settingsR] = await Promise.all([
     supabase.from("brokers").select("*").order("created_at"),
-    supabase.from("calls").select("*").order("created_at", { ascending: false }).limit(2000),
-    supabase.from("contacts_queue").select("*").order("created_at", { ascending: false }).limit(2000),
+    supabase.from("calls").select("*").order("created_at", { ascending: false }).limit(5000),
+    loadAllContacts(),
     supabase.from("app_settings").select("*").eq("id", "global").maybeSingle(),
   ]);
+  const contactsR = { data: contactsRows, error: null as null };
   if (brokersR.error) throw brokersR.error;
   if (callsR.error) throw callsR.error;
   if (contactsR.error) throw contactsR.error;
