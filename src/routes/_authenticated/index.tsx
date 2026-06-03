@@ -1149,6 +1149,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
+  const [justRecorded, setJustRecorded] = useState<{ name: string; label: string; color: "red" | "green" | "orange" } | null>(null);
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
   const [waEditing, setWaEditing] = useState(false);
 
