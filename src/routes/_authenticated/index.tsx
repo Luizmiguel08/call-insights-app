@@ -121,7 +121,6 @@ function LigaCtrlApp() {
     { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "fila", label: "Fila", icon: ListPlus },
     { id: "rapido", label: "Rápido", icon: Zap },
-    { id: "registrar", label: "Registrar", icon: Phone },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
     { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
