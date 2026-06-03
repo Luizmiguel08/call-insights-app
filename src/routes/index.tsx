@@ -859,3 +859,501 @@ function Th({ children, className = "" }: { children?: React.ReactNode; classNam
 function Td({ children, className = "", title, style }: { children?: React.ReactNode; className?: string; title?: string; style?: React.CSSProperties }) {
   return <td className={`px-3 py-2.5 ${className}`} title={title} style={style}>{children}</td>;
 }
+
+/* ---------------- DISCADOR ---------------- */
+
+function DiscadorTab({ state, setState, goFila }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void }) {
+  const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
+  const [note, setNote] = useState("");
+  const [calledAt, setCalledAt] = useState<number | null>(null);
+
+  useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+
+  const date = todayISO();
+
+  // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
+  const myQueue = useMemo(
+    () => state.contacts
+      .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
+      .sort((a, b) => {
+        // Atribuídos primeiro, depois por ordem de criação
+        if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
+        return a.createdAt - b.createdAt;
+      }),
+    [state.contacts, brokerId]
+  );
+
+  const current = myQueue[0];
+  const next = myQueue[1];
+
+  const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
+  const k = {
+    total: todayCalls.length,
+    attended: todayCalls.filter((c) => c.attended).length,
+    notAttended: todayCalls.filter((c) => !c.attended).length,
+    scheduled: todayCalls.filter((c) => c.scheduled).length,
+  };
+  const meta = state.metaDaily || 50;
+  const pct = Math.min(100, Math.round((k.total / meta) * 100));
+  const reached = k.total >= meta;
+
+  function recordOutcome(attended: boolean, scheduled: boolean) {
+    if (!current) return;
+    const call: Call = {
+      id: uid(),
+      date,
+      brokerId,
+      client: current.name,
+      phone: current.phone,
+      attended,
+      scheduled,
+      note: note.trim(),
+      createdAt: Date.now(),
+      contactId: current.id,
+    };
+    setState((s) => ({
+      ...s,
+      calls: [call, ...s.calls],
+      contacts: s.contacts.map((c) => c.id === current.id ? { ...c, status: "feito", attempts: c.attempts + 1 } : c),
+    }));
+    setNote("");
+    setCalledAt(null);
+    // Verifica meta
+    if (!reached && k.total + 1 === meta) {
+      toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
+    }
+  }
+
+  function skip() {
+    if (!current) return;
+    setState((s) => ({
+      ...s,
+      contacts: s.contacts.map((c) => c.id === current.id ? { ...c, status: "pulado" } : c),
+    }));
+    setNote("");
+    setCalledAt(null);
+    toast("Contato pulado");
+  }
+
+  function callback() {
+    if (!current) return;
+    // Joga pro fim da fila: recria com novo createdAt
+    setState((s) => ({
+      ...s,
+      contacts: s.contacts.map((c) => c.id === current.id ? { ...c, createdAt: Date.now(), attempts: c.attempts + 1 } : c),
+    }));
+    setNote("");
+    setCalledAt(null);
+    toast("Movido pro fim da fila");
+  }
+
+  function startCall() {
+    setCalledAt(Date.now());
+  }
+
+  const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
+
+  return (
+    <div className="space-y-5">
+      {/* Header: corretor + meta */}
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+        <div className="flex flex-wrap items-end gap-4">
+          <Field label="Corretor" className="min-w-[220px]">
+            <div className="relative">
+              <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " pl-9 appearance-none text-base font-semibold"}>
+                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>)}
+              </select>
+            </div>
+          </Field>
+          <div className="flex-1 min-w-[260px]">
+            <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]" style={fontDisplay}>
+              <span className="flex items-center gap-1.5 text-zinc-500">
+                <Target className="h-3.5 w-3.5" /> Meta diária — {meta} ligações
+              </span>
+              <span className={`tabular-nums ${reached ? "text-emerald-400" : "text-zinc-300"}`}>
+                {k.total} / {meta} {reached && "✓"}
+              </span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${pct}%`, backgroundColor: reached ? "#22c55e" : "#f97316" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Cartão do contato atual */}
+      {current ? (
+        <div className="rounded-xl border-2 border-[#f97316]/40 bg-gradient-to-b from-[#171a23] to-[#0f1117] p-6 shadow-[0_0_60px_-20px_#f97316]">
+          <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+            <span>Próximo da fila — {brokerName}</span>
+            <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
+          </div>
+
+          <div className="my-4">
+            <div className="text-4xl sm:text-5xl font-extrabold leading-tight text-zinc-50" style={fontDisplay}>
+              {current.name}
+            </div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-[#f97316]" style={fontDisplay}>
+              {current.phone || "(sem telefone)"}
+            </div>
+            {current.attempts > 0 && (
+              <div className="mt-1 text-xs text-zinc-500">Tentativa #{current.attempts + 1}</div>
+            )}
+            {current.brokerId === null && (
+              <div className="mt-1 inline-block text-[10px] uppercase tracking-widest text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded mt-2">Fila geral</div>
+            )}
+          </div>
+
+          {/* Botão LIGAR */}
+          {!calledAt ? (
+            <a
+              href={telHref(current.phone)}
+              onClick={startCall}
+              className="flex w-full items-center justify-center gap-3 rounded-md bg-[#f97316] py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#f97316] transition hover:bg-[#fb8a3d] active:scale-[0.99]"
+              style={fontDisplay}
+            >
+              <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
+              Ligar agora
+            </a>
+          ) : (
+            <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>Em ligação</div>
+              <CallTimer startedAt={calledAt} />
+            </div>
+          )}
+
+          {/* Tabulação */}
+          <div className="mt-4">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="Observação (opcional)"
+              className={inputCls + " resize-none py-2"}
+            />
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <BigKey kbd="" color="red" onClick={() => recordOutcome(false, false)}>
+              <X className="h-5 w-5" strokeWidth={3} /> Não atendeu
+            </BigKey>
+            <BigKey kbd="" color="green" onClick={() => recordOutcome(true, false)}>
+              <Check className="h-5 w-5" strokeWidth={3} /> Atendeu
+            </BigKey>
+            <BigKey kbd="" color="orange" onClick={() => recordOutcome(true, true)}>
+              <Calendar className="h-5 w-5" strokeWidth={3} /> Agendou
+            </BigKey>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <button
+              onClick={callback}
+              className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+              style={fontDisplay}
+            >
+              <Undo2 className="h-4 w-4" /> Retornar depois
+            </button>
+            <button
+              onClick={skip}
+              className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+              style={fontDisplay}
+            >
+              <SkipForward className="h-4 w-4" /> Pular
+            </button>
+          </div>
+
+          {next && (
+            <div className="mt-5 flex items-center gap-3 rounded-md border border-dashed border-zinc-800 px-4 py-3">
+              <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
+              <span className="flex-1 truncate text-sm font-semibold text-zinc-300">{next.name}</span>
+              <span className="text-xs tabular-nums text-zinc-500">{next.phone}</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border-2 border-dashed border-zinc-800 bg-[#171a23] p-10 text-center">
+          <PhoneCall className="mx-auto h-10 w-10 text-zinc-700" />
+          <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-zinc-300" style={fontDisplay}>Fila vazia</h3>
+          <p className="mt-1 text-sm text-zinc-500">Importe contatos do Excel/CRM pra começar a discar.</p>
+          <button
+            onClick={goFila}
+            className="mt-4 inline-flex items-center gap-2 rounded-md bg-[#f97316] px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#fb8a3d]"
+            style={fontDisplay}
+          >
+            <ListPlus className="h-4 w-4" /> Ir pra Fila
+          </button>
+        </div>
+      )}
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Kpi label="Ligações hoje" value={k.total} color="#f97316" />
+        <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
+        <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
+        <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
+      </div>
+    </div>
+  );
+}
+
+function CallTimer({ startedAt }: { startedAt: number }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(i);
+  }, []);
+  const secs = Math.floor((Date.now() - startedAt) / 1000);
+  const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  return (
+    <div className="mt-1 text-3xl font-extrabold tabular-nums text-emerald-400" style={fontDisplay}>{mm}:{ss}</div>
+  );
+}
+
+/* ---------------- FILA (importação de contatos) ---------------- */
+
+function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
+  const [bulk, setBulk] = useState("");
+  const [assignTo, setAssignTo] = useState<string>(""); // "" = geral
+  const [filterBroker, setFilterBroker] = useState<string>("all");
+  const [metaInput, setMetaInput] = useState(String(state.metaDaily || 50));
+
+  function parseLines(text: string): { name: string; phone: string }[] {
+    const out: { name: string; phone: string }[] = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      // Suporta: "Nome, Telefone" / "Nome; Telefone" / "Nome\tTelefone" / "Nome 11999998888"
+      let name = "", phone = "";
+      const sep = line.match(/[;,\t|]/);
+      if (sep) {
+        const parts = line.split(/[;,\t|]/).map((p) => p.trim());
+        name = parts[0] || "";
+        phone = parts.slice(1).find((p) => /\d/.test(p)) || "";
+      } else {
+        // Tenta extrair telefone do final
+        const m = line.match(/^(.*?)\s+([+()\d\s-]{8,})$/);
+        if (m) { name = m[1].trim(); phone = m[2].trim(); }
+        else { name = line; phone = ""; }
+      }
+      if (name) out.push({ name, phone: normalizePhone(phone) });
+    }
+    return out;
+  }
+
+  const preview = useMemo(() => parseLines(bulk), [bulk]);
+
+  function importContacts() {
+    if (preview.length === 0) { toast.error("Cole pelo menos um contato"); return; }
+    const brokerId = assignTo || null;
+    const newContacts: Contact[] = preview.map((p, i) => ({
+      id: uid(),
+      name: p.name,
+      phone: p.phone,
+      brokerId,
+      status: "pendente",
+      createdAt: Date.now() + i,
+      attempts: 0,
+    }));
+    setState((s) => ({ ...s, contacts: [...s.contacts, ...newContacts] }));
+    toast.success(`${newContacts.length} contato(s) importado(s)`, {
+      description: brokerId ? `Atribuído a ${state.brokers.find(b => b.id === brokerId)?.name}` : "Fila geral",
+    });
+    setBulk("");
+  }
+
+  function removeContact(id: string) {
+    setState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.id !== id) }));
+  }
+
+  function clearDone() {
+    if (!confirm("Remover todos os contatos já finalizados?")) return;
+    setState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.status === "pendente") }));
+    toast.success("Lista limpa");
+  }
+
+  function reassign(id: string, brokerId: string | null) {
+    setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, brokerId } : c) }));
+  }
+
+  function saveMeta() {
+    const n = Math.max(1, Math.min(999, Number(metaInput) || 50));
+    setState((s) => ({ ...s, metaDaily: n }));
+    setMetaInput(String(n));
+    toast.success(`Meta diária: ${n} ligações`);
+  }
+
+  const visible = state.contacts.filter((c) => {
+    if (filterBroker === "all") return true;
+    if (filterBroker === "geral") return c.brokerId === null;
+    return c.brokerId === filterBroker;
+  });
+
+  const pending = state.contacts.filter((c) => c.status === "pendente").length;
+  const done = state.contacts.filter((c) => c.status === "feito").length;
+  const skipped = state.contacts.filter((c) => c.status === "pulado").length;
+
+  return (
+    <div className="space-y-5">
+      {/* Config meta */}
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5 flex flex-wrap items-end gap-4">
+        <Field label="Meta diária por corretor" className="w-[200px]">
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={1}
+              value={metaInput}
+              onChange={(e) => setMetaInput(e.target.value)}
+              className={inputCls}
+            />
+            <button
+              onClick={saveMeta}
+              className="h-10 rounded-md bg-[#f97316] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#fb8a3d]"
+              style={fontDisplay}
+            >Salvar</button>
+          </div>
+        </Field>
+        <div className="flex flex-1 gap-3 justify-end">
+          <Kpi label="Pendentes" value={pending} color="#f97316" />
+          <Kpi label="Feitos" value={done} color="#22c55e" />
+          <Kpi label="Pulados" value={skipped} color="#71717a" />
+        </div>
+      </div>
+
+      {/* Importar */}
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+        <h2 className="mb-4 text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
+          <Upload className="inline h-5 w-5 text-[#f97316] mb-1 mr-2" />
+          Importar contatos do Excel
+        </h2>
+        <p className="mb-3 text-xs text-zinc-400">
+          Cole 1 contato por linha. Formatos aceitos: <code className="text-[#f97316]">Nome, Telefone</code> · <code className="text-[#f97316]">Nome; Telefone</code> · <code className="text-[#f97316]">Nome \t Telefone</code> (cópia direta do Excel).
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-[1fr_280px]">
+          <textarea
+            value={bulk}
+            onChange={(e) => setBulk(e.target.value)}
+            rows={10}
+            placeholder={"João Silva, 11999998888\nMaria Souza, 11988887777\nPedro Lima\t11977776666"}
+            className={inputCls + " min-h-[220px] resize-y py-2 font-mono text-xs"}
+          />
+          <div className="space-y-3">
+            <Field label="Atribuir a">
+              <select
+                value={assignTo}
+                onChange={(e) => setAssignTo(e.target.value)}
+                className={inputCls + " appearance-none"}
+              >
+                <option value="" className="bg-[#171a23]">Fila geral (qualquer corretor)</option>
+                {state.brokers.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                ))}
+              </select>
+            </Field>
+            <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Pré-visualização</div>
+              <div className="mt-1 text-3xl font-extrabold text-[#f97316] tabular-nums" style={fontDisplay}>
+                {preview.length}
+              </div>
+              <div className="text-xs text-zinc-500">contato(s) válido(s)</div>
+            </div>
+            <button
+              onClick={importContacts}
+              className="h-12 w-full rounded-md bg-[#f97316] text-sm font-bold uppercase tracking-[0.2em] text-black hover:bg-[#fb8a3d]"
+              style={fontDisplay}
+            >
+              Importar {preview.length > 0 ? `${preview.length} contato(s)` : ""}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de contatos */}
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23]">
+        <div className="flex flex-wrap items-center gap-3 p-4 border-b border-zinc-800">
+          <Field label="Filtrar por corretor" className="min-w-[220px]">
+            <select value={filterBroker} onChange={(e) => setFilterBroker(e.target.value)} className={inputCls + " appearance-none"}>
+              <option value="all" className="bg-[#171a23]">Todos</option>
+              <option value="geral" className="bg-[#171a23]">Fila geral</option>
+              {state.brokers.map((b) => (
+                <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+              ))}
+            </select>
+          </Field>
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={clearDone}
+              className="h-10 rounded-md border border-zinc-700 px-4 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+              style={fontDisplay}
+            >Limpar finalizados</button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[#0f1117] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
+              <tr>
+                <Th>Status</Th><Th>Nome</Th><Th>Telefone</Th><Th>Atribuído</Th><Th className="text-right">Tentativas</Th><Th className="w-10"></Th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 && (
+                <tr><td colSpan={6} className="py-10 text-center text-zinc-500">Nenhum contato.</td></tr>
+              )}
+              {visible.slice(0, 200).map((c) => (
+                <tr key={c.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
+                  <Td>
+                    <StatusDot status={c.status} />
+                  </Td>
+                  <Td className="font-semibold text-zinc-100">{c.name}</Td>
+                  <Td className="tabular-nums text-zinc-300">{c.phone || "—"}</Td>
+                  <Td>
+                    <select
+                      value={c.brokerId ?? ""}
+                      onChange={(e) => reassign(c.id, e.target.value || null)}
+                      className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#f97316]"
+                    >
+                      <option value="" className="bg-[#171a23]">Geral</option>
+                      {state.brokers.map((b) => (
+                        <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                      ))}
+                    </select>
+                  </Td>
+                  <Td className="text-right tabular-nums text-zinc-400">{c.attempts}</Td>
+                  <Td>
+                    <button onClick={() => removeContact(c.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {visible.length > 200 && (
+            <div className="p-3 text-center text-xs text-zinc-500">+ {visible.length - 200} contato(s) não exibidos</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusDot({ status }: { status: Contact["status"] }) {
+  const map = {
+    pendente: { color: "#f97316", label: "Pendente" },
+    feito: { color: "#22c55e", label: "Feito" },
+    pulado: { color: "#71717a", label: "Pulado" },
+  } as const;
+  const s = map[status];
+  return (
+    <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-300" style={fontDisplay}>
+      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+      {s.label}
+    </span>
+  );
+}
