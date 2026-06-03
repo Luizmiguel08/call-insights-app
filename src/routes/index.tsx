@@ -1268,7 +1268,7 @@ function FilaTab({ state, setState }: { state: State; setState: React.Dispatch<R
             </Field>
             <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Pré-visualização</div>
-              <div className="mt-1 text-3xl font-extrabold text-[#c9a24c] tabular-nums" style={fontDisplay}>
+              <div className="mt-1 text-4xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
                 {preview.length}
               </div>
               <div className="text-xs text-zinc-500">contato(s) válido(s)</div>
