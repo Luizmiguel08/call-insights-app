@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
-import { useCloudState, newId } from "@/lib/cloud-state";
+import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/")({
