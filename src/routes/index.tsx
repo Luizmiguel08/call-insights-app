@@ -840,9 +840,14 @@ function YesNo({ value, onChange }: { value: boolean | null; onChange: (v: boole
 
 function Kpi({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-[#0f1117] p-4">
-      <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>{label}</div>
-      <div className="mt-1 text-4xl font-extrabold tabular-nums leading-none" style={{ ...fontDisplay, color }}>{value}</div>
+    <div className="rounded-xl border border-zinc-800/80 bg-gradient-to-b from-[#13161f] to-[#0f1117] p-4 sm:p-5">
+      <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-zinc-500">{label}</div>
+      <div
+        className="mt-2 text-[44px] sm:text-[56px] font-semibold leading-[0.95] tracking-[-0.04em]"
+        style={{ ...fontNumeric, color }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
