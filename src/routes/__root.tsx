@@ -84,6 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Plataforma de inteligência imobiliária e controle de ligações da Fortal." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "FORTAL — Inteligência Imobiliária" },
+      { name: "twitter:description", content: "Plataforma de inteligência imobiliária e controle de ligações da Fortal." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/0552d3f6-af37-479d-8a5a-2ba319576e17/id-preview-2f68f3a6--0f334642-a9b8-4f12-aa7f-15ff77cb1267.lovable.app-1780512794708.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/0552d3f6-af37-479d-8a5a-2ba319576e17/id-preview-2f68f3a6--0f334642-a9b8-4f12-aa7f-15ff77cb1267.lovable.app-1780512794708.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
