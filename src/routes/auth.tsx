@@ -43,10 +43,14 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
+        if (!name.trim()) return toast.error("Informe seu nome");
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: { full_name: name.trim(), name: name.trim() },
+          },
         });
         if (error) throw error;
         toast.success("Conta criada! Entrando...");
