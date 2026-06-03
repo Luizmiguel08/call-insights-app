@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "FORTAL — Inteligência Imobiliária" },
