@@ -164,7 +164,7 @@ function LigaCtrlApp() {
         {tab === "registrar" && <RegistrarTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
-        {tab === "corretores" && <CorretoresTab state={state} setState={setState} />}
+        {tab === "corretores" && <CorretoresTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
       </main>
     </div>
   );
