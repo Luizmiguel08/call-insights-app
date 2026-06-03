@@ -64,10 +64,14 @@ async function loadMe(): Promise<Me | null> {
 
   let broker = brokerR.data;
   if (!broker && !isAdmin) {
-    // Cria broker pendente pra aprovação do admin
+    const metaName =
+      (user.user_metadata?.full_name as string | undefined) ??
+      (user.user_metadata?.name as string | undefined) ??
+      user.email ??
+      "Sem nome";
     const ins = await supabase
       .from("brokers")
-      .insert({ name: user.email ?? "Sem nome", user_id: user.id, email: user.email, approved: false })
+      .insert({ name: metaName, user_id: user.id, email: user.email, approved: false })
       .select("id,name,approved")
       .single();
     if (!ins.error && ins.data) broker = ins.data;
