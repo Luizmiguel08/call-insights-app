@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, ChevronDown, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,7 +85,7 @@ function telHref(phone: string) {
   return p ? `tel:${p}` : "#";
 }
 
-type Tab = "discador" | "fila" | "rapido" | "registrar" | "historico" | "dashboard" | "corretores";
+type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores";
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
@@ -121,7 +121,6 @@ function LigaCtrlApp() {
     { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "fila", label: "Fila", icon: ListPlus },
     { id: "rapido", label: "Rápido", icon: Zap },
-    { id: "registrar", label: "Registrar", icon: Phone },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
     { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
@@ -186,7 +185,6 @@ function LigaCtrlApp() {
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
-        {tab === "registrar" && <RegistrarTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
         {tab === "corretores" && <CorretoresTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
@@ -198,162 +196,28 @@ function LigaCtrlApp() {
 const fontDisplay = { fontFamily: "'Fraunces', 'Playfair Display', Georgia, serif", fontOpticalSizing: "auto" } as const;
 const fontNumeric = { fontFamily: "'Fraunces', Georgia, serif", fontVariantNumeric: "tabular-nums lining-nums", fontFeatureSettings: "'ss01'" } as const;
 
-/* ---------------- REGISTRAR ---------------- */
-
-function RegistrarTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
-  const [date, setDate] = useState(todayISO());
-  const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
-  const [client, setClient] = useState("");
-  const [attended, setAttended] = useState<boolean | null>(null);
-  const [scheduled, setScheduled] = useState<boolean | null>(null);
-  const [note, setNote] = useState("");
-
-  useEffect(() => {
-    if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id);
-  }, [state.brokers, brokerId]);
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!brokerId) return toast.error("Selecione um corretor");
-    if (!client.trim()) return toast.error("Informe o nome do cliente");
-    if (attended === null) return toast.error("Marque se atendeu");
-    if (scheduled === null) return toast.error("Marque se agendou");
-
-    const call: Call = {
-      id: uid(),
-      date,
-      brokerId,
-      client: client.trim(),
-      attended,
-      scheduled,
-      note: note.trim(),
-      createdAt: Date.now(),
-    };
-    setState((s) => ({ ...s, calls: [call, ...s.calls] }));
-    toast.success("Ligação registrada", { description: `${client.trim()} · ${state.brokers.find(b => b.id === brokerId)?.name}` });
-    setClient("");
-    setAttended(null);
-    setScheduled(null);
-    setNote("");
-  }
-
-  const dayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
-  const k = {
-    total: dayCalls.length,
-    attended: dayCalls.filter((c) => c.attended).length,
-    notAttended: dayCalls.filter((c) => !c.attended).length,
-    scheduled: dayCalls.filter((c) => c.scheduled).length,
-  };
-  const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
-
-  return (
-    <div className="space-y-6">
-      <form onSubmit={submit} className="rounded-lg border border-zinc-800 bg-[#171a23] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-        <h2 className="mb-5 text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>Nova Ligação</h2>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Data">
-            <div className="relative">
-              <Calendar className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={inputCls + " pl-9"}
-              />
-            </div>
-          </Field>
-
-          <Field label="Corretor">
-            <div className="relative">
-              <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " pl-9 appearance-none"}>
-                {state.brokers.map((b) => (
-                  <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
-                ))}
-              </select>
-            </div>
-          </Field>
-
-          <Field label="Cliente" className="sm:col-span-2">
-            <input
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              placeholder="Nome do cliente"
-              className={inputCls}
-            />
-          </Field>
-
-          <Field label="Atendeu?">
-            <YesNo value={attended} onChange={setAttended} />
-          </Field>
-
-          <Field label="Agendou?">
-            <YesNo value={scheduled} onChange={setScheduled} />
-          </Field>
-
-          <Field label="Observação (opcional)" className="sm:col-span-2">
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="Detalhes da ligação..."
-              className={inputCls + " resize-none"}
-            />
-          </Field>
-        </div>
-
-        <button
-          type="submit"
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-[#c9a24c] py-3 text-sm font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_24px_-6px_#c9a24c] transition hover:bg-[#e6c878] active:scale-[0.99]"
-          style={fontDisplay}
-        >
-          <Phone className="h-4 w-4" strokeWidth={2.5} />
-          Registrar Ligação
-        </button>
-      </form>
-
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
-        <div className="mb-4 flex items-end justify-between flex-wrap gap-2">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.25em] text-zinc-500">Resumo do dia</div>
-            <h3 className="text-xl font-bold uppercase tracking-wider text-zinc-100" style={fontDisplay}>
-              {brokerName} · {new Date(date + "T00:00").toLocaleDateString("pt-BR")}
-            </h3>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Kpi label="Ligações" value={k.total} color="#c9a24c" />
-          <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
-          <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
-          <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ---------------- MODO RÁPIDO ---------------- */
 
 function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch<React.SetStateAction<State>> }) {
   const [date, setDate] = useState(todayISO());
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [client, setClient] = useState("");
-  const [showImport, setShowImport] = useState(false);
-  const [bulk, setBulk] = useState("");
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [phone, setPhone] = useState("");
+  const nameRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
-  useEffect(() => { inputRef.current?.focus(); }, [brokerId, date]);
+  useEffect(() => { nameRef.current?.focus(); }, [brokerId, date]);
 
   function quickSave(attended: boolean, scheduled: boolean) {
     const name = client.trim();
-    if (!name) { toast.error("Digite o nome do cliente"); inputRef.current?.focus(); return; }
+    if (!name) { toast.error("Digite o nome do cliente"); nameRef.current?.focus(); return; }
     if (!brokerId) { toast.error("Selecione um corretor"); return; }
-    const call: Call = { id: uid(), date, brokerId, client: name, attended, scheduled, note: "", createdAt: Date.now() };
+    const normalized = phone.trim() ? normalizePhone(phone) : undefined;
+    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended, scheduled, note: "", createdAt: Date.now() };
     setState((s) => ({ ...s, calls: [call, ...s.calls] }));
     setClient("");
-    setTimeout(() => inputRef.current?.focus(), 0);
+    setPhone("");
+    setTimeout(() => nameRef.current?.focus(), 0);
   }
 
   function undoLast() {
@@ -363,33 +227,12 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
     toast.success("Desfeito", { description: last.client });
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") { e.preventDefault(); quickSave(false, false); }
-    else if (e.key === "1") { e.preventDefault(); quickSave(false, false); }
-    else if (e.key === "2") { e.preventDefault(); quickSave(true, false); }
-    else if (e.key === "3") { e.preventDefault(); quickSave(true, true); }
-    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undoLast(); }
+  function onNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undoLast(); }
   }
 
-  function importBulk() {
-    if (!brokerId) { toast.error("Selecione um corretor"); return; }
-    const lines = bulk.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (!lines.length) { toast.error("Cole pelo menos um cliente"); return; }
-    const newCalls: Call[] = lines.map((line) => {
-      // Formato: Nome [; atendeu(s/n)] [; agendou(s/n)] [; observação]
-      const parts = line.split(/[;\t,|]/).map((p) => p.trim());
-      const name = parts[0] ?? line;
-      const parseBool = (v?: string) => /^(s|sim|y|yes|1|true)$/i.test(v ?? "");
-      const attended = parts[1] !== undefined ? parseBool(parts[1]) : false;
-      const scheduled = parts[2] !== undefined ? parseBool(parts[2]) : false;
-      const note = parts.slice(3).join("; ");
-      return { id: uid(), date, brokerId, client: name, attended, scheduled, note, createdAt: Date.now() };
-    });
-    setState((s) => ({ ...s, calls: [...newCalls, ...s.calls] }));
-    toast.success(`${newCalls.length} ligações importadas`);
-    setBulk("");
-    setShowImport(false);
-  }
+  const dialHref = phone.trim() ? telHref(phone) : "#";
+  const dialReady = phone.trim().length > 0;
 
   const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const k = {
@@ -402,9 +245,9 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
   return (
     <div className="space-y-5">
-      {/* Barra fixa: corretor + data */}
+      {/* Barra: corretor + data + desfazer */}
       <div className="grid gap-3 sm:grid-cols-[1fr_220px_auto] items-end rounded-lg border border-zinc-800 bg-[#171a23] p-4">
-        <Field label="Corretor (travado)">
+        <Field label="Corretor">
           <div className="relative">
             <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " pl-9 appearance-none text-base font-semibold"}>
@@ -428,26 +271,53 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
         </button>
       </div>
 
-      {/* Input principal + botões grandes */}
+      {/* Número pontual: nome + telefone + discar */}
       <div className="rounded-lg border-2 border-[#c9a24c]/40 bg-[#171a23] p-6 shadow-[0_0_40px_-12px_#c9a24c]">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
-            <Zap className="inline h-5 w-5 text-[#c9a24c] mb-1" /> Modo Rápido — {brokerName}
+            <Zap className="inline h-5 w-5 text-[#c9a24c] mb-1" /> Ligação avulsa — {brokerName}
           </h2>
           <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-            Atalhos: <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">1</kbd>=Não <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">2</kbd>=Atendeu <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">3</kbd>=Agendou <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded mx-0.5">Ctrl+Z</kbd>=Desfazer
+            Sem precisar entrar na fila
           </div>
         </div>
 
-        <input
-          ref={inputRef}
-          value={client}
-          onChange={(e) => setClient(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Digite o nome do cliente e aperte 1, 2 ou 3..."
-          className="h-14 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-xl font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
-          autoFocus
-        />
+        <div className="grid gap-3 sm:grid-cols-[1fr_240px]">
+          <Field label="Nome do cliente">
+            <input
+              ref={nameRef}
+              value={client}
+              onChange={(e) => setClient(e.target.value)}
+              onKeyDown={onNameKeyDown}
+              placeholder="Ex.: João Silva"
+              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+              autoFocus
+            />
+          </Field>
+          <Field label="Telefone">
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(11) 99999-8888"
+              inputMode="tel"
+              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-mono text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+            />
+          </Field>
+        </div>
+
+        <a
+          href={dialHref}
+          onClick={(e) => { if (!dialReady) e.preventDefault(); }}
+          className={`mt-3 flex items-center justify-center gap-2 h-14 rounded-md text-base font-bold uppercase tracking-[0.18em] transition ${
+            dialReady
+              ? "bg-[#c9a24c] text-black hover:bg-[#e6c878]"
+              : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+          }`}
+          style={fontDisplay}
+        >
+          <PhoneCall className="h-5 w-5" />
+          {dialReady ? `Discar ${normalizePhone(phone)}` : "Digite um telefone para discar"}
+        </a>
 
         <div className="mt-3 grid grid-cols-3 gap-3">
           <BigKey kbd="1" color="red" onClick={() => quickSave(false, false)}>
@@ -460,54 +330,17 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
             <Calendar className="h-5 w-5" strokeWidth={3} /> Agendou
           </BigKey>
         </div>
+        <p className="mt-3 text-[11px] text-zinc-500">
+          Disque pelo botão acima e depois marque o desfecho — a ligação é contabilizada no seu painel.
+        </p>
       </div>
 
-      {/* KPIs ao vivo */}
+      {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Ligações hoje" value={k.total} color="#c9a24c" />
         <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
         <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
         <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
-      </div>
-
-      {/* Importar em lote */}
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23]">
-        <button
-          onClick={() => setShowImport((v) => !v)}
-          className="flex w-full items-center justify-between px-5 py-4 text-left"
-        >
-          <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-200" style={fontDisplay}>
-            <Upload className="h-4 w-4 text-[#c9a24c]" /> Importar lista em lote
-          </span>
-          <ChevronDown className={`h-4 w-4 text-zinc-500 transition ${showImport ? "rotate-180" : ""}`} />
-        </button>
-        {showImport && (
-          <div className="border-t border-zinc-800 p-5 space-y-3">
-            <p className="text-xs text-zinc-400">
-              Uma ligação por linha. Formato: <code className="text-[#c9a24c]">Nome; atendeu(s/n); agendou(s/n); observação</code>.
-              Apenas o nome também funciona (registra como não atendeu).
-            </p>
-            <textarea
-              value={bulk}
-              onChange={(e) => setBulk(e.target.value)}
-              rows={8}
-              placeholder={"João Silva; s; n\nMaria Souza; s; s; cliente quente\nPedro Lima"}
-              className={inputCls + " min-h-[180px] resize-y py-2 font-mono text-xs"}
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setBulk("")}
-                className="h-10 rounded-md border border-zinc-700 px-4 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
-                style={fontDisplay}
-              >Limpar</button>
-              <button
-                onClick={importBulk}
-                className="h-10 rounded-md bg-[#c9a24c] px-5 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
-                style={fontDisplay}
-              >Importar {bulk.split(/\r?\n/).filter((l) => l.trim()).length || ""} ligações</button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Últimas registradas hoje */}
@@ -519,7 +352,10 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           <div className="space-y-1.5 max-h-[280px] overflow-y-auto">
             {today.slice(0, 30).map((c) => (
               <div key={c.id} className="flex items-center gap-3 rounded border border-zinc-800 bg-[#0f1117] px-3 py-2">
-                <span className="flex-1 truncate text-sm font-medium text-zinc-100">{c.client}</span>
+                <span className="flex-1 truncate text-sm font-medium text-zinc-100">
+                  {c.client}
+                  {c.phone && <span className="ml-2 font-mono text-xs text-zinc-500">{c.phone}</span>}
+                </span>
                 <Badge ok={c.attended} />
                 {c.scheduled && <Badge ok={true} />}
                 <span className="text-[10px] uppercase tracking-wider text-zinc-500 tabular-nums">
@@ -537,6 +373,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
     </div>
   );
 }
+
 
 function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" | "green" | "orange"; onClick: () => void; children: React.ReactNode }) {
   const map = {
