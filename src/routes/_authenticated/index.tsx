@@ -1515,6 +1515,17 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
     setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, brokerId } : c) }));
   }
 
+  function updateContactPhone(id: string, rawPhone: string) {
+    const phone = normalizePhone(rawPhone.trim());
+    setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, phone } : c) }));
+  }
+
+  function updateContactName(id: string, name: string) {
+    const trimmed = name.trim().slice(0, 120);
+    if (!trimmed) return;
+    setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, name: trimmed } : c) }));
+  }
+
   function saveMeta() {
     const n = Math.max(1, Math.min(999, Number(metaInput) || 50));
     setState((s) => ({ ...s, metaDaily: n }));
@@ -1658,8 +1669,21 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
                   <Td>
                     <StatusDot status={c.status} />
                   </Td>
-                  <Td className="font-semibold text-zinc-100">{c.name}</Td>
-                  <Td className="tabular-nums text-zinc-300">{c.phone || "—"}</Td>
+                  <Td className="font-semibold text-zinc-100">
+                    <EditableCell
+                      value={c.name}
+                      onSave={(v) => updateContactName(c.id, v)}
+                      placeholder="Nome"
+                    />
+                  </Td>
+                  <Td className="tabular-nums text-zinc-300">
+                    <EditableCell
+                      value={c.phone || ""}
+                      onSave={(v) => updateContactPhone(c.id, v)}
+                      placeholder="Telefone"
+                      inputMode="tel"
+                    />
+                  </Td>
                   <Td>
                     {isAdmin ? (
                       <select
@@ -1692,6 +1716,35 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
         </div>
       </div>
     </div>
+  );
+}
+
+function EditableCell({
+  value,
+  onSave,
+  placeholder,
+  inputMode,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  inputMode?: "tel" | "text";
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { if (draft !== value) onSave(draft); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Escape") { setDraft(value); (e.target as HTMLInputElement).blur(); }
+      }}
+      inputMode={inputMode}
+      placeholder={placeholder}
+      className="w-full bg-transparent px-1 py-0.5 outline-none rounded hover:bg-zinc-800/40 focus:bg-zinc-800/60 focus:ring-1 focus:ring-[#c9a24c]/50"
+    />
   );
 }
 
