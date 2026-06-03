@@ -1406,6 +1406,11 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
               className="h-10 rounded-md border border-zinc-700 px-4 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
               style={fontDisplay}
             >Limpar finalizados</button>
+            <button
+              onClick={clearAll}
+              className="h-10 rounded-md border border-red-800/60 px-4 text-xs font-semibold uppercase tracking-wider text-red-400 hover:bg-red-900/30"
+              style={fontDisplay}
+            >Limpar todos</button>
           </div>
         </div>
 
