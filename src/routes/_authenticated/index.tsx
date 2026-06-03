@@ -652,6 +652,18 @@ function DashboardTab({ state }: { state: State }) {
 
   const max = Math.max(1, ...ranking.map((r) => r.total));
 
+  // Distribuição por hora (0-23) por corretor — identifica horário de pico
+  const hourly = state.brokers.map((b) => {
+    const hours = new Array(24).fill(0) as number[];
+    for (const c of calls) {
+      if (c.brokerId !== b.id) continue;
+      const h = new Date(c.createdAt).getHours();
+      hours[h] += 1;
+    }
+    return { broker: b, hours, total: hours.reduce((s, v) => s + v, 0) };
+  }).filter((r) => r.total > 0);
+  const maxHour = Math.max(1, ...hourly.flatMap((r) => r.hours));
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-4 flex flex-wrap items-end gap-3">
