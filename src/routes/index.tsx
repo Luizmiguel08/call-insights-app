@@ -689,7 +689,7 @@ function DashboardTab({ state }: { state: State }) {
                     >{i + 1}</span>
                   </Td>
                   <Td className="font-semibold text-zinc-100">{r.broker.name}</Td>
-                  <Td className="text-right tabular-nums text-2xl font-bold" style={fontDisplay}>{r.total}</Td>
+                  <Td className="text-right text-3xl tracking-tight" style={fontNumeric}>{r.total}</Td>
                   <Td>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
                       <div className="h-full rounded-full bg-[#c9a24c] transition-all" style={{ width: `${(r.total / max) * 100}%` }} />
@@ -773,8 +773,8 @@ function CorretoresTab({ state, setState }: { state: State; setState: React.Disp
               return (
                 <tr key={b.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
                   <Td className="font-semibold text-zinc-100">{b.name}</Td>
-                  <Td className="text-right tabular-nums text-xl font-bold" style={fontDisplay}>{own.length}</Td>
-                  <Td className="text-right tabular-nums text-xl font-bold text-yellow-400" style={fontDisplay}>{sch}</Td>
+                  <Td className="text-right text-2xl tracking-tight" style={fontNumeric}>{own.length}</Td>
+                  <Td className="text-right text-2xl tracking-tight text-yellow-400" style={fontNumeric}>{sch}</Td>
                   <Td>
                     <button onClick={() => remove(b.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400">
                       <Trash2 className="h-4 w-4" />
