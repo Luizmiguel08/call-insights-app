@@ -597,6 +597,6 @@ function Badge({ ok }: { ok: boolean }) {
 function Th({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
   return <th className={`px-3 py-2.5 text-left font-semibold ${className}`}>{children}</th>;
 }
-function Td({ children, className = "", title }: { children?: React.ReactNode; className?: string; title?: string }) {
-  return <td className={`px-3 py-2.5 ${className}`} title={title}>{children}</td>;
+function Td({ children, className = "", title, style }: { children?: React.ReactNode; className?: string; title?: string; style?: React.CSSProperties }) {
+  return <td className={`px-3 py-2.5 ${className}`} title={title} style={style}>{children}</td>;
 }
