@@ -85,15 +85,22 @@ function telHref(phone: string) {
   return p ? `tel:${p}` : "#";
 }
 
-function waHref(phone: string, clientName?: string) {
+const DEFAULT_WA_TEMPLATE =
+  "Olá, {nome}! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.";
+
+function renderWaMessage(template: string, clientName?: string) {
+  const firstName = (clientName ?? "").trim().split(/\s+/)[0] || "";
+  return (template || DEFAULT_WA_TEMPLATE)
+    .replaceAll("{nome}", firstName)
+    .replaceAll("{name}", firstName);
+}
+
+function waHrefFromMessage(phone: string, message: string) {
   const p = normalizePhone(phone);
   if (!p) return "#";
   const digits = p.replace(/\D/g, "");
-  const firstName = (clientName ?? "").trim().split(/\s+/)[0] || "";
-  const msg = firstName
-    ? `Olá, ${firstName}! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.`
-    : `Olá! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.`;
-  return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  const safe = (message || "").slice(0, 1000);
+  return `https://wa.me/${digits}?text=${encodeURIComponent(safe)}`;
 }
 
 type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores";
@@ -1086,8 +1093,23 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
+  const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
+  const [waEditing, setWaEditing] = useState(false);
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+
+  // Carrega template salvo por corretor (localStorage)
+  useEffect(() => {
+    if (!brokerId) return;
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template:${brokerId}`) : null;
+    setWaMsg(saved && saved.trim() ? saved : DEFAULT_WA_TEMPLATE);
+  }, [brokerId]);
+
+  function saveWaTemplate() {
+    if (!brokerId) return;
+    window.localStorage.setItem(`wa-template:${brokerId}`, waMsg);
+    toast.success("Mensagem padrão salva pra este corretor");
+  }
 
   const date = todayISO();
 
@@ -1246,16 +1268,67 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
             </div>
           )}
 
-          {/* WhatsApp — abre conversa pronta com o cliente */}
-          <a
-            href={waHref(current.phone, current.name)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-emerald-600/60 bg-emerald-600/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-300 transition hover:bg-emerald-600/20"
-            style={fontDisplay}
-          >
-            <MessageCircle className="h-4 w-4" /> WhatsApp
-          </a>
+          {/* WhatsApp — mensagem editável por corretor / por ligação */}
+          <div className="mt-3 space-y-2">
+            <div className="flex gap-2">
+              <a
+                href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600/60 bg-emerald-600/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-300 transition hover:bg-emerald-600/20"
+                style={fontDisplay}
+              >
+                <MessageCircle className="h-4 w-4" /> WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => setWaEditing((v) => !v)}
+                className="rounded-md border border-zinc-700 px-3 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                style={fontDisplay}
+                title="Editar mensagem"
+              >
+                {waEditing ? "Fechar" : "Editar msg"}
+              </button>
+            </div>
+            {waEditing && (
+              <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                    Mensagem do WhatsApp · use <span className="text-[#c9a24c]">{"{nome}"}</span> pro primeiro nome
+                  </label>
+                  <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                </div>
+                <textarea
+                  value={waMsg}
+                  onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
+                  rows={3}
+                  className={inputCls + " resize-none py-2"}
+                  placeholder={DEFAULT_WA_TEMPLATE}
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={saveWaTemplate}
+                    className="rounded-md bg-[#c9a24c] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
+                    style={fontDisplay}
+                  >
+                    Salvar como padrão
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWaMsg(DEFAULT_WA_TEMPLATE)}
+                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                    style={fontDisplay}
+                  >
+                    Restaurar padrão
+                  </button>
+                  <span className="ml-auto text-[10px] text-zinc-500">
+                    Pré-visualização: <span className="text-zinc-300">{renderWaMessage(waMsg, current.name)}</span>
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Tabulação */}
           <div className="mt-4">
