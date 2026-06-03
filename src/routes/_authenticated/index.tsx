@@ -1224,12 +1224,16 @@ function CallTimer({ startedAt }: { startedAt: number }) {
 
 /* ---------------- FILA (importação de contatos) ---------------- */
 
-function FilaTab({ state, setState, isAdmin }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean }) {
-  void isAdmin;
+function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
   const [bulk, setBulk] = useState("");
-  const [assignTo, setAssignTo] = useState<string>(""); // "" = geral
+  const [assignTo, setAssignTo] = useState<string>(() => (isAdmin ? "" : (me?.brokerId ?? "")));
   const [filterBroker, setFilterBroker] = useState<string>("all");
   const [metaInput, setMetaInput] = useState(String(state.metaDaily || 50));
+
+  // Corretor: sempre força auto-atribuição pra ele mesmo
+  useEffect(() => {
+    if (!isAdmin && me?.brokerId && assignTo !== me.brokerId) setAssignTo(me.brokerId);
+  }, [isAdmin, me?.brokerId, assignTo]);
 
   function parseLines(text: string): { name: string; phone: string }[] {
     const out: { name: string; phone: string }[] = [];
