@@ -64,7 +64,7 @@ type Tab = "discador" | "fila" | "rapido" | "registrar" | "historico" | "dashboa
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
-  const { state, setState, hydrated } = useCloudState();
+  const { state, setState, hydrated, me } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
   async function signOut() {
@@ -72,15 +72,36 @@ function LigaCtrlApp() {
     navigate({ to: "/auth", replace: true });
   }
 
-  const tabs: { id: Tab; label: string; icon: typeof Phone }[] = [
+  // Aguardando aprovação do admin
+  if (hydrated && me && !me.isAdmin && !me.approved) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#0f1117] text-zinc-100 px-4" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+        <div className="w-full max-w-md text-center">
+          <img src={fortalLogo.url} alt="Fortal" width={96} height={96} className="mx-auto h-24 w-24 object-contain mb-6" />
+          <div className="text-2xl text-[#c9a24c] tracking-[0.28em] font-medium mb-2" style={fontDisplay}>FORTAL</div>
+          <div className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 mt-6">
+            <h1 className="text-xl font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>Aguardando aprovação</h1>
+            <p className="mt-3 text-sm text-zinc-400">Sua conta <strong className="text-zinc-200">{me.email}</strong> foi criada e está aguardando o Miguel aprovar e definir seu nome de corretor.</p>
+            <button onClick={signOut} className="mt-6 w-full h-11 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800" style={fontDisplay}>
+              <LogOut className="inline h-4 w-4 mr-2" /> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isAdmin = me?.isAdmin ?? false;
+  const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "fila", label: "Fila", icon: ListPlus },
     { id: "rapido", label: "Rápido", icon: Zap },
     { id: "registrar", label: "Registrar", icon: Phone },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { id: "corretores", label: "Corretores", icon: Users },
+    { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
   ];
+  const tabs = allTabs;
 
   return (
     <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
