@@ -1434,16 +1434,20 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
                   <Td className="font-semibold text-zinc-100">{c.name}</Td>
                   <Td className="tabular-nums text-zinc-300">{c.phone || "—"}</Td>
                   <Td>
-                    <select
-                      value={c.brokerId ?? ""}
-                      onChange={(e) => reassign(c.id, e.target.value || null)}
-                      className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#c9a24c]"
-                    >
-                      <option value="" className="bg-[#171a23]">Geral</option>
-                      {state.brokers.map((b) => (
-                        <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
-                      ))}
-                    </select>
+                    {isAdmin ? (
+                      <select
+                        value={c.brokerId ?? ""}
+                        onChange={(e) => reassign(c.id, e.target.value || null)}
+                        className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#c9a24c]"
+                      >
+                        <option value="" className="bg-[#171a23]">Geral</option>
+                        {state.brokers.map((b) => (
+                          <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-zinc-400">{state.brokers.find(b => b.id === c.brokerId)?.name ?? "—"}</span>
+                    )}
                   </Td>
                   <Td className="text-right tabular-nums text-zinc-400">{c.attempts}</Td>
                   <Td>
