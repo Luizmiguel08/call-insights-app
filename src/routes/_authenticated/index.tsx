@@ -977,7 +977,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             </a>
           ) : (
             <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>Em ligação</div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>
+                Em ligação{remoteIsOtherDevice ? ` — via ${remoteCall!.device_label}` : ""}
+              </div>
               <CallTimer startedAt={calledAt} />
             </div>
           )}
