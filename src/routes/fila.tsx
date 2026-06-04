@@ -269,7 +269,7 @@ function QueuePage() {
                 <Upload className="h-4 w-4" />
                 Enviar CSV
                 <input
-                  type="file" accept=".csv,.txt" className="hidden"
+                  type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods" className="hidden"
                   onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
                 />
               </label>
