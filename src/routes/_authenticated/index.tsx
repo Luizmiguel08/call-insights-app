@@ -813,24 +813,27 @@ function DashboardTab({ state }: { state: State }) {
 
   const calls = useMemo(() => state.calls.filter((c) => (date ? c.date === date : true)), [state.calls, date]);
 
+  const totalUnique = uniqueContactCount(calls);
+  const attendedUnique = uniqueContactCountWhere(calls, (c) => c.attended);
   const k = {
-    total: calls.length,
-    attended: calls.filter((c) => c.attended).length,
-    notAttended: calls.filter((c) => !c.attended).length,
-    scheduled: calls.filter((c) => c.scheduled).length,
+    total: totalUnique,
+    attended: attendedUnique,
+    notAttended: Math.max(0, totalUnique - attendedUnique),
+    scheduled: uniqueContactCountWhere(calls, (c) => c.scheduled),
   };
   const rate = k.total ? Math.round((k.scheduled / k.total) * 100) : 0;
 
   const ranking = state.brokers.map((b) => {
     const own = calls.filter((c) => c.brokerId === b.id);
-    const att = own.filter((c) => c.attended).length;
-    const sch = own.filter((c) => c.scheduled).length;
+    const tot = uniqueContactCount(own);
+    const att = uniqueContactCountWhere(own, (c) => c.attended);
+    const sch = uniqueContactCountWhere(own, (c) => c.scheduled);
     return {
       broker: b,
-      total: own.length,
+      total: tot,
       attended: att,
       scheduled: sch,
-      rate: own.length ? Math.round((sch / own.length) * 100) : 0,
+      rate: tot ? Math.round((sch / tot) * 100) : 0,
     };
   }).sort((a, b) => b.total - a.total);
 
