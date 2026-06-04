@@ -563,7 +563,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return { id: `${friendly}#${sid}`, label: friendly };
   }, []);
   const deviceIdRef = useRef(deviceInfo.id);
-  const remoteWasSetRef = useRef(false);
+  const activeCallSourceRef = useRef<"local" | "remote" | null>(null);
   const [remoteCall, setRemoteCall] = useState<{
     contact_id: string | null; contact_name: string; phone: string | null;
     started_at: string; device_label: string; device_id: string;
@@ -608,7 +608,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
         })
       .subscribe();
     // Fallback: re-sincroniza periodicamente caso algum evento se perca
-    const poll = window.setInterval(() => { void load(); }, 5000);
+    const poll = window.setInterval(() => { void load(); }, 1500);
     return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
   }, [brokerId]);
 
@@ -748,17 +748,16 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   // Quando outro aparelho encerra → sai aqui também.
   useEffect(() => {
     if (!remoteCall) {
-      // só limpa o calledAt local se ele veio de um remoto (sem sobrescrever ligação local em andamento)
-      // Heurística: se não há remoto e há calledAt local, mantemos — o usuário pode estar no fluxo local.
-      // Mas se acabou de existir e sumiu, o disparo do delete já chegou; limpa pra refletir encerramento.
-      setCalledAt((cur) => (cur && remoteWasSetRef.current ? null : cur));
-      remoteWasSetRef.current = false;
+      if (activeCallSourceRef.current === "remote") {
+        setCalledAt(null);
+      }
+      activeCallSourceRef.current = null;
       return;
     }
-    remoteWasSetRef.current = true;
     if (remoteCall.device_id === deviceIdRef.current) return; // foi este aparelho que disparou
+    activeCallSourceRef.current = "remote";
     const remoteStartMs = new Date(remoteCall.started_at).getTime();
-    setCalledAt((cur) => (cur ? cur : remoteStartMs));
+    setCalledAt(remoteStartMs);
   }, [remoteCall]);
 
 
@@ -839,8 +838,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     }
 
     setNote("");
+    activeCallSourceRef.current = null;
     setCalledAt(null);
-    void clearActiveCall();
+    await clearActiveCall();
     await refetchCloud();
     window.setTimeout(() => {
       lastOutcomeRef.current = "";
@@ -864,6 +864,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       ),
     }));
     setNote("");
+    activeCallSourceRef.current = null;
     setCalledAt(null);
     void clearActiveCall();
     toast("Contato pulado");
@@ -879,6 +880,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       contacts: s.contacts.map((c) => c.id === current.id ? { ...c, createdAt: Date.now(), attempts: c.attempts + 1 } : c),
     }));
     setNote("");
+    activeCallSourceRef.current = null;
     setCalledAt(null);
     void clearActiveCall();
     window.setTimeout(() => setSubmittingOutcome(false), 800);
@@ -887,6 +889,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   function startCall() {
     if (!current || submittingOutcome) return;
+    activeCallSourceRef.current = "local";
     setCalledAt(Date.now());
     void upsertActiveCall({ id: current.id, name: current.name, phone: current.phone });
   }
