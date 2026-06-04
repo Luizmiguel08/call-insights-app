@@ -22,6 +22,7 @@ export type Contact = {
   status: "pendente" | "feito" | "pulado";
   createdAt: number;
   attempts: number;
+  listName: string;
 };
 export type Me = {
   userId: string;
@@ -159,7 +160,7 @@ async function loadAll(): Promise<State> {
     createdAt: new Date(c.created_at).getTime(),
     contactId: c.contact_id ?? undefined,
   }));
-  const contacts: Contact[] = (contactsR.data ?? []).map((c) => ({
+  const contacts: Contact[] = (contactsR.data ?? []).map((c: any) => ({
     id: c.id,
     name: c.name,
     phone: c.phone,
@@ -167,6 +168,7 @@ async function loadAll(): Promise<State> {
     status: statusDbToLocal[c.status] ?? "pendente",
     createdAt: new Date(c.created_at).getTime(),
     attempts: c.call_attempts,
+    listName: c.list_name ?? "Geral",
   }));
   return { brokers, calls, contacts, metaDaily: settingsR.data?.meta_daily ?? 50 };
 }
@@ -222,6 +224,7 @@ async function syncTo(prev: State, next: State, me: Me) {
         broker_id: me.isAdmin ? c.brokerId : me.brokerId,
         status: statusLocalToDb[c.status],
         call_attempts: c.attempts,
+        list_name: c.listName || "Geral",
       })),
     );
   }
@@ -235,6 +238,7 @@ async function syncTo(prev: State, next: State, me: Me) {
         status: statusLocalToDb[c.status],
         call_attempts: c.attempts,
         created_at: new Date(c.createdAt).toISOString(),
+        list_name: c.listName || "Geral",
       })
       .eq("id", c.id);
   }

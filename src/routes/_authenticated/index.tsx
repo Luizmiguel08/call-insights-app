@@ -37,6 +37,7 @@ type Contact = {
   status: "pendente" | "feito" | "pulado";
   createdAt: number;
   attempts: number;
+  listName: string;
 };
 
 type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
@@ -201,7 +202,7 @@ function LigaCtrlApp() {
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} />}
-        {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
+        {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
@@ -1626,10 +1627,12 @@ function CallTimer({ startedAt }: { startedAt: number }) {
 
 /* ---------------- FILA (importação de contatos) ---------------- */
 
-function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
+function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null; refetchCloud: () => Promise<void> }) {
   const [bulk, setBulk] = useState("");
   const [assignTo, setAssignTo] = useState<string>(() => (isAdmin ? "" : (me?.brokerId ?? "")));
   const [filterBroker, setFilterBroker] = useState<string>("all");
+  const [filterList, setFilterList] = useState<string>("all");
+  const [listName, setListName] = useState<string>("Geral");
   const [metaInput, setMetaInput] = useState(String(state.metaDaily || 50));
 
   // Corretor: sempre força auto-atribuição pra ele mesmo
@@ -1637,12 +1640,18 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
     if (!isAdmin && me?.brokerId && assignTo !== me.brokerId) setAssignTo(me.brokerId);
   }, [isAdmin, me?.brokerId, assignTo]);
 
+  // Listas existentes (das contas visíveis)
+  const availableLists = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of state.contacts) set.add(c.listName || "Geral");
+    return Array.from(set).sort();
+  }, [state.contacts]);
+
   function parseLines(text: string): { name: string; phone: string }[] {
     const out: { name: string; phone: string }[] = [];
     for (const raw of text.split(/\r?\n/)) {
       const line = raw.trim();
       if (!line) continue;
-      // Suporta: "Nome, Telefone" / "Nome; Telefone" / "Nome\tTelefone" / "Nome 11999998888"
       let name = "", phone = "";
       const sep = line.match(/[;,\t|]/);
       if (sep) {
@@ -1650,7 +1659,6 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
         name = parts[0] || "";
         phone = parts.slice(1).find((p) => /\d/.test(p)) || "";
       } else {
-        // Tenta extrair telefone do final
         const m = line.match(/^(.*?)\s+([+()\d\s-]{8,})$/);
         if (m) { name = m[1].trim(); phone = m[2].trim(); }
         else { name = line; phone = ""; }
@@ -1665,6 +1673,7 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
   function importContacts() {
     if (preview.length === 0) { toast.error("Cole pelo menos um contato"); return; }
     const brokerId = assignTo || null;
+    const cleanList = (listName.trim() || "Geral").slice(0, 80);
     const newContacts: Contact[] = preview.map((p, i) => ({
       id: uid(),
       name: p.name,
@@ -1673,9 +1682,10 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
       status: "pendente",
       createdAt: Date.now() + i,
       attempts: 0,
+      listName: cleanList,
     }));
     setState((s) => ({ ...s, contacts: [...s.contacts, ...newContacts] }));
-    toast.success(`${newContacts.length} contato(s) importado(s)`, {
+    toast.success(`${newContacts.length} contato(s) importado(s) na lista "${cleanList}"`, {
       description: brokerId ? `Atribuído a ${state.brokers.find(b => b.id === brokerId)?.name}` : "Fila geral",
     });
     setBulk("");
@@ -1685,37 +1695,48 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
     setState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.id !== id) }));
   }
 
-  function clearDone() {
-    // Corretor só limpa seus próprios contatos; admin respeita o filtro selecionado
-    const targetBrokerId = !isAdmin ? (me?.brokerId ?? null) : (filterBroker === "all" ? null : filterBroker === "geral" ? null : filterBroker);
-    const label = !isAdmin ? "seus contatos" : (filterBroker === "all" ? "todos os contatos" : filterBroker === "geral" ? "da fila geral" : `de ${state.brokers.find(b => b.id === filterBroker)?.name ?? ""}`);
-    if (!confirm(`Remover todos os contatos já finalizados ${label}?`)) return;
-    setState((s) => ({
-      ...s,
-      contacts: s.contacts.filter((c) => {
-        if (c.status !== "pendente") {
-          // É finalizado — verifica se pertence ao escopo de exclusão
-          if (targetBrokerId === null) return false; // admin com "todos" → remove todos finalizados
-          return c.brokerId !== targetBrokerId; // remove apenas do broker alvo
-        }
-        return true; // mantém pendentes
-      }),
-    }));
-    toast.success("Lista limpa");
+  async function clearScope(onlyDone: boolean) {
+    const targetBrokerId =
+      !isAdmin ? (me?.brokerId ?? null)
+      : filterBroker === "all" ? null
+      : filterBroker === "geral" ? null
+      : filterBroker;
+    const listFilter = filterList === "all" ? null : filterList;
+    const includeGeneral = isAdmin && filterBroker === "geral";
+
+    const scopeLabel = !isAdmin
+      ? "da sua fila"
+      : filterBroker === "all" ? "de todos"
+      : filterBroker === "geral" ? "da fila geral"
+      : `de ${state.brokers.find(b => b.id === filterBroker)?.name ?? ""}`;
+    const listLabel = listFilter ? ` (lista "${listFilter}")` : "";
+    const kindLabel = onlyDone ? "finalizados" : "TODOS os contatos";
+
+    if (!confirm(`Apagar ${kindLabel} ${scopeLabel}${listLabel}? Essa ação não pode ser desfeita.`)) return;
+
+    try {
+      const { data, error } = await supabase.rpc("admin_clear_contacts", {
+        _broker_id: targetBrokerId ?? undefined,
+        _list_name: listFilter ?? undefined,
+        _only_done: onlyDone,
+        _include_general: includeGeneral,
+      });
+      if (error) throw error;
+      const deleted = (data as any)?.deleted ?? 0;
+      if (deleted === 0) {
+        toast.error("Nenhum contato no escopo selecionado");
+      } else {
+        toast.success(`${deleted} contato(s) removido(s)`);
+      }
+      await refetchCloud();
+    } catch (e: any) {
+      console.error("Falha ao limpar", e);
+      toast.error(e?.message || "Falha ao limpar contatos");
+    }
   }
 
-  function clearAll() {
-    const targetBrokerId = !isAdmin ? (me?.brokerId ?? null) : (filterBroker === "all" ? null : filterBroker === "geral" ? null : filterBroker);
-    const label = !isAdmin ? "da sua fila" : (filterBroker === "all" ? "todos" : filterBroker === "geral" ? "da fila geral" : `de ${state.brokers.find(b => b.id === filterBroker)?.name ?? ""}`);
-    const toRemove = state.contacts.filter((c) => targetBrokerId === null ? true : c.brokerId === targetBrokerId);
-    if (toRemove.length === 0) { toast.error("Nenhum contato para remover no escopo selecionado"); return; }
-    if (!confirm(`Apagar ${toRemove.length} contato(s) ${label}? Essa ação não pode ser desfeita.`)) return;
-    setState((s) => ({
-      ...s,
-      contacts: s.contacts.filter((c) => targetBrokerId === null ? false : c.brokerId !== targetBrokerId),
-    }));
-    toast.success(`${toRemove.length} contato(s) removido(s)`);
-  }
+  function clearDone() { void clearScope(true); }
+  function clearAll() { void clearScope(false); }
 
   function reassign(id: string, brokerId: string | null) {
     setState((s) => ({ ...s, contacts: s.contacts.map((c) => c.id === id ? { ...c, brokerId } : c) }));
@@ -1740,14 +1761,15 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
   }
 
   const visible = state.contacts.filter((c) => {
-    if (filterBroker === "all") return true;
-    if (filterBroker === "geral") return c.brokerId === null;
-    return c.brokerId === filterBroker;
+    if (filterBroker === "geral" && c.brokerId !== null) return false;
+    if (filterBroker !== "all" && filterBroker !== "geral" && c.brokerId !== filterBroker) return false;
+    if (filterList !== "all" && (c.listName || "Geral") !== filterList) return false;
+    return true;
   });
 
-  const pending = state.contacts.filter((c) => c.status === "pendente").length;
-  const done = state.contacts.filter((c) => c.status === "feito").length;
-  const skipped = state.contacts.filter((c) => c.status === "pulado").length;
+  const pending = visible.filter((c) => c.status === "pendente").length;
+  const done = visible.filter((c) => c.status === "feito").length;
+  const skipped = visible.filter((c) => c.status === "pulado").length;
 
   return (
     <div className="space-y-5">
@@ -1795,6 +1817,19 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
             className={inputCls + " min-h-[220px] resize-y py-2 font-mono text-xs"}
           />
           <div className="space-y-3">
+            <Field label="Nome da lista">
+              <input
+                value={listName}
+                onChange={(e) => setListName(e.target.value)}
+                list="lista-existentes"
+                placeholder='Ex: "Lançamento X", "Leads Maio"'
+                maxLength={80}
+                className={inputCls}
+              />
+              <datalist id="lista-existentes">
+                {availableLists.map((l) => (<option key={l} value={l} />))}
+              </datalist>
+            </Field>
             {isAdmin ? (
               <Field label="Atribuir a">
                 <select
@@ -1836,12 +1871,20 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
       {/* Lista de contatos */}
       <div className="rounded-lg border border-zinc-800 bg-[#171a23]">
         <div className="flex flex-wrap items-center gap-3 p-4 border-b border-zinc-800">
-          <Field label="Filtrar por corretor" className="min-w-[220px]">
+          <Field label="Filtrar por corretor" className="min-w-[200px]">
             <select value={filterBroker} onChange={(e) => setFilterBroker(e.target.value)} className={inputCls + " appearance-none"}>
               <option value="all" className="bg-[#171a23]">Todos</option>
               <option value="geral" className="bg-[#171a23]">Fila geral</option>
               {state.brokers.map((b) => (
                 <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Filtrar por lista" className="min-w-[200px]">
+            <select value={filterList} onChange={(e) => setFilterList(e.target.value)} className={inputCls + " appearance-none"}>
+              <option value="all" className="bg-[#171a23]">Todas</option>
+              {availableLists.map((l) => (
+                <option key={l} value={l} className="bg-[#171a23]">{l}</option>
               ))}
             </select>
           </Field>
@@ -1863,12 +1906,12 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
           <table className="w-full text-sm">
             <thead className="bg-[#0f1117] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
               <tr>
-                <Th>Status</Th><Th>Nome</Th><Th>Telefone</Th><Th>Atribuído</Th><Th className="text-right">Tentativas</Th><Th className="w-10"></Th>
+                <Th>Status</Th><Th>Nome</Th><Th>Telefone</Th><Th>Lista</Th><Th>Atribuído</Th><Th className="text-right">Tentativas</Th><Th className="w-10"></Th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={6} className="py-10 text-center text-zinc-500">Nenhum contato.</td></tr>
+                <tr><td colSpan={7} className="py-10 text-center text-zinc-500">Nenhum contato.</td></tr>
               )}
               {visible.slice(0, 200).map((c) => (
                 <tr key={c.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
@@ -1890,6 +1933,7 @@ function FilaTab({ state, setState, isAdmin, me }: { state: State; setState: Rea
                       inputMode="tel"
                     />
                   </Td>
+                  <Td className="text-xs text-zinc-400">{c.listName || "Geral"}</Td>
                   <Td>
                     {isAdmin ? (
                       <select
