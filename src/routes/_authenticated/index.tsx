@@ -1186,6 +1186,7 @@ function Td({ children, className = "", title, style }: { children?: React.React
 
 function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void> }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
+  const [selectedList, setSelectedList] = useState<string>("all");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
