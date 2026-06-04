@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, Plus, Trash2, Upload, User2, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
