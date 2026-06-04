@@ -205,6 +205,7 @@ async function syncTo(prev: State, next: State, me: Me) {
         broker_id: me.isAdmin ? c.brokerId : me.brokerId,
         status: statusLocalToDb[c.status],
         call_attempts: c.attempts,
+        created_at: new Date(c.createdAt).toISOString(),
       })
       .eq("id", c.id);
   }
