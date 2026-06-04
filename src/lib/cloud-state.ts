@@ -332,7 +332,7 @@ export function useCloudState() {
     refetchTimerRef.current = setTimeout(() => {
       refetchTimerRef.current = null;
       void refetch();
-    }, 250);
+    }, 80);
   }, [refetch]);
 
   useEffect(() => {
