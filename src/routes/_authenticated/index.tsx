@@ -1014,7 +1014,7 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
           <div className="mt-1 text-sm text-zinc-500">{me?.email}</div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Kpi label="Total ligações" value={myCalls.length} color="#c9a24c" />
+          <Kpi label="Total ligações" value={uniqueContactCount(myCalls)} color="#c9a24c" />
           <Kpi label="Agendamentos" value={sch} color="#eab308" />
           <Kpi label="Meta diária" value={state.metaDaily} color="#22c55e" />
         </div>
