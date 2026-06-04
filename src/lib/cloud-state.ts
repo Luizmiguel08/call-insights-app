@@ -224,6 +224,7 @@ async function syncTo(prev: State, next: State, me: Me) {
         broker_id: me.isAdmin ? c.brokerId : me.brokerId,
         status: statusLocalToDb[c.status],
         call_attempts: c.attempts,
+        list_name: c.listName || "Geral",
       })),
     );
   }
@@ -237,6 +238,7 @@ async function syncTo(prev: State, next: State, me: Me) {
         status: statusLocalToDb[c.status],
         call_attempts: c.attempts,
         created_at: new Date(c.createdAt).toISOString(),
+        list_name: c.listName || "Geral",
       })
       .eq("id", c.id);
   }
