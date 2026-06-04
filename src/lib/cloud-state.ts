@@ -425,9 +425,10 @@ export function useCloudState() {
     if (me.isAdmin) {
       const myBrokerId = me.brokerId;
       if (myBrokerId && SCOPED_ADMIN_USER_IDS.has(me.userId)) {
+        const myBroker = state.brokers.find((b) => b.id === myBrokerId);
         return {
           ...state,
-          brokers: state.brokers.filter((b) => b.approved !== false),
+          brokers: myBroker ? [myBroker] : [],
           contacts: state.contacts.filter((c) => c.brokerId === myBrokerId),
           calls: state.calls.filter((c) => c.brokerId === myBrokerId),
         };
