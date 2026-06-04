@@ -1906,12 +1906,12 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
           <table className="w-full text-sm">
             <thead className="bg-[#0f1117] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
               <tr>
-                <Th>Status</Th><Th>Nome</Th><Th>Telefone</Th><Th>Atribuído</Th><Th className="text-right">Tentativas</Th><Th className="w-10"></Th>
+                <Th>Status</Th><Th>Nome</Th><Th>Telefone</Th><Th>Lista</Th><Th>Atribuído</Th><Th className="text-right">Tentativas</Th><Th className="w-10"></Th>
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
-                <tr><td colSpan={6} className="py-10 text-center text-zinc-500">Nenhum contato.</td></tr>
+                <tr><td colSpan={7} className="py-10 text-center text-zinc-500">Nenhum contato.</td></tr>
               )}
               {visible.slice(0, 200).map((c) => (
                 <tr key={c.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
