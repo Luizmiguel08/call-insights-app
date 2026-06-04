@@ -183,6 +183,14 @@ function diff<T extends { id: string }>(prev: T[], next: T[]) {
   return { added, removed, changed };
 }
 
+async function insertInChunks(table: "contacts_queue" | "calls", rows: Record<string, unknown>[], chunkSize = 300) {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await supabase.from(table).insert(chunk);
+    if (error) throw error;
+  }
+}
+
 async function syncTo(prev: State, next: State, me: Me) {
   // brokers — apenas admin pode mexer (RLS bloqueia os demais; ainda assim filtramos client-side)
   if (me.isAdmin) {
@@ -205,7 +213,8 @@ async function syncTo(prev: State, next: State, me: Me) {
   // contacts — corretor força broker_id = seu próprio
   const cd = diff(prev.contacts, next.contacts);
   if (cd.added.length) {
-    await supabase.from("contacts_queue").insert(
+    await insertInChunks(
+      "contacts_queue",
       cd.added.map((c) => ({
         id: c.id,
         name: c.name,
@@ -234,7 +243,8 @@ async function syncTo(prev: State, next: State, me: Me) {
   // calls
   const kd = diff(prev.calls, next.calls);
   if (kd.added.length) {
-    await supabase.from("calls").insert(
+    await insertInChunks(
+      "calls",
       kd.added.map((c) => ({
         id: c.id,
         broker_id: me.isAdmin ? c.brokerId : (me.brokerId ?? c.brokerId),
