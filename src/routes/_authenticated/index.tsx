@@ -1099,11 +1099,12 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
           <tbody>
             {approved.map((b) => {
               const own = fullState.calls.filter((c) => c.brokerId === b.id);
-              const sch = own.filter((c) => c.scheduled).length;
+              const tot = uniqueContactCount(own);
+              const sch = uniqueContactCountWhere(own, (c) => c.scheduled);
               return (
                 <tr key={b.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
                   <Td className="font-semibold text-zinc-100">{b.name}</Td>
-                  <Td className="text-right text-2xl tracking-tight" style={fontNumeric}>{own.length}</Td>
+                  <Td className="text-right text-2xl tracking-tight" style={fontNumeric}>{tot}</Td>
                   <Td className="text-right text-2xl tracking-tight text-yellow-400" style={fontNumeric}>{sch}</Td>
                   <Td>
                     <button onClick={() => remove(b.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400">
