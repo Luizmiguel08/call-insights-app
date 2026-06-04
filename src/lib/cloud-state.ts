@@ -183,10 +183,10 @@ function diff<T extends { id: string }>(prev: T[], next: T[]) {
   return { added, removed, changed };
 }
 
-async function insertInChunks(table: "contacts_queue" | "calls", rows: Record<string, unknown>[], chunkSize = 300) {
+async function insertInChunks(table: "contacts_queue" | "calls", rows: any[], chunkSize = 300) {
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    const { error } = await supabase.from(table).insert(chunk);
+    const { error } = await (supabase.from(table) as any).insert(chunk);
     if (error) throw error;
   }
 }
