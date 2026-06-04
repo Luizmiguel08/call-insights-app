@@ -814,6 +814,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
     setNote("");
     setCalledAt(null);
+    void clearActiveCall();
     await refetchCloud();
     window.setTimeout(() => {
       lastOutcomeRef.current = "";
@@ -838,6 +839,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     }));
     setNote("");
     setCalledAt(null);
+    void clearActiveCall();
     toast("Contato pulado");
   }
 
@@ -852,6 +854,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     }));
     setNote("");
     setCalledAt(null);
+    void clearActiveCall();
     window.setTimeout(() => setSubmittingOutcome(false), 800);
     toast("Movido pro fim da fila");
   }
