@@ -722,11 +722,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
 
   const prioritizedQueue = useMemo(() => {
-    if (!retryContactId) return myQueue;
-    const retryContact = myQueue.find((c) => c.id === retryContactId);
-    if (!retryContact) return myQueue;
-    return [retryContact, ...myQueue.filter((c) => c.id !== retryContactId)];
-  }, [myQueue, retryContactId]);
+    // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
+    const pinId = remoteCall?.contact_id || retryContactId;
+    if (!pinId) return myQueue;
+    const pinned = myQueue.find((c) => c.id === pinId);
+    if (!pinned) return myQueue;
+    return [pinned, ...myQueue.filter((c) => c.id !== pinId)];
+  }, [myQueue, retryContactId, remoteCall?.contact_id]);
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
@@ -735,6 +737,25 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     lastOutcomeRef.current = "";
     setSubmittingOutcome(false);
   }, [current?.id, current?.attempts]);
+
+  // Espelho do estado "em ligação" entre dispositivos do mesmo corretor.
+  // Quando outro aparelho liga → entra em modo "em ligação" aqui também.
+  // Quando outro aparelho encerra → sai aqui também.
+  useEffect(() => {
+    if (!remoteCall) {
+      // só limpa o calledAt local se ele veio de um remoto (sem sobrescrever ligação local em andamento)
+      // Heurística: se não há remoto e há calledAt local, mantemos — o usuário pode estar no fluxo local.
+      // Mas se acabou de existir e sumiu, o disparo do delete já chegou; limpa pra refletir encerramento.
+      setCalledAt((cur) => (cur && remoteWasSetRef.current ? null : cur));
+      remoteWasSetRef.current = false;
+      return;
+    }
+    remoteWasSetRef.current = true;
+    if (remoteCall.device_id === deviceIdRef.current) return; // foi este aparelho que disparou
+    const remoteStartMs = new Date(remoteCall.started_at).getTime();
+    setCalledAt((cur) => (cur ? cur : remoteStartMs));
+  }, [remoteCall]);
+
 
   const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const totalUnique = uniqueContactCount(todayCalls);
