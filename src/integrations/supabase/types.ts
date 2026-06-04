@@ -277,10 +277,48 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      broker_daily_counts: {
+        Args: { _broker: string; _date?: string }
+        Returns: Json
+      }
       current_broker_id: { Args: never; Returns: string }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _uid: string }
         Returns: boolean
+      }
+      next_contact_for_broker: {
+        Args: { _broker: string }
+        Returns: {
+          broker_id: string | null
+          call_attempts: number
+          created_at: string
+          created_by: string | null
+          id: string
+          last_called_at: string | null
+          name: string
+          notes: string | null
+          phone: string
+          priority: number
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "contacts_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      record_call_outcome: {
+        Args: {
+          _attended: boolean
+          _contact_id: string
+          _duration_seconds?: number
+          _ended_at?: string
+          _notes?: string
+          _scheduled: boolean
+          _started_at?: string
+        }
+        Returns: Json
       }
       sync_contact_queue_from_calls: {
         Args: { _contact_id: string }
