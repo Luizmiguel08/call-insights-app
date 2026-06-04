@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
@@ -104,7 +104,35 @@ function waHrefFromMessage(phone: string, message: string) {
   return `https://wa.me/${digits}?text=${encodeURIComponent(safe)}`;
 }
 
-type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores";
+type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros";
+
+async function logDialerError(params: {
+  action: string;
+  error: unknown;
+  listName?: string | null;
+  contactId?: string | null;
+  contactName?: string | null;
+  details?: Record<string, unknown> | null;
+}) {
+  try {
+    const err: any = params.error;
+    const message =
+      (typeof err === "string" && err) ||
+      err?.message ||
+      err?.error_description ||
+      "Erro desconhecido";
+    await supabase.rpc("log_dialer_error", {
+      _action: params.action,
+      _error_message: String(message).slice(0, 1000),
+      _list_name: params.listName ?? undefined,
+      _contact_id: params.contactId ?? undefined,
+      _contact_name: params.contactName ?? undefined,
+      _details: (params.details ?? undefined) as any,
+    });
+  } catch (e) {
+    console.error("Falha ao registrar log de erro", e);
+  }
+}
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
@@ -143,8 +171,9 @@ function LigaCtrlApp() {
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
     { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
+    { id: "erros", label: "Erros", icon: AlertTriangle, admin: true },
   ];
-  const tabs = allTabs;
+  const tabs = allTabs.filter((t) => !t.admin || isAdmin);
 
   return (
     <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -207,6 +236,7 @@ function LigaCtrlApp() {
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
         {tab === "corretores" && <CorretoresTab state={state} fullState={fullState} setState={setState} isAdmin={isAdmin} me={me} />}
+        {tab === "erros" && isAdmin && <ErrosTab />}
       </main>
     </div>
   );
@@ -1323,6 +1353,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (!current) return;
     if (current.attempts >= 2 && !attended && !scheduled) {
       toast.error("Esse contato já atingiu o limite de 2 tentativas");
+      void logDialerError({
+        action: "attempt_limit_reached",
+        error: "Tentativa além do limite de 2",
+        listName: current.listName,
+        contactId: current.id,
+        contactName: current.name,
+        details: { attempts: current.attempts },
+      });
       return;
     }
     const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
@@ -1357,6 +1395,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     } catch (e: any) {
       console.error("Falha ao registrar ligação", e);
       toast.error(e?.message || "Falha ao registrar ligação");
+      void logDialerError({
+        action: "record_call_outcome",
+        error: e,
+        listName: current?.listName,
+        contactId,
+        contactName,
+        details: { attended, scheduled, attemptsBefore },
+      });
       lastOutcomeRef.current = "";
       setSubmittingOutcome(false);
       return;
@@ -1757,6 +1803,12 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     } catch (e: any) {
       console.error("Falha ao limpar", e);
       toast.error(e?.message || "Falha ao limpar contatos");
+      void logDialerError({
+        action: "admin_clear_contacts",
+        error: e,
+        listName: listFilter ?? undefined,
+        details: { onlyDone, includeGeneral, targetBrokerId },
+      });
     }
   }
 
@@ -2035,5 +2087,112 @@ function StatusDot({ status }: { status: Contact["status"] }) {
       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
       {s.label}
     </span>
+  );
+}
+
+/* ---------------- ERROS (admin) ---------------- */
+
+type DialerErrorRow = {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  broker_id: string | null;
+  broker_name: string | null;
+  list_name: string | null;
+  contact_id: string | null;
+  contact_name: string | null;
+  action: string | null;
+  error_message: string;
+  details: any;
+  created_at: string;
+};
+
+function ErrosTab() {
+  const [rows, setRows] = useState<DialerErrorRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    const { data, error } = await supabase.rpc("recent_dialer_errors", { _limit: 200 });
+    if (error) {
+      setError(error.message);
+      setRows([]);
+    } else {
+      setRows((data ?? []) as DialerErrorRow[]);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  function fmt(d: string) {
+    try {
+      return new Date(d).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    } catch { return d; }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>
+            Erros do Discador
+          </h2>
+          <p className="text-sm text-zinc-500 mt-1">Últimas 200 falhas registradas no sistema.</p>
+        </div>
+        <button
+          onClick={() => void load()}
+          className="inline-flex items-center gap-2 rounded-md border border-zinc-700 px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+          style={fontDisplay}
+        >
+          <RefreshCw className="h-4 w-4" /> Atualizar
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] overflow-hidden">
+        {loading ? (
+          <div className="p-6 text-center text-sm text-zinc-500">Carregando…</div>
+        ) : rows.length === 0 ? (
+          <div className="p-6 text-center text-sm text-zinc-500">Nenhum erro registrado. 🎉</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-900/60 text-[10px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
+                <tr>
+                  <th className="px-3 py-2 text-left">Quando</th>
+                  <th className="px-3 py-2 text-left">Usuário</th>
+                  <th className="px-3 py-2 text-left">Corretor</th>
+                  <th className="px-3 py-2 text-left">Lista</th>
+                  <th className="px-3 py-2 text-left">Contato</th>
+                  <th className="px-3 py-2 text-left">Ação</th>
+                  <th className="px-3 py-2 text-left">Erro</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t border-zinc-800/80 align-top">
+                    <td className="px-3 py-2 text-zinc-300 whitespace-nowrap" style={fontNumeric}>{fmt(r.created_at)}</td>
+                    <td className="px-3 py-2 text-zinc-300">{r.user_email || "—"}</td>
+                    <td className="px-3 py-2 text-zinc-300">{r.broker_name || "—"}</td>
+                    <td className="px-3 py-2 text-zinc-300">{r.list_name || "—"}</td>
+                    <td className="px-3 py-2 text-zinc-300">{r.contact_name || "—"}</td>
+                    <td className="px-3 py-2 text-zinc-400">{r.action || "—"}</td>
+                    <td className="px-3 py-2 text-red-300">{r.error_message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -254,6 +254,51 @@ export type Database = {
           },
         ]
       }
+      dialer_error_log: {
+        Row: {
+          action: string | null
+          broker_id: string | null
+          broker_name: string | null
+          contact_id: string | null
+          contact_name: string | null
+          created_at: string
+          details: Json | null
+          error_message: string
+          id: string
+          list_name: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          broker_id?: string | null
+          broker_name?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          details?: Json | null
+          error_message: string
+          id?: string
+          list_name?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          broker_id?: string | null
+          broker_name?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          details?: Json | null
+          error_message?: string
+          id?: string
+          list_name?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       queue_reconciliation_log: {
         Row: {
           auto_fixed: boolean
@@ -357,6 +402,17 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _uid: string }
         Returns: boolean
       }
+      log_dialer_error: {
+        Args: {
+          _action: string
+          _contact_id?: string
+          _contact_name?: string
+          _details?: Json
+          _error_message: string
+          _list_name?: string
+        }
+        Returns: string
+      }
       next_contact_for_broker: {
         Args: { _broker: string; _list_name?: string }
         Returns: {
@@ -378,6 +434,29 @@ export type Database = {
           to: "contacts_queue"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      recent_dialer_errors: {
+        Args: { _limit?: number }
+        Returns: {
+          action: string | null
+          broker_id: string | null
+          broker_name: string | null
+          contact_id: string | null
+          contact_name: string | null
+          created_at: string
+          details: Json | null
+          error_message: string
+          id: string
+          list_name: string | null
+          user_email: string | null
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "dialer_error_log"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       recent_queue_mismatches: {
