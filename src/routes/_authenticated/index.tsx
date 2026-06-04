@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/")({
   component: LigaCtrlApp,
 });
 
-type Broker = { id: string; name: string };
+type Broker = { id: string; name: string; userId?: string | null; approved?: boolean };
 type Call = {
   id: string;
   date: string; // YYYY-MM-DD
@@ -107,7 +107,7 @@ type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "correto
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
-  const { state, setState, hydrated, me } = useCloudState();
+  const { state, fullState, setState, hydrated, me } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
   async function signOut() {
@@ -205,7 +205,7 @@ function LigaCtrlApp() {
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
-        {tab === "corretores" && <CorretoresTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
+        {tab === "corretores" && <CorretoresTab state={state} fullState={fullState} setState={setState} isAdmin={isAdmin} me={me} />}
       </main>
     </div>
   );
@@ -950,8 +950,7 @@ function DashboardTab({ state }: { state: State }) {
 
 /* ---------------- CORRETORES / EQUIPE ---------------- */
 
-function CorretoresTab({ state, setState, isAdmin, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
-  const { fullState } = useCloudState();
+function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: State; fullState: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
 
   // Visão corretor: só vê o próprio cadastro
   if (!isAdmin) {
@@ -1257,11 +1256,15 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    if (current.attempts >= 2 && !attended && !scheduled) {
+      toast.error("Esse contato já atingiu o limite de 2 tentativas");
+      return;
+    }
     const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
     if (submittingOutcome || lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
     setSubmittingOutcome(true);
-    const newAttempts = current.attempts + 1;
+    const newAttempts = Math.min(current.attempts + 1, 2);
     // Só permite 2ª tentativa se NÃO atendeu e ainda não tentou 2x.
     const keepForRetry = !attended && !scheduled && newAttempts < 2;
     const call: Call = {
