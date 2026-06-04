@@ -284,19 +284,52 @@ export function useCloudState() {
   const lastSyncedRef = useRef<State>(defaultState());
   const meRef = useRef<Me | null>(null);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const syncSeqRef = useRef(0);
+  const muteUntilRef = useRef(0);
+  const dirtyRef = useRef(false);
+  const refetchInFlightRef = useRef(false);
+  const queuedRefetchRef = useRef(false);
+
+  const setState = useCallback<React.Dispatch<React.SetStateAction<State>>>((value) => {
+    dirtyRef.current = true;
+    setStateRaw(value);
+  }, []);
 
   const refetch = useCallback(async () => {
     // Ignora ecos do realtime logo após uma escrita local pra evitar "piscar"
     // o estado antigo sobre a atualização otimista.
     if (Date.now() < muteUntilRef.current) return;
     if (pendingTimer.current) return;
+    if (dirtyRef.current) return;
+    if (refetchInFlightRef.current) {
+      queuedRefetchRef.current = true;
+      return;
+    }
+    refetchInFlightRef.current = true;
     const s = await loadAll();
-    lastSyncedRef.current = s;
-    setStateRaw(s);
+    try {
+      lastSyncedRef.current = s;
+      dirtyRef.current = false;
+      setStateRaw(s);
+    } finally {
+      refetchInFlightRef.current = false;
+      if (queuedRefetchRef.current) {
+        queuedRefetchRef.current = false;
+        void refetch();
+      }
+    }
   }, []);
 
-  const muteUntilRef = useRef(0);
+  const scheduleRefetch = useCallback(() => {
+    if (Date.now() < muteUntilRef.current) return;
+    if (pendingTimer.current || dirtyRef.current) return;
+    if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
+    refetchTimerRef.current = setTimeout(() => {
+      refetchTimerRef.current = null;
+      void refetch();
+    }, 250);
+  }, [refetch]);
 
   useEffect(() => {
     let alive = true;
@@ -319,20 +352,31 @@ export function useCloudState() {
 
     const channel = supabase
       .channel(`ligactrl-sync-${crypto.randomUUID()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "brokers" }, () => void refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, () => void refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, () => void refetch())
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => void refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "brokers" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, scheduleRefetch)
       .subscribe();
+
+    const onFocus = () => scheduleRefetch();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") scheduleRefetch();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       alive = false;
+      if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
       void supabase.removeChannel(channel);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refetch]);
+  }, [scheduleRefetch]);
 
   useEffect(() => {
     if (!hydrated || !meRef.current) return;
+    if (!dirtyRef.current) return;
     // Silencia ecos do realtime IMEDIATAMENTE ao alterar estado local,
     // pra evitar que um evento de outro corretor disparado no meio do
     // debounce sobrescreva a atualização otimista do usuário atual.
@@ -343,17 +387,18 @@ export function useCloudState() {
       const next = state;
       const syncSeq = ++syncSeqRef.current;
       lastSyncedRef.current = next;
+      dirtyRef.current = false;
       pendingTimer.current = null;
       // Re-arma o mute pra cobrir a janela de gravação + eco vindo do servidor.
       muteUntilRef.current = Date.now() + 4000;
       void syncTo(prev, next, meRef.current!)
-        .then(async () => {
+        .then(() => {
           if (syncSeq !== syncSeqRef.current) return;
-          const fresh = await loadAll();
-          lastSyncedRef.current = fresh;
-          setStateRaw(fresh);
         })
-        .catch((e) => console.error("Falha ao salvar na nuvem", e));
+        .catch((e) => {
+          console.error("Falha ao salvar na nuvem", e);
+          void scheduleRefetch();
+        });
     }, 80);
     return () => {
       if (pendingTimer.current) clearTimeout(pendingTimer.current);
@@ -379,7 +424,7 @@ export function useCloudState() {
     };
   })();
 
-  return { state: view, fullState: state, setState: setStateRaw, hydrated, me };
+  return { state: view, fullState: state, setState, hydrated, me };
 }
 
 export function newId() {
