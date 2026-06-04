@@ -104,7 +104,35 @@ function waHrefFromMessage(phone: string, message: string) {
   return `https://wa.me/${digits}?text=${encodeURIComponent(safe)}`;
 }
 
-type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores";
+type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros";
+
+async function logDialerError(params: {
+  action: string;
+  error: unknown;
+  listName?: string | null;
+  contactId?: string | null;
+  contactName?: string | null;
+  details?: Record<string, unknown> | null;
+}) {
+  try {
+    const err: any = params.error;
+    const message =
+      (typeof err === "string" && err) ||
+      err?.message ||
+      err?.error_description ||
+      "Erro desconhecido";
+    await supabase.rpc("log_dialer_error", {
+      _action: params.action,
+      _error_message: String(message).slice(0, 1000),
+      _list_name: params.listName ?? null,
+      _contact_id: params.contactId ?? null,
+      _contact_name: params.contactName ?? null,
+      _details: (params.details ?? null) as any,
+    });
+  } catch (e) {
+    console.error("Falha ao registrar log de erro", e);
+  }
+}
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
