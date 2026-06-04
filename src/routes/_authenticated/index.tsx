@@ -1183,7 +1183,7 @@ function Td({ children, className = "", title, style }: { children?: React.React
 
 /* ---------------- DISCADOR ---------------- */
 
-function DiscadorTab({ state, setState, goFila }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void }) {
+function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void> }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
