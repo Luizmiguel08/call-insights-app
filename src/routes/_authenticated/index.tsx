@@ -144,8 +144,6 @@ function LigaCtrlApp() {
   );
 }
 
-const fontDisplay = { fontFamily: "'Fraunces', 'Playfair Display', Georgia, serif", fontOpticalSizing: "auto" } as const;
-const fontNumeric = { fontFamily: "'Fraunces', Georgia, serif", fontVariantNumeric: "tabular-nums lining-nums", fontFeatureSettings: "'ss01'" } as const;
 
 /* ---------------- MODO RÁPIDO ---------------- */
 
