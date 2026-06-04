@@ -25,6 +25,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -46,10 +47,11 @@ function AuthPage() {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;
-        toast.success("Se este e-mail estiver cadastrado, enviaremos um link de recuperação.");
-        setMode("signin");
+        setForgotSent(true);
+        toast.success("E-mail de recuperação enviado!");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro ao enviar e-mail");
+        const msg = err instanceof Error ? err.message : "Erro ao enviar e-mail";
+        toast.error(msg.includes("fetch") ? "Falha de conexão. Tente novamente em alguns segundos." : msg);
       } finally {
         setLoading(false);
       }
@@ -98,6 +100,26 @@ function AuthPage() {
           </div>
         </div>
 
+        {mode === "forgot" && forgotSent ? (
+          <div className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 sm:p-8 space-y-4 text-center">
+            <div className="mx-auto h-12 w-12 rounded-full bg-[#c9a24c]/15 flex items-center justify-center">
+              <Mail className="h-6 w-6 text-[#c9a24c]" />
+            </div>
+            <div className="text-sm text-zinc-200 font-medium">Verifique seu e-mail</div>
+            <div className="text-xs text-zinc-400 leading-relaxed">
+              Enviamos um link de recuperação para <span className="text-zinc-200">{email}</span>.
+              Abra a mensagem e clique no link para definir uma nova senha. Pode levar alguns minutos
+              — confira também a caixa de spam.
+            </div>
+            <button
+              type="button"
+              onClick={() => { setForgotSent(false); setMode("signin"); }}
+              className="flex items-center justify-center gap-1 w-full text-center text-xs text-zinc-500 hover:text-[#c9a24c] transition"
+            >
+              <ArrowLeft className="h-3 w-3" /> Voltar para o login
+            </button>
+          </div>
+        ) : (
         <form onSubmit={submit} className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 sm:p-8 space-y-4">
           <div className="text-center text-sm text-zinc-400 mb-2">
             {mode === "signin"
@@ -196,6 +218,7 @@ function AuthPage() {
             </button>
           )}
         </form>
+        )}
 
         <div className="mt-6 text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600 flex items-center justify-center gap-2">
           <Phone className="h-3 w-3" />
