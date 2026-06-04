@@ -1210,14 +1210,27 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
   const myQueue = useMemo(
-    () => state.contacts
-      .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
-      .sort((a, b) => {
-        // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
-        if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
-        if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
-        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-      }),
+    () => {
+      const sorted = state.contacts
+        .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
+        .sort((a, b) => {
+          // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
+          if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
+          if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+          return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+        });
+      // Dedupe: mesmo telefone (ou mesmo nome, se sem telefone) aparece só uma vez na fila.
+      const seen = new Set<string>();
+      const out: typeof sorted = [];
+      for (const c of sorted) {
+        const digits = (c.phone || "").replace(/\D+/g, "");
+        const key = digits ? `p:${digits}` : `n:${c.name.trim().toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(c);
+      }
+      return out;
+    },
     [state.contacts, brokerId]
   );
 
@@ -1234,6 +1247,11 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const meta = state.metaDaily || 50;
   const pct = Math.min(100, Math.round((k.total / meta) * 100));
   const reached = k.total >= meta;
+
+  function sameContactKey(c: { phone?: string; name: string }) {
+    const digits = (c.phone || "").replace(/\D+/g, "");
+    return digits ? `p:${digits}` : `n:${c.name.trim().toLowerCase()}`;
+  }
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
@@ -1252,12 +1270,20 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
       createdAt: Date.now(),
       contactId: current.id,
     };
+    const key = sameContactKey(current);
     setState((s) => ({
       ...s,
       calls: [call, ...s.calls],
-      contacts: s.contacts.map((c) => c.id === current.id
-        ? { ...c, status: keepForRetry ? "pendente" : "feito", attempts: newAttempts }
-        : c),
+      contacts: s.contacts.map((c) => {
+        if (c.id === current.id) {
+          return { ...c, status: keepForRetry ? "pendente" : "feito", attempts: newAttempts };
+        }
+        // Marca duplicatas (mesmo telefone/nome) também como feito pra fila avançar.
+        if (!keepForRetry && c.status === "pendente" && sameContactKey(c) === key) {
+          return { ...c, status: "feito" };
+        }
+        return c;
+      }),
     }));
     setNote("");
     setCalledAt(null);
@@ -1272,9 +1298,14 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function skip() {
     if (!current) return;
+    const key = sameContactKey(current);
     setState((s) => ({
       ...s,
-      contacts: s.contacts.map((c) => c.id === current.id ? { ...c, status: "pulado" } : c),
+      contacts: s.contacts.map((c) =>
+        (c.id === current.id || (c.status === "pendente" && sameContactKey(c) === key))
+          ? { ...c, status: "pulado" }
+          : c
+      ),
     }));
     setNote("");
     setCalledAt(null);
