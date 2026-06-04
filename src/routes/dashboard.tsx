@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
 import { Trophy, Phone, Clock, Calendar, CheckCircle2, Coffee, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
@@ -54,9 +55,11 @@ function DashboardPage() {
     },
   });
 
+  const queryClient = useQueryClient();
+
   const { data: calls = [] } = useQuery({
-    queryKey: ["calls-all", range.start],
-    refetchInterval: 15_000,
+    queryKey: ["calls-all", range.start, range.end],
+    refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await db.from("calls").select("*")
         .gte("created_at", range.start).lte("created_at", range.end);
@@ -66,8 +69,8 @@ function DashboardPage() {
   });
 
   const { data: pauses = [] } = useQuery({
-    queryKey: ["pauses", range.start],
-    refetchInterval: 15_000,
+    queryKey: ["pauses", range.start, range.end],
+    refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await db.from("broker_pauses").select("*")
         .gte("started_at", range.start).lte("started_at", range.end);
@@ -75,6 +78,21 @@ function DashboardPage() {
       return data as Pause[];
     },
   });
+
+  // Realtime: invalida queries quando há novas calls/pauses, evitando depender só do polling.
+  useEffect(() => {
+    const ch = supabase
+      .channel(`dashboard-sync-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["calls-all"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "broker_pauses" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["pauses"] });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [queryClient]);
+
 
   const contactKey = (c: Call) => {
     const digits = String(c.phone ?? "").replace(/\D/g, "");
