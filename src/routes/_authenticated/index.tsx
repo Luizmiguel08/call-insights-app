@@ -608,7 +608,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
         })
       .subscribe();
     // Fallback: re-sincroniza periodicamente caso algum evento se perca
-    const poll = window.setInterval(() => { void load(); }, 1500);
+    const poll = window.setInterval(() => { void load(); }, 800);
     return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
   }, [brokerId]);
 
@@ -837,15 +837,25 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       return;
     }
 
+    // Update otimista: avança attempts/status do contato localmente
+    // pra próximo cliente aparecer instantaneamente sem esperar refetch.
+    const resolved = attended || scheduled;
+    const newAttemptsLocal = Math.min(2, attemptsBefore + 1);
+    setState((s) => ({
+      ...s,
+      contacts: s.contacts.map((c) =>
+        c.id === contactId
+          ? { ...c, attempts: newAttemptsLocal, status: (resolved || newAttemptsLocal >= 2) ? "feito" : c.status }
+          : c
+      ),
+    }));
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
-    await clearActiveCall();
-    await refetchCloud();
-    window.setTimeout(() => {
-      lastOutcomeRef.current = "";
-      setSubmittingOutcome(false);
-    }, 150);
+    void clearActiveCall();
+    lastOutcomeRef.current = "";
+    setSubmittingOutcome(false);
+    void refetchCloud();
 
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
@@ -883,7 +893,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     activeCallSourceRef.current = null;
     setCalledAt(null);
     void clearActiveCall();
-    window.setTimeout(() => setSubmittingOutcome(false), 800);
+    setSubmittingOutcome(false);
     toast("Movido pro fim da fila");
   }
 
