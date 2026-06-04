@@ -209,6 +209,7 @@ export type Database = {
           created_by: string | null
           id: string
           last_called_at: string | null
+          list_name: string
           name: string
           notes: string | null
           phone: string
@@ -222,6 +223,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           last_called_at?: string | null
+          list_name?: string
           name: string
           notes?: string | null
           phone: string
@@ -235,6 +237,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           last_called_at?: string | null
+          list_name?: string
           name?: string
           notes?: string | null
           phone?: string
@@ -325,7 +328,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_clear_contacts: {
+        Args: {
+          _broker_id?: string
+          _include_general?: boolean
+          _list_name?: string
+          _only_done?: boolean
+        }
+        Returns: Json
+      }
       admin_run_queue_reconciliation: { Args: never; Returns: Json }
+      broker_contact_lists: {
+        Args: { _broker?: string }
+        Returns: {
+          done: number
+          list_name: string
+          pending: number
+          skipped: number
+          total: number
+        }[]
+      }
       broker_daily_counts: {
         Args: { _broker: string; _date?: string }
         Returns: Json
@@ -335,28 +357,53 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _uid: string }
         Returns: boolean
       }
-      next_contact_for_broker: {
-        Args: { _broker: string }
-        Returns: {
-          broker_id: string | null
-          call_attempts: number
-          created_at: string
-          created_by: string | null
-          id: string
-          last_called_at: string | null
-          name: string
-          notes: string | null
-          phone: string
-          priority: number
-          status: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "contacts_queue"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      next_contact_for_broker:
+        | {
+            Args: { _broker: string }
+            Returns: {
+              broker_id: string | null
+              call_attempts: number
+              created_at: string
+              created_by: string | null
+              id: string
+              last_called_at: string | null
+              list_name: string
+              name: string
+              notes: string | null
+              phone: string
+              priority: number
+              status: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "contacts_queue"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { _broker: string; _list_name?: string }
+            Returns: {
+              broker_id: string | null
+              call_attempts: number
+              created_at: string
+              created_by: string | null
+              id: string
+              last_called_at: string | null
+              list_name: string
+              name: string
+              notes: string | null
+              phone: string
+              priority: number
+              status: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "contacts_queue"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       recent_queue_mismatches: {
         Args: { _limit?: number }
         Returns: {
