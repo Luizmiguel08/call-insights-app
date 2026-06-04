@@ -274,11 +274,13 @@ export function useCloudState() {
   const lastSyncedRef = useRef<State>(defaultState());
   const meRef = useRef<Me | null>(null);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncSeqRef = useRef(0);
 
   const refetch = useCallback(async () => {
     // Ignora ecos do realtime logo após uma escrita local pra evitar "piscar"
     // o estado antigo sobre a atualização otimista.
     if (Date.now() < muteUntilRef.current) return;
+    if (pendingTimer.current) return;
     const s = await loadAll();
     lastSyncedRef.current = s;
     setStateRaw(s);
@@ -325,10 +327,18 @@ export function useCloudState() {
     const prev = lastSyncedRef.current;
     pendingTimer.current = setTimeout(() => {
       const next = state;
+      const syncSeq = ++syncSeqRef.current;
       lastSyncedRef.current = next;
+      pendingTimer.current = null;
       // Silencia ecos do realtime por um curto período após escrever.
-      muteUntilRef.current = Date.now() + 1500;
+      muteUntilRef.current = Date.now() + 3000;
       void syncTo(prev, next, meRef.current!)
+        .then(async () => {
+          if (syncSeq !== syncSeqRef.current) return;
+          const fresh = await loadAll();
+          lastSyncedRef.current = fresh;
+          setStateRaw(fresh);
+        })
         .catch((e) => console.error("Falha ao salvar na nuvem", e));
     }, 80);
     return () => {
