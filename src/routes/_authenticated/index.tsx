@@ -1353,6 +1353,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (!current) return;
     if (current.attempts >= 2 && !attended && !scheduled) {
       toast.error("Esse contato já atingiu o limite de 2 tentativas");
+      void logDialerError({
+        action: "attempt_limit_reached",
+        error: "Tentativa além do limite de 2",
+        listName: current.listName,
+        contactId: current.id,
+        contactName: current.name,
+        details: { attempts: current.attempts },
+      });
       return;
     }
     const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
