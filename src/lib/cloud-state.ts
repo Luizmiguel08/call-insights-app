@@ -413,13 +413,18 @@ export function useCloudState() {
 
   // Visão filtrada: corretor só vê o próprio broker, contatos e ligações.
   // Admin vê tudo, mas seletores escondem pendentes (CorretoresTab usa fullState).
+  // Admins listados aqui agem como corretor no discador (veem apenas
+  // a própria fila/ligações), mas mantêm os poderes de admin nas demais abas.
+  const SCOPED_ADMIN_USER_IDS = new Set<string>([
+    "b83e1206-282b-4317-9c88-f1c9cf891408", // Alyson Inacio
+    "f27737e1-eeb9-465f-beb7-2e0fee7f9bf8", // Nickolas
+  ]);
+
   const view: State = (() => {
     if (!me) return state;
     if (me.isAdmin) {
-      // Admin com corretor associado: discador/contatos/ligações ficam escopados
-      // ao próprio corretor. Lista de brokers continua completa para as abas admin.
       const myBrokerId = me.brokerId;
-      if (myBrokerId) {
+      if (myBrokerId && SCOPED_ADMIN_USER_IDS.has(me.userId)) {
         return {
           ...state,
           brokers: state.brokers.filter((b) => b.approved !== false),
