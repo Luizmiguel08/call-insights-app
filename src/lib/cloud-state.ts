@@ -22,6 +22,7 @@ export type Contact = {
   status: "pendente" | "feito" | "pulado";
   createdAt: number;
   attempts: number;
+  listName: string;
 };
 export type Me = {
   userId: string;
