@@ -47,10 +47,11 @@ function AuthPage() {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;
-        toast.success("Se este e-mail estiver cadastrado, enviaremos um link de recuperação.");
-        setMode("signin");
+        setForgotSent(true);
+        toast.success("E-mail de recuperação enviado!");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro ao enviar e-mail");
+        const msg = err instanceof Error ? err.message : "Erro ao enviar e-mail";
+        toast.error(msg.includes("fetch") ? "Falha de conexão. Tente novamente em alguns segundos." : msg);
       } finally {
         setLoading(false);
       }
