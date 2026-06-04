@@ -859,7 +859,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   function startCall() {
     if (!current || submittingOutcome) return;
     setCalledAt(Date.now());
+    void upsertActiveCall({ id: current.id, name: current.name, phone: current.phone });
   }
+
 
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
 
