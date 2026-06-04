@@ -424,7 +424,7 @@ export function useCloudState() {
     };
   })();
 
-  return { state: view, fullState: state, setState, hydrated, me };
+  return { state: view, fullState: state, setState, hydrated, me, refetch };
 }
 
 export function newId() {

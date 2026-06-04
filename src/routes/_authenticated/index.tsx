@@ -107,7 +107,7 @@ type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "correto
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
-  const { state, fullState, setState, hydrated, me } = useCloudState();
+  const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
   async function signOut() {
@@ -200,7 +200,7 @@ function LigaCtrlApp() {
       </header>
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
-        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} />}
+        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
@@ -1183,7 +1183,7 @@ function Td({ children, className = "", title, style }: { children?: React.React
 
 /* ---------------- DISCADOR ---------------- */
 
-function DiscadorTab({ state, setState, goFila }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void }) {
+function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void> }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
@@ -1305,7 +1305,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     return digits ? `p:${digits}` : `n:${c.name.trim().toLowerCase()}`;
   }
 
-  function recordOutcome(attended: boolean, scheduled: boolean) {
+  async function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
     if (current.attempts >= 2 && !attended && !scheduled) {
       toast.error("Esse contato já atingiu o limite de 2 tentativas");
@@ -1315,54 +1315,47 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     if (submittingOutcome || lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
     setSubmittingOutcome(true);
-    const newAttempts = Math.min(current.attempts + 1, 2);
-    // Só permite 2ª tentativa se NÃO atendeu e ainda não tentou 2x.
-    const keepForRetry = !attended && !scheduled && newAttempts < 2;
-    const call: Call = {
-      id: uid(),
-      date,
-      brokerId,
-      client: current.name,
-      phone: current.phone,
-      attended,
-      scheduled,
-      note: note.trim(),
-      createdAt: Date.now(),
-      contactId: current.id,
-    };
-    const key = sameContactKey(current);
-    const now = Date.now();
-    setState((s) => ({
-      ...s,
-      calls: [call, ...s.calls],
-      contacts: s.contacts.map((c) => {
-        if (c.id === current.id) {
-          // 1ª tentativa sem resposta: mantém pendente, NÃO reordena (createdAt intacto),
-          // contato continua sendo o "current" pra ligar de novo na 2ª tentativa.
-          // 2ª tentativa (ou atendeu/agendou): finaliza como feito.
-          return {
-            ...c,
-            status: keepForRetry ? "pendente" : "feito",
-            attempts: newAttempts,
-          };
-        }
-        // Marca duplicatas (mesmo telefone/nome) também como feito pra fila avançar.
-        if (!keepForRetry && c.status === "pendente" && sameContactKey(c) === key) {
-          return { ...c, status: "feito" };
-        }
-        return c;
-      }),
-    }));
+
+    const contactId = current.id;
+    const contactName = current.name;
+    const attemptsBefore = current.attempts;
+    const startedAtIso = calledAt ? new Date(calledAt).toISOString() : undefined;
+    const endedAtIso = new Date().toISOString();
+    const duration = calledAt ? Math.max(0, Math.round((Date.now() - calledAt) / 1000)) : 0;
+
+    try {
+      const { data, error } = await supabase.rpc("record_call_outcome", {
+        _contact_id: contactId,
+        _attended: attended,
+        _scheduled: scheduled,
+        _notes: note.trim() || undefined,
+        _started_at: startedAtIso,
+        _ended_at: endedAtIso,
+        _duration_seconds: duration,
+      });
+      if (error) throw error;
+      const result = (data ?? {}) as { attempts?: number; inserted?: boolean };
+      const newAttempts = Math.min(result.attempts ?? attemptsBefore + 1, 2);
+      const keepForRetry = !attended && !scheduled && newAttempts < 2;
+      if (keepForRetry) {
+        toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
+      }
+    } catch (e: any) {
+      console.error("Falha ao registrar ligação", e);
+      toast.error(e?.message || "Falha ao registrar ligação");
+      lastOutcomeRef.current = "";
+      setSubmittingOutcome(false);
+      return;
+    }
+
     setNote("");
     setCalledAt(null);
+    await refetchCloud();
     window.setTimeout(() => {
       lastOutcomeRef.current = "";
       setSubmittingOutcome(false);
-    }, 250);
-    if (keepForRetry) {
-      toast(`Sem resposta — faça a 2ª tentativa agora`, { description: current.name });
-    }
-    // Verifica meta
+    }, 150);
+
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
     }
