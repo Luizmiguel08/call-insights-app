@@ -252,7 +252,7 @@ function QueuePage() {
               <Upload className="h-5 w-5" />
               <div>
                 <p className="font-display text-lg font-bold">Importar contatos</p>
-                <p className="text-xs opacity-90">Cole uma lista ou envie um CSV (um por linha: <b>Nome, Telefone</b>)</p>
+                <p className="text-xs opacity-90">Cole uma lista ou envie CSV / Excel (.xlsx) — colunas <b>Nome, Telefone</b></p>
               </div>
             </div>
           </div>
