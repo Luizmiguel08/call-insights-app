@@ -110,15 +110,35 @@ async function loadAll(): Promise<State> {
     return all;
   }
 
+  async function loadAllCalls() {
+    const pageSize = 1000;
+    let from = 0;
+    const all: any[] = [];
+    while (from < 100000) {
+      const r = await supabase
+        .from("calls")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (r.error) throw r.error;
+      const rows = r.data ?? [];
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
   const [brokersR, callsR, contactsRows, settingsR] = await Promise.all([
     supabase.from("brokers").select("*").order("created_at"),
-    supabase.from("calls").select("*").order("created_at", { ascending: false }).limit(5000),
+    loadAllCalls(),
     loadAllContacts(),
     supabase.from("app_settings").select("*").eq("id", "global").maybeSingle(),
   ]);
   const contactsR = { data: contactsRows, error: null as null };
+  const callsResult = { data: callsR, error: null as null };
   if (brokersR.error) throw brokersR.error;
-  if (callsR.error) throw callsR.error;
+  if (callsResult.error) throw callsResult.error;
   if (contactsR.error) throw contactsR.error;
 
   const brokers: Broker[] = (brokersR.data ?? []).map((b) => ({
@@ -127,7 +147,7 @@ async function loadAll(): Promise<State> {
     userId: b.user_id ?? null,
     approved: b.approved ?? true,
   }));
-  const calls: Call[] = (callsR.data ?? []).map((c) => ({
+  const calls: Call[] = (callsResult.data ?? []).map((c) => ({
     id: c.id,
     date: toLocalDate(c.created_at),
     brokerId: c.broker_id,
