@@ -75,18 +75,28 @@ function DashboardPage() {
     },
   });
 
+  const contactKey = (c: Call & { client?: string; phone?: string; contact_id?: string | null }) => {
+    const anyC = c as any;
+    return anyC.contact_id ?? `${(anyC.client ?? "").trim().toLowerCase()}|${String(anyC.phone ?? "").replace(/\D/g, "")}`;
+  };
+
   const ranking = useMemo(() => {
     const map = new Map(brokers.map((b) => [b.id, {
       broker: b, total: 0, attended: 0, scheduled: 0, time: 0, attendedTime: 0,
       pauseTime: 0,
+      seen: new Set<string>(), seenAttended: new Set<string>(), seenScheduled: new Set<string>(),
       outcomes: { attended: 0, no_answer: 0, voicemail: 0, wrong_number: 0, callback: 0, not_interested: 0, scheduled: 0 } as Record<OutcomeKey, number>,
     }]));
     for (const c of calls) {
       const row = map.get(c.broker_id);
       if (!row) continue;
-      row.total += 1;
-      if (c.attended) { row.attended += 1; row.attendedTime += c.duration_seconds || 0; }
-      if (c.scheduled) row.scheduled += 1;
+      const key = contactKey(c);
+      if (!row.seen.has(key)) { row.seen.add(key); row.total += 1; }
+      if (c.attended) {
+        if (!row.seenAttended.has(key)) { row.seenAttended.add(key); row.attended += 1; }
+        row.attendedTime += c.duration_seconds || 0;
+      }
+      if (c.scheduled && !row.seenScheduled.has(key)) { row.seenScheduled.add(key); row.scheduled += 1; }
       row.time += c.duration_seconds || 0;
       if (c.outcome) row.outcomes[c.outcome] += 1;
     }
@@ -99,16 +109,30 @@ function DashboardPage() {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [brokers, calls, pauses]);
 
-  const totals = useMemo(() => ({
-    calls: calls.length,
-    attended: calls.filter((c) => c.attended).length,
-    scheduled: calls.filter((c) => c.scheduled).length,
-    time: calls.reduce((s, c) => s + (c.duration_seconds || 0), 0),
-    avg: (() => {
-      const att = calls.filter((c) => c.attended);
-      return att.length ? Math.round(att.reduce((s, c) => s + c.duration_seconds, 0) / att.length) : 0;
-    })(),
-  }), [calls]);
+  const totals = useMemo(() => {
+    const seen = new Set<string>();
+    const seenAtt = new Set<string>();
+    const seenSch = new Set<string>();
+    let attTime = 0; let attCount = 0; let time = 0;
+    for (const c of calls) {
+      const key = contactKey(c);
+      seen.add(key);
+      if (c.attended) {
+        seenAtt.add(key);
+        attTime += c.duration_seconds || 0;
+        attCount += 1;
+      }
+      if (c.scheduled) seenSch.add(key);
+      time += c.duration_seconds || 0;
+    }
+    return {
+      calls: seen.size,
+      attended: seenAtt.size,
+      scheduled: seenSch.size,
+      time,
+      avg: attCount ? Math.round(attTime / attCount) : 0,
+    };
+  }, [calls]);
 
   const max = Math.max(1, ...ranking.map((r) => r.total));
 

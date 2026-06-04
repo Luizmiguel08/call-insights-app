@@ -638,7 +638,7 @@ function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState
       {showCharts && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Kpi label="Ligações" value={filtered.length} color="#c9a24c" />
+            <Kpi label="Ligações" value={uniqueContactCount(filtered)} color="#c9a24c" />
             <Kpi label="Horas ativas" value={analytics.activeHours} color="#22c55e" />
             <Kpi label="Horas ociosas" value={analytics.idleHours} color="#ef4444" />
             <Kpi
