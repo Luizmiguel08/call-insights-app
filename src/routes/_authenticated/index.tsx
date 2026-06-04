@@ -894,26 +894,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   return (
     <div className="space-y-5">
-      {remoteIsOtherDevice && (
-        <div className="rounded-lg border-2 border-emerald-500/60 bg-emerald-500/10 px-4 py-3 flex items-center justify-between gap-3 flex-wrap animate-pulse">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inset-0 rounded-full bg-emerald-400 opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-            </span>
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-emerald-300" style={fontDisplay}>
-                Em ligação no {remoteCall!.device_label}
-              </div>
-              <div className="text-sm font-semibold text-zinc-100">
-                {remoteCall!.contact_name}
-                {remoteCall!.phone ? <span className="text-zinc-400 font-normal ml-2" style={fontNumeric}>{remoteCall!.phone}</span> : null}
-              </div>
-            </div>
-          </div>
-          <CallTimer startedAt={new Date(remoteCall!.started_at).getTime()} />
-        </div>
-      )}
+
 
       {/* Header: corretor + meta */}
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
