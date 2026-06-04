@@ -1198,6 +1198,9 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    const newAttempts = current.attempts + 1;
+    // Só permite 2ª tentativa se NÃO atendeu e ainda não tentou 2x.
+    const keepForRetry = !attended && !scheduled && newAttempts < 2;
     const call: Call = {
       id: uid(),
       date,
@@ -1213,10 +1216,15 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     setState((s) => ({
       ...s,
       calls: [call, ...s.calls],
-      contacts: s.contacts.map((c) => c.id === current.id ? { ...c, status: "feito", attempts: c.attempts + 1 } : c),
+      contacts: s.contacts.map((c) => c.id === current.id
+        ? { ...c, status: keepForRetry ? "pendente" : "feito", attempts: newAttempts }
+        : c),
     }));
     setNote("");
     setCalledAt(null);
+    if (keepForRetry) {
+      toast(`1ª tentativa registrada — ligue novamente`, { description: current.name });
+    }
     // Verifica meta
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
