@@ -784,7 +784,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return normalizedContactKey({ name: c.name, phone: c.phone, contactId: c.id });
   }
 
-  async function recordOutcome(attended: boolean, scheduled: boolean) {
+  function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
     if (current.attempts >= 2 && !attended && !scheduled) {
       toast.error("Esse contato já atingiu o limite de 2 tentativas");
@@ -799,9 +799,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       return;
     }
     const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
-    if (submittingOutcome || lastOutcomeRef.current === outcomeKey) return;
+    if (lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
-    setSubmittingOutcome(true);
 
     const contactId = current.id;
     const contactName = current.name;
@@ -809,44 +808,11 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     const startedAtIso = calledAt ? new Date(calledAt).toISOString() : undefined;
     const endedAtIso = new Date().toISOString();
     const duration = calledAt ? Math.max(0, Math.round((Date.now() - calledAt) / 1000)) : 0;
-
-    try {
-      const { data, error } = await supabase.rpc("record_call_outcome", {
-        _contact_id: contactId,
-        _attended: attended,
-        _scheduled: scheduled,
-        _notes: note.trim() || undefined,
-        _started_at: startedAtIso,
-        _ended_at: endedAtIso,
-        _duration_seconds: duration,
-      });
-      if (error) throw error;
-      const result = (data ?? {}) as { attempts?: number; inserted?: boolean };
-      const newAttempts = Math.min(result.attempts ?? attemptsBefore + 1, 2);
-      const keepForRetry = !attended && !scheduled && newAttempts < 2;
-      if (keepForRetry) {
-        toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
-      }
-    } catch (e: any) {
-      console.error("Falha ao registrar ligação", e);
-      toast.error(e?.message || "Falha ao registrar ligação");
-      void logDialerError({
-        action: "record_call_outcome",
-        error: e,
-        listName: current?.listName,
-        contactId,
-        contactName,
-        details: { attended, scheduled, attemptsBefore },
-      });
-      lastOutcomeRef.current = "";
-      setSubmittingOutcome(false);
-      return;
-    }
-
-    // Update otimista: avança attempts/status do contato localmente
-    // pra próximo cliente aparecer instantaneamente sem esperar refetch.
     const resolved = attended || scheduled;
     const newAttemptsLocal = Math.min(2, attemptsBefore + 1);
+    const noteSnapshot = note.trim();
+
+    // 1) Otimista IMEDIATO: avança cliente, limpa UI, libera próxima ligação.
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
@@ -859,13 +825,52 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     activeCallSourceRef.current = null;
     setCalledAt(null);
     void clearActiveCall();
-    lastOutcomeRef.current = "";
-    setSubmittingOutcome(false);
-    void refetchCloud();
 
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
     }
+    if (!attended && !scheduled && newAttemptsLocal < 2) {
+      toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
+    }
+
+    // 2) RPC em background — não bloqueia a UI. Se falhar, reverte.
+    void (async () => {
+      try {
+        const { error } = await supabase.rpc("record_call_outcome", {
+          _contact_id: contactId,
+          _attended: attended,
+          _scheduled: scheduled,
+          _notes: noteSnapshot || undefined,
+          _started_at: startedAtIso,
+          _ended_at: endedAtIso,
+          _duration_seconds: duration,
+        });
+        if (error) throw error;
+        // Refetch silencioso só pra reconciliar contadores/histórico.
+        void refetchCloud();
+      } catch (e: any) {
+        console.error("Falha ao registrar ligação", e);
+        toast.error(e?.message || "Falha ao registrar ligação — desfazendo");
+        void logDialerError({
+          action: "record_call_outcome",
+          error: e,
+          listName: current?.listName,
+          contactId,
+          contactName,
+          details: { attended, scheduled, attemptsBefore },
+        });
+        // Reverte o otimista
+        setState((s) => ({
+          ...s,
+          contacts: s.contacts.map((c) =>
+            c.id === contactId
+              ? { ...c, attempts: attemptsBefore, status: "pendente" }
+              : c
+          ),
+        }));
+        lastOutcomeRef.current = "";
+      }
+    })();
   }
 
   function skip() {
