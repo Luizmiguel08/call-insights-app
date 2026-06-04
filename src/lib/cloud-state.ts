@@ -333,6 +333,10 @@ export function useCloudState() {
 
   useEffect(() => {
     if (!hydrated || !meRef.current) return;
+    // Silencia ecos do realtime IMEDIATAMENTE ao alterar estado local,
+    // pra evitar que um evento de outro corretor disparado no meio do
+    // debounce sobrescreva a atualização otimista do usuário atual.
+    muteUntilRef.current = Date.now() + 4000;
     if (pendingTimer.current) clearTimeout(pendingTimer.current);
     const prev = lastSyncedRef.current;
     pendingTimer.current = setTimeout(() => {
@@ -340,8 +344,8 @@ export function useCloudState() {
       const syncSeq = ++syncSeqRef.current;
       lastSyncedRef.current = next;
       pendingTimer.current = null;
-      // Silencia ecos do realtime por um curto período após escrever.
-      muteUntilRef.current = Date.now() + 3000;
+      // Re-arma o mute pra cobrir a janela de gravação + eco vindo do servidor.
+      muteUntilRef.current = Date.now() + 4000;
       void syncTo(prev, next, meRef.current!)
         .then(async () => {
           if (syncSeq !== syncSeqRef.current) return;
@@ -355,6 +359,7 @@ export function useCloudState() {
       if (pendingTimer.current) clearTimeout(pendingTimer.current);
     };
   }, [state, hydrated]);
+
 
 
   // Visão filtrada: corretor só vê o próprio broker, contatos e ligações.
