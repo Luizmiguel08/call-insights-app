@@ -1803,6 +1803,12 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     } catch (e: any) {
       console.error("Falha ao limpar", e);
       toast.error(e?.message || "Falha ao limpar contatos");
+      void logDialerError({
+        action: "admin_clear_contacts",
+        error: e,
+        listName: listFilter ?? undefined,
+        details: { onlyDone, includeGeneral, targetBrokerId },
+      });
     }
   }
 
