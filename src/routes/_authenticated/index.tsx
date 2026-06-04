@@ -53,8 +53,17 @@ function uid() {
 }
 
 // Identifica um contato unicamente para deduplicar tentativas múltiplas.
+// Prioriza telefone/nome normalizado para continuar agrupando corretamente
+// mesmo quando o mesmo cliente vier com contactId diferente em tentativas separadas.
+function normalizedContactKey(input: { name?: string; client?: string; phone?: string; contactId?: string }) {
+  const rawName = (input.name ?? input.client ?? "").trim().toLowerCase();
+  const digits = (input.phone ?? "").replace(/\D/g, "");
+  if (digits) return `p:${digits}`;
+  if (rawName) return `n:${rawName}`;
+  return input.contactId ? `id:${input.contactId}` : "unknown";
+}
 function callContactKey(c: Call) {
-  return c.contactId ?? `${(c.client ?? "").trim().toLowerCase()}|${(c.phone ?? "").replace(/\D/g, "")}`;
+  return normalizedContactKey({ client: c.client, phone: c.phone, contactId: c.contactId });
 }
 function uniqueContactCount(calls: Call[]) {
   return new Set(calls.map(callContactKey)).size;
@@ -1365,9 +1374,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const pct = Math.min(100, Math.round((k.total / meta) * 100));
   const reached = k.total >= meta;
 
-  function sameContactKey(c: { phone?: string; name: string }) {
-    const digits = (c.phone || "").replace(/\D+/g, "");
-    return digits ? `p:${digits}` : `n:${c.name.trim().toLowerCase()}`;
+  function sameContactKey(c: { phone?: string; name: string; id?: string }) {
+    return normalizedContactKey({ name: c.name, phone: c.phone, contactId: c.id });
   }
 
   async function recordOutcome(attended: boolean, scheduled: boolean) {
