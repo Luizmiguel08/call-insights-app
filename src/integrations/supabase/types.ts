@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_calls: {
+        Row: {
+          broker_id: string
+          contact_id: string | null
+          contact_name: string
+          device_label: string
+          phone: string | null
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          broker_id: string
+          contact_id?: string | null
+          contact_name: string
+          device_label?: string
+          phone?: string | null
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          broker_id?: string
+          contact_id?: string | null
+          contact_name?: string
+          device_label?: string
+          phone?: string | null
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           id: string
