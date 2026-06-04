@@ -218,6 +218,7 @@ function AuthPage() {
             </button>
           )}
         </form>
+        )}
 
         <div className="mt-6 text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600 flex items-center justify-center gap-2">
           <Phone className="h-3 w-3" />
