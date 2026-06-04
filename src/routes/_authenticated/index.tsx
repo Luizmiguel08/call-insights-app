@@ -1817,6 +1817,19 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
             className={inputCls + " min-h-[220px] resize-y py-2 font-mono text-xs"}
           />
           <div className="space-y-3">
+            <Field label="Nome da lista">
+              <input
+                value={listName}
+                onChange={(e) => setListName(e.target.value)}
+                list="lista-existentes"
+                placeholder='Ex: "Lançamento X", "Leads Maio"'
+                maxLength={80}
+                className={inputCls}
+              />
+              <datalist id="lista-existentes">
+                {availableLists.map((l) => (<option key={l} value={l} />))}
+              </datalist>
+            </Field>
             {isAdmin ? (
               <Field label="Atribuir a">
                 <select
