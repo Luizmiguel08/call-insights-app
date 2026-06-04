@@ -66,6 +66,23 @@ function QueuePage() {
   const [assignTo, setAssignTo] = useState<string>("none");
   const [filterBroker, setFilterBroker] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("pending");
+  const [importProgress, setImportProgress] = useState<string>("");
+
+  // Quem está logado? (admin pode atribuir a qualquer um; corretor força a si mesmo)
+  const { data: me } = useQuery({
+    queryKey: ["me-fila"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return { isAdmin: false, brokerId: null as string | null };
+      const [rolesR, brokerR] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", uid),
+        supabase.from("brokers").select("id").eq("user_id", uid).maybeSingle(),
+      ]);
+      const isAdmin = (rolesR.data ?? []).some((r) => r.role === "admin");
+      return { isAdmin, brokerId: brokerR.data?.id ?? null };
+    },
+  });
 
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers"],
@@ -81,7 +98,8 @@ function QueuePage() {
     queryFn: async () => {
       let q = db.from("contacts_queue").select("*")
         .order("priority", { ascending: false })
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        .limit(2000);
       if (filterStatus !== "all") q = q.eq("status", filterStatus);
       if (filterBroker === "unassigned") q = q.is("broker_id", null);
       else if (filterBroker !== "all") q = q.eq("broker_id", filterBroker);
@@ -96,20 +114,61 @@ function QueuePage() {
   const importContacts = useMutation({
     mutationFn: async () => {
       if (previewList.length === 0) throw new Error("Cole pelo menos um contato válido");
-      const payload = previewList.map((c) => ({
-        name: c.name,
-        phone: c.phone,
-        broker_id: assignTo === "none" ? null : assignTo,
-      }));
-      const { error } = await db.from("contacts_queue").insert(payload);
-      if (error) throw error;
+
+      // Corretor só pode importar para si mesmo (RLS exige broker_id = current_broker_id())
+      let targetBroker: string | null;
+      if (me?.isAdmin) {
+        targetBroker = assignTo === "none" ? null : assignTo;
+      } else {
+        if (!me?.brokerId) throw new Error("Seu cadastro de corretor ainda não foi aprovado.");
+        targetBroker = me.brokerId;
+      }
+
+      // Deduplica por telefone (apenas dígitos) dentro do lote
+      const seen = new Set<string>();
+      const unique = previewList.filter((c) => {
+        const k = (c.phone || "").replace(/\D+/g, "");
+        if (!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+
+      // Importa em lotes de 500 para evitar timeouts / limites
+      const BATCH = 500;
+      let inserted = 0;
+      const errors: string[] = [];
+      for (let i = 0; i < unique.length; i += BATCH) {
+        const chunk = unique.slice(i, i + BATCH).map((c) => ({
+          name: c.name,
+          phone: c.phone,
+          broker_id: targetBroker,
+        }));
+        setImportProgress(`Importando ${Math.min(i + BATCH, unique.length)}/${unique.length}...`);
+        const { error } = await db.from("contacts_queue").insert(chunk);
+        if (error) {
+          errors.push(error.message);
+        } else {
+          inserted += chunk.length;
+        }
+      }
+      setImportProgress("");
+      if (inserted === 0) throw new Error(errors[0] ?? "Falha ao importar contatos");
+      return { inserted, skipped: previewList.length - unique.length, errors };
     },
-    onSuccess: () => {
-      toast.success(`${previewList.length} contatos importados`);
+    onSuccess: (res) => {
+      const extras: string[] = [];
+      if (res.skipped > 0) extras.push(`${res.skipped} duplicado(s) ignorado(s)`);
+      if (res.errors.length) extras.push(`${res.errors.length} lote(s) com erro`);
+      toast.success(
+        `${res.inserted} contato(s) importado(s)` + (extras.length ? ` (${extras.join(", ")})` : ""),
+      );
       setRaw("");
       qc.invalidateQueries({ queryKey: ["queue"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setImportProgress("");
+      toast.error(e.message);
+    },
   });
 
   const remove = useMutation({
@@ -189,20 +248,22 @@ function QueuePage() {
                   onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
                 />
               </label>
-              <div className="min-w-[200px]">
-                <Select value={assignTo} onValueChange={setAssignTo}>
-                  <SelectTrigger><SelectValue placeholder="Atribuir a..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Fila geral (sem corretor)</SelectItem>
-                    {brokers.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {me?.isAdmin && (
+                <div className="min-w-[200px]">
+                  <Select value={assignTo} onValueChange={setAssignTo}>
+                    <SelectTrigger><SelectValue placeholder="Atribuir a..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Fila geral (sem corretor)</SelectItem>
+                      {brokers.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="ml-auto flex items-center gap-3">
                 <span className="text-sm text-muted-foreground">
-                  {previewList.length} contato(s) prontos
+                  {importProgress || `${previewList.length} contato(s) prontos`}
                 </span>
                 <Button
                   onClick={() => importContacts.mutate()}
@@ -215,6 +276,7 @@ function QueuePage() {
             </div>
           </div>
         </Card>
+
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <MiniStat label="Total" value={counts.total} />
