@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/")({
   component: LigaCtrlApp,
 });
 
-type Broker = { id: string; name: string };
+type Broker = { id: string; name: string; userId?: string | null; approved?: boolean };
 type Call = {
   id: string;
   date: string; // YYYY-MM-DD
@@ -107,7 +107,7 @@ type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "correto
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
-  const { state, setState, hydrated, me } = useCloudState();
+  const { state, fullState, setState, hydrated, me } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
   async function signOut() {
