@@ -221,7 +221,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [client, setClient] = useState("");
   const [phone, setPhone] = useState("");
-  const [showSug, setShowSug] = useState(false);
+  const [note, setNote] = useState("");
   const nameRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
@@ -232,10 +232,25 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
     if (!name) { toast.error("Digite o nome do cliente"); nameRef.current?.focus(); return; }
     if (!brokerId) { toast.error("Selecione um corretor"); return; }
     const normalized = phone.trim() ? normalizePhone(phone) : undefined;
-    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended, scheduled, note: "", createdAt: Date.now() };
+    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended, scheduled, note: note.trim(), createdAt: Date.now() };
     setState((s) => ({ ...s, calls: [call, ...s.calls] }));
     setClient("");
     setPhone("");
+    setNote("");
+    setTimeout(() => nameRef.current?.focus(), 0);
+  }
+
+  function addOnly() {
+    const name = client.trim();
+    if (!name) { toast.error("Digite o nome do cliente"); nameRef.current?.focus(); return; }
+    if (!brokerId) { toast.error("Selecione um corretor"); return; }
+    const normalized = phone.trim() ? normalizePhone(phone) : undefined;
+    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended: false, scheduled: false, note: note.trim(), createdAt: Date.now() };
+    setState((s) => ({ ...s, calls: [call, ...s.calls] }));
+    toast.success("Adicionado ao histórico", { description: name });
+    setClient("");
+    setPhone("");
+    setNote("");
     setTimeout(() => nameRef.current?.focus(), 0);
   }
 
@@ -261,40 +276,6 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
     scheduled: today.filter((c) => c.scheduled).length,
   };
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
-
-  // Sugestões: clientes que o corretor já ligou, por nome ou telefone
-  const suggestions = (() => {
-    const q = client.trim().toLowerCase();
-    const qDigits = phone.replace(/\D/g, "");
-    if (q.length < 2 && qDigits.length < 3) return [];
-    const map = new Map<string, { name: string; phone?: string; count: number; lastAt: number; lastAttended: boolean; lastScheduled: boolean }>();
-    for (const c of state.calls) {
-      if (c.brokerId !== brokerId) continue;
-      const nameMatch = q.length >= 2 && c.client.toLowerCase().includes(q);
-      const phoneMatch = qDigits.length >= 3 && (c.phone ?? "").replace(/\D/g, "").includes(qDigits);
-      if (!nameMatch && !phoneMatch) continue;
-      const key = `${c.client.toLowerCase()}|${(c.phone ?? "").replace(/\D/g, "")}`;
-      const prev = map.get(key);
-      if (!prev) {
-        map.set(key, { name: c.client, phone: c.phone, count: 1, lastAt: c.createdAt, lastAttended: c.attended, lastScheduled: c.scheduled });
-      } else {
-        prev.count += 1;
-        if (c.createdAt > prev.lastAt) {
-          prev.lastAt = c.createdAt;
-          prev.lastAttended = c.attended;
-          prev.lastScheduled = c.scheduled;
-        }
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => b.lastAt - a.lastAt).slice(0, 6);
-  })();
-
-  function pickSuggestion(s: { name: string; phone?: string }) {
-    setClient(s.name);
-    if (s.phone) setPhone(s.phone);
-    setShowSug(false);
-    setTimeout(() => nameRef.current?.focus(), 0);
-  }
 
   return (
     <div className="space-y-5">
@@ -337,51 +318,20 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
         <div className="grid gap-3 sm:grid-cols-[1fr_240px]">
           <Field label="Nome do cliente">
-            <div className="relative">
-              <input
-                ref={nameRef}
-                value={client}
-                onChange={(e) => { setClient(e.target.value); setShowSug(true); }}
-                onFocus={() => setShowSug(true)}
-                onBlur={() => setTimeout(() => setShowSug(false), 150)}
-                onKeyDown={onNameKeyDown}
-                placeholder="Digite o nome ou telefone para buscar no histórico"
-                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
-                autoFocus
-              />
-              {showSug && suggestions.length > 0 && (
-                <div className="absolute z-20 mt-1 w-full rounded-md border border-zinc-700 bg-[#0f1117] shadow-2xl overflow-hidden">
-                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-zinc-500 border-b border-zinc-800" style={fontDisplay}>
-                    <History className="inline h-3 w-3 mr-1" /> Já ligou para — {brokerName}
-                  </div>
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#171a23] border-b border-zinc-800/50 last:border-b-0"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-zinc-100 truncate">{s.name}</div>
-                        <div className="text-[11px] text-zinc-500 font-mono truncate">
-                          {s.phone ?? "sem telefone"} · {s.count}× · última {new Date(s.lastAt).toLocaleDateString("pt-BR")}
-                        </div>
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${s.lastScheduled ? "bg-[#c9a24c]/20 text-[#c9a24c]" : s.lastAttended ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`} style={fontDisplay}>
-                        {s.lastScheduled ? "agendou" : s.lastAttended ? "atendeu" : "não atend."}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <input
+              ref={nameRef}
+              value={client}
+              onChange={(e) => setClient(e.target.value)}
+              onKeyDown={onNameKeyDown}
+              placeholder="Ex.: João Silva"
+              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+              autoFocus
+            />
           </Field>
           <Field label="Telefone">
             <input
               value={phone}
-              onChange={(e) => { setPhone(e.target.value); setShowSug(true); }}
-              onFocus={() => setShowSug(true)}
-              onBlur={() => setTimeout(() => setShowSug(false), 150)}
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="(11) 99999-8888"
               inputMode="tel"
               className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-mono text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
@@ -389,19 +339,42 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           </Field>
         </div>
 
-        <a
-          href={dialHref}
-          onClick={(e) => { if (!dialReady) e.preventDefault(); }}
-          className={`mt-3 flex items-center justify-center gap-2 h-14 rounded-md text-base font-bold uppercase tracking-[0.18em] transition ${
-            dialReady
-              ? "bg-[#c9a24c] text-black hover:bg-[#e6c878]"
-              : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-          }`}
-          style={fontDisplay}
-        >
-          <PhoneCall className="h-5 w-5" />
-          {dialReady ? `Discar ${normalizePhone(phone)}` : "Digite um telefone para discar"}
-        </a>
+        <div className="mt-3">
+          <Field label="Observações (opcional)">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Ex.: interesse em apto 2 quartos, retornar à tarde…"
+              rows={2}
+              className="w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30 resize-y"
+            />
+          </Field>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <a
+            href={dialHref}
+            onClick={(e) => { if (!dialReady) e.preventDefault(); }}
+            className={`flex items-center justify-center gap-2 h-14 rounded-md text-base font-bold uppercase tracking-[0.18em] transition ${
+              dialReady
+                ? "bg-[#c9a24c] text-black hover:bg-[#e6c878]"
+                : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+            }`}
+            style={fontDisplay}
+          >
+            <PhoneCall className="h-5 w-5" />
+            {dialReady ? `Discar ${normalizePhone(phone)}` : "Digite um telefone para discar"}
+          </a>
+          <button
+            type="button"
+            onClick={addOnly}
+            className="flex items-center justify-center gap-2 h-14 rounded-md border-2 border-zinc-600 bg-[#0f1117] px-6 text-base font-bold uppercase tracking-[0.18em] text-zinc-200 hover:bg-zinc-800 hover:border-zinc-500 transition"
+            style={fontDisplay}
+            title="Salvar no histórico sem discar"
+          >
+            <Plus className="h-5 w-5" /> Adicionar
+          </button>
+        </div>
 
         <div className="mt-3 grid grid-cols-3 gap-3">
           <BigKey kbd="1" color="red" onClick={() => quickSave(false, false)}>
@@ -415,7 +388,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           </BigKey>
         </div>
         <p className="mt-3 text-[11px] text-zinc-500">
-          Disque pelo botão acima e depois marque o desfecho — a ligação é contabilizada no seu painel.
+          <strong className="text-zinc-400">Adicionar</strong> salva o lead no histórico sem discar. <strong className="text-zinc-400">Discar</strong> abre o telefone — depois marque o desfecho abaixo.
         </p>
       </div>
 
