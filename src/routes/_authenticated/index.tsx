@@ -1387,6 +1387,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     } catch (e: any) {
       console.error("Falha ao registrar ligação", e);
       toast.error(e?.message || "Falha ao registrar ligação");
+      void logDialerError({
+        action: "record_call_outcome",
+        error: e,
+        listName: current?.listName,
+        contactId,
+        contactName,
+        details: { attended, scheduled, attemptsBefore },
+      });
       lastOutcomeRef.current = "";
       setSubmittingOutcome(false);
       return;
