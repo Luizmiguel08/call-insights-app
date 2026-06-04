@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, Plus, Trash2, Upload, User2, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
@@ -197,8 +198,32 @@ function QueuePage() {
   });
 
   const onFile = async (file: File) => {
-    const text = await file.text();
-    setRaw((prev) => (prev ? prev + "\n" : "") + text);
+    try {
+      const name = file.name.toLowerCase();
+      const isExcel = /\.(xlsx|xls|xlsm|xlsb|ods)$/.test(name);
+      let text = "";
+      if (isExcel) {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const lines: string[] = [];
+        for (const sheetName of wb.SheetNames) {
+          const sheet = wb.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: false, defval: "" });
+          for (const row of rows) {
+            if (!Array.isArray(row)) continue;
+            const cells = row.map((c) => (c == null ? "" : String(c).trim())).filter(Boolean);
+            if (cells.length) lines.push(cells.join(", "));
+          }
+        }
+        text = lines.join("\n");
+      } else {
+        text = await file.text();
+      }
+      setRaw((prev) => (prev ? prev + "\n" : "") + text);
+      toast.success(`Arquivo "${file.name}" carregado`);
+    } catch (e: any) {
+      toast.error(`Falha ao ler arquivo: ${e?.message ?? "formato inválido"}`);
+    }
   };
 
   const counts = useMemo(() => {
@@ -227,7 +252,7 @@ function QueuePage() {
               <Upload className="h-5 w-5" />
               <div>
                 <p className="font-display text-lg font-bold">Importar contatos</p>
-                <p className="text-xs opacity-90">Cole uma lista ou envie um CSV (um por linha: <b>Nome, Telefone</b>)</p>
+                <p className="text-xs opacity-90">Cole uma lista ou envie CSV / Excel (.xlsx) — colunas <b>Nome, Telefone</b></p>
               </div>
             </div>
           </div>
@@ -242,9 +267,9 @@ function QueuePage() {
             <div className="flex flex-wrap items-center gap-3">
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm hover:bg-accent">
                 <Upload className="h-4 w-4" />
-                Enviar CSV
+                Enviar CSV / Excel
                 <input
-                  type="file" accept=".csv,.txt" className="hidden"
+                  type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods" className="hidden"
                   onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
                 />
               </label>
