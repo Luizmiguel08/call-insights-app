@@ -198,8 +198,32 @@ function QueuePage() {
   });
 
   const onFile = async (file: File) => {
-    const text = await file.text();
-    setRaw((prev) => (prev ? prev + "\n" : "") + text);
+    try {
+      const name = file.name.toLowerCase();
+      const isExcel = /\.(xlsx|xls|xlsm|xlsb|ods)$/.test(name);
+      let text = "";
+      if (isExcel) {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const lines: string[] = [];
+        for (const sheetName of wb.SheetNames) {
+          const sheet = wb.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: false, defval: "" });
+          for (const row of rows) {
+            if (!Array.isArray(row)) continue;
+            const cells = row.map((c) => (c == null ? "" : String(c).trim())).filter(Boolean);
+            if (cells.length) lines.push(cells.join(", "));
+          }
+        }
+        text = lines.join("\n");
+      } else {
+        text = await file.text();
+      }
+      setRaw((prev) => (prev ? prev + "\n" : "") + text);
+      toast.success(`Arquivo "${file.name}" carregado`);
+    } catch (e: any) {
+      toast.error(`Falha ao ler arquivo: ${e?.message ?? "formato inválido"}`);
+    }
   };
 
   const counts = useMemo(() => {
