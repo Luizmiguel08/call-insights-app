@@ -1308,7 +1308,9 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
               {current.phone || "(sem telefone)"}
             </div>
             {current.attempts > 0 && (
-              <div className="mt-1 text-xs text-zinc-500">Tentativa #{current.attempts + 1}</div>
+              <div className="mt-2 inline-block rounded bg-amber-500/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-amber-300" style={fontDisplay}>
+                Tentativa {current.attempts + 1} de 2
+              </div>
             )}
             {current.brokerId === null && (
               <div className="mt-1 inline-block text-[10px] uppercase tracking-widest text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded mt-2">Fila geral</div>
