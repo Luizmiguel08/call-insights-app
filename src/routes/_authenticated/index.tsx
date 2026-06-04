@@ -1271,12 +1271,19 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
       contactId: current.id,
     };
     const key = sameContactKey(current);
+    const now = Date.now();
     setState((s) => ({
       ...s,
       calls: [call, ...s.calls],
       contacts: s.contacts.map((c) => {
         if (c.id === current.id) {
-          return { ...c, status: keepForRetry ? "pendente" : "feito", attempts: newAttempts };
+          // Se mantém para retry, joga pro fim da fila pra fila avançar agora.
+          return {
+            ...c,
+            status: keepForRetry ? "pendente" : "feito",
+            attempts: newAttempts,
+            createdAt: keepForRetry ? now : c.createdAt,
+          };
         }
         // Marca duplicatas (mesmo telefone/nome) também como feito pra fila avançar.
         if (!keepForRetry && c.status === "pendente" && sameContactKey(c) === key) {
@@ -1288,7 +1295,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     setNote("");
     setCalledAt(null);
     if (keepForRetry) {
-      toast(`1ª tentativa registrada — ligue novamente`, { description: current.name });
+      toast(`Sem resposta — contato volta no fim da fila para 2ª tentativa`, { description: current.name });
     }
     // Verifica meta
     if (!reached && k.total + 1 === meta) {
