@@ -1933,6 +1933,7 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
                       inputMode="tel"
                     />
                   </Td>
+                  <Td className="text-xs text-zinc-400">{c.listName || "Geral"}</Td>
                   <Td>
                     {isAdmin ? (
                       <select
