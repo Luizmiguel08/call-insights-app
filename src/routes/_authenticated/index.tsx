@@ -107,7 +107,7 @@ type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "correto
 
 function LigaCtrlApp() {
   const navigate = useNavigate();
-  const { state, fullState, setState, hydrated, me } = useCloudState();
+  const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
 
   async function signOut() {
