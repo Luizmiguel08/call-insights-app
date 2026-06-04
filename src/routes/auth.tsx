@@ -38,7 +38,24 @@ function AuthPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !password) return toast.error("Preencha e-mail e senha");
+    if (!email) return toast.error("Informe seu e-mail");
+    if (mode === "forgot") {
+      setLoading(true);
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        toast.success("Se este e-mail estiver cadastrado, enviaremos um link de recuperação.");
+        setMode("signin");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao enviar e-mail");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    if (!password) return toast.error("Preencha e-mail e senha");
     if (password.length < 8) return toast.error("Senha precisa ter pelo menos 8 caracteres");
     setLoading(true);
     try {
