@@ -1319,7 +1319,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     const contactId = current.id;
     const contactName = current.name;
     const attemptsBefore = current.attempts;
-    const startedAtIso = calledAt ? new Date(calledAt).toISOString() : null;
+    const startedAtIso = calledAt ? new Date(calledAt).toISOString() : undefined;
     const endedAtIso = new Date().toISOString();
     const duration = calledAt ? Math.max(0, Math.round((Date.now() - calledAt) / 1000)) : 0;
 
