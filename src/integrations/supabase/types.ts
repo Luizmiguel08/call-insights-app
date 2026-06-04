@@ -251,6 +251,54 @@ export type Database = {
           },
         ]
       }
+      queue_reconciliation_log: {
+        Row: {
+          auto_fixed: boolean
+          broker_id: string | null
+          contact_id: string
+          contact_name: string | null
+          details: Json | null
+          expected_attempts: number
+          expected_status: string
+          id: string
+          ran_at: string
+          resolved: boolean
+          stored_attempts: number
+          stored_status: string
+          total_calls: number
+        }
+        Insert: {
+          auto_fixed?: boolean
+          broker_id?: string | null
+          contact_id: string
+          contact_name?: string | null
+          details?: Json | null
+          expected_attempts: number
+          expected_status: string
+          id?: string
+          ran_at?: string
+          resolved: boolean
+          stored_attempts: number
+          stored_status: string
+          total_calls: number
+        }
+        Update: {
+          auto_fixed?: boolean
+          broker_id?: string | null
+          contact_id?: string
+          contact_name?: string | null
+          details?: Json | null
+          expected_attempts?: number
+          expected_status?: string
+          id?: string
+          ran_at?: string
+          resolved?: boolean
+          stored_attempts?: number
+          stored_status?: string
+          total_calls?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -277,6 +325,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_run_queue_reconciliation: { Args: never; Returns: Json }
       broker_daily_counts: {
         Args: { _broker: string; _date?: string }
         Returns: Json
@@ -308,6 +357,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      recent_queue_mismatches: {
+        Args: { _limit?: number }
+        Returns: {
+          auto_fixed: boolean
+          broker_id: string | null
+          contact_id: string
+          contact_name: string | null
+          details: Json | null
+          expected_attempts: number
+          expected_status: string
+          id: string
+          ran_at: string
+          resolved: boolean
+          stored_attempts: number
+          stored_status: string
+          total_calls: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "queue_reconciliation_log"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reconcile_contact_queue: { Args: never; Returns: Json }
       record_call_outcome: {
         Args: {
           _attended: boolean
