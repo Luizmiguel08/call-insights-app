@@ -1871,12 +1871,20 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
       {/* Lista de contatos */}
       <div className="rounded-lg border border-zinc-800 bg-[#171a23]">
         <div className="flex flex-wrap items-center gap-3 p-4 border-b border-zinc-800">
-          <Field label="Filtrar por corretor" className="min-w-[220px]">
+          <Field label="Filtrar por corretor" className="min-w-[200px]">
             <select value={filterBroker} onChange={(e) => setFilterBroker(e.target.value)} className={inputCls + " appearance-none"}>
               <option value="all" className="bg-[#171a23]">Todos</option>
               <option value="geral" className="bg-[#171a23]">Fila geral</option>
               {state.brokers.map((b) => (
                 <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Filtrar por lista" className="min-w-[200px]">
+            <select value={filterList} onChange={(e) => setFilterList(e.target.value)} className={inputCls + " appearance-none"}>
+              <option value="all" className="bg-[#171a23]">Todas</option>
+              {availableLists.map((l) => (
+                <option key={l} value={l} className="bg-[#171a23]">{l}</option>
               ))}
             </select>
           </Field>
