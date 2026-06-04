@@ -1005,7 +1005,7 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
   if (!isAdmin) {
     const myBroker = state.brokers[0];
     const myCalls = state.calls;
-    const sch = myCalls.filter((c) => c.scheduled).length;
+    const sch = uniqueContactCountWhere(myCalls, (c) => c.scheduled);
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
