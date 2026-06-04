@@ -1255,6 +1255,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
           };
         })
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
+        .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
         .sort((a, b) => {
           // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
           if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
