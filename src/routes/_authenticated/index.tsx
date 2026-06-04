@@ -171,8 +171,9 @@ function LigaCtrlApp() {
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
     { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
+    { id: "erros", label: "Erros", icon: AlertTriangle, admin: true },
   ];
-  const tabs = allTabs;
+  const tabs = allTabs.filter((t) => !t.admin || isAdmin);
 
   return (
     <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)]" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
