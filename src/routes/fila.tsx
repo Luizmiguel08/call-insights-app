@@ -267,7 +267,7 @@ function QueuePage() {
             <div className="flex flex-wrap items-center gap-3">
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm hover:bg-accent">
                 <Upload className="h-4 w-4" />
-                Enviar CSV
+                Enviar CSV / Excel
                 <input
                   type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods" className="hidden"
                   onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
