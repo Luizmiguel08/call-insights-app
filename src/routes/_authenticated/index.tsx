@@ -1186,6 +1186,7 @@ function Td({ children, className = "", title, style }: { children?: React.React
 
 function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void> }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
+  const [selectedList, setSelectedList] = useState<string>("all");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
@@ -1254,6 +1255,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
           };
         })
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
+        .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
         .sort((a, b) => {
           // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
           if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
@@ -1272,8 +1274,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       }
       return out;
     },
-    [state.contacts, brokerId, contactProgress]
+    [state.contacts, brokerId, contactProgress, selectedList]
   );
+
+  const discadorLists = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of state.contacts) {
+      if (c.brokerId === brokerId || c.brokerId === null) {
+        set.add(c.listName || "Geral");
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [state.contacts, brokerId]);
+
 
   const prioritizedQueue = useMemo(() => {
     if (!retryContactId) return myQueue;
@@ -1412,6 +1425,18 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
                 {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>)}
               </select>
             </div>
+          </Field>
+          <Field label="Lista para discar" className="min-w-[200px]">
+            <select
+              value={selectedList}
+              onChange={(e) => setSelectedList(e.target.value)}
+              className={inputCls + " appearance-none"}
+            >
+              <option value="all" className="bg-[#171a23]">Todas as listas</option>
+              {discadorLists.map((l) => (
+                <option key={l} value={l} className="bg-[#171a23]">{l}</option>
+              ))}
+            </select>
           </Field>
           <div className="flex-1 min-w-[260px]">
             <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]" style={fontDisplay}>
