@@ -313,11 +313,13 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   const dialReady = phone.trim().length > 0;
 
   const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
+  const attendedUnique = uniqueContactCountWhere(today, (c) => c.attended);
+  const totalUnique = uniqueContactCount(today);
   const k = {
-    total: today.length,
-    attended: today.filter((c) => c.attended).length,
-    notAttended: today.filter((c) => !c.attended).length,
-    scheduled: today.filter((c) => c.scheduled).length,
+    total: totalUnique,
+    attended: attendedUnique,
+    notAttended: Math.max(0, totalUnique - attendedUnique),
+    scheduled: uniqueContactCountWhere(today, (c) => c.scheduled),
   };
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
 
