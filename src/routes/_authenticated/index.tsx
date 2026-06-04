@@ -1248,6 +1248,11 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const pct = Math.min(100, Math.round((k.total / meta) * 100));
   const reached = k.total >= meta;
 
+  function sameContactKey(c: { phone?: string; name: string }) {
+    const digits = (c.phone || "").replace(/\D+/g, "");
+    return digits ? `p:${digits}` : `n:${c.name.trim().toLowerCase()}`;
+  }
+
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
     const newAttempts = current.attempts + 1;
@@ -1265,12 +1270,20 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
       createdAt: Date.now(),
       contactId: current.id,
     };
+    const key = sameContactKey(current);
     setState((s) => ({
       ...s,
       calls: [call, ...s.calls],
-      contacts: s.contacts.map((c) => c.id === current.id
-        ? { ...c, status: keepForRetry ? "pendente" : "feito", attempts: newAttempts }
-        : c),
+      contacts: s.contacts.map((c) => {
+        if (c.id === current.id) {
+          return { ...c, status: keepForRetry ? "pendente" : "feito", attempts: newAttempts };
+        }
+        // Marca duplicatas (mesmo telefone/nome) também como feito pra fila avançar.
+        if (!keepForRetry && c.status === "pendente" && sameContactKey(c) === key) {
+          return { ...c, status: "feito" };
+        }
+        return c;
+      }),
     }));
     setNote("");
     setCalledAt(null);
@@ -1285,9 +1298,14 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function skip() {
     if (!current) return;
+    const key = sameContactKey(current);
     setState((s) => ({
       ...s,
-      contacts: s.contacts.map((c) => c.id === current.id ? { ...c, status: "pulado" } : c),
+      contacts: s.contacts.map((c) =>
+        (c.id === current.id || (c.status === "pendente" && sameContactKey(c) === key))
+          ? { ...c, status: "pulado" }
+          : c
+      ),
     }));
     setNote("");
     setCalledAt(null);
