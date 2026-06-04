@@ -554,7 +554,80 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
   const lastOutcomeRef = useRef<string>("");
 
+  // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
+  const deviceInfo = useMemo(() => {
+    if (typeof window === "undefined") return { id: "ssr", label: "Dispositivo" };
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const friendly = isMobile ? "Celular" : "Computador";
+    const sid = Math.random().toString(36).slice(2, 8);
+    return { id: `${friendly}#${sid}`, label: friendly };
+  }, []);
+  const deviceIdRef = useRef(deviceInfo.id);
+  const [remoteCall, setRemoteCall] = useState<{
+    contact_name: string; phone: string | null; started_at: string; device_label: string; device_id: string;
+  } | null>(null);
+
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+
+  // Carrega ligação em andamento + assina realtime
+  useEffect(() => {
+    if (!brokerId) return;
+    let cancelled = false;
+    async function load() {
+      const { data } = await (supabase as any)
+        .from("active_calls")
+        .select("contact_name, phone, started_at, device_label")
+        .eq("broker_id", brokerId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        const [label, id] = String(data.device_label || "").split("#");
+        setRemoteCall({
+          contact_name: data.contact_name, phone: data.phone,
+          started_at: data.started_at, device_label: label || "Dispositivo",
+          device_id: data.device_label || "",
+        });
+      } else setRemoteCall(null);
+    }
+    void load();
+    const channel = supabase
+      .channel(`active_calls:${brokerId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "active_calls", filter: `broker_id=eq.${brokerId}` },
+        (payload: any) => {
+          if (payload.eventType === "DELETE") { setRemoteCall(null); return; }
+          const row = payload.new;
+          if (!row) return;
+          const [label] = String(row.device_label || "").split("#");
+          setRemoteCall({
+            contact_name: row.contact_name, phone: row.phone,
+            started_at: row.started_at, device_label: label || "Dispositivo",
+            device_id: row.device_label || "",
+          });
+        })
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [brokerId]);
+
+  async function upsertActiveCall(contact: { id: string; name: string; phone?: string | null }) {
+    if (!brokerId) return;
+    try {
+      await (supabase as any).from("active_calls").upsert({
+        broker_id: brokerId,
+        contact_id: contact.id,
+        contact_name: contact.name,
+        phone: contact.phone ?? null,
+        device_label: deviceIdRef.current,
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) { console.warn("upsertActiveCall falhou", e); }
+  }
+  async function clearActiveCall() {
+    if (!brokerId) return;
+    try { await (supabase as any).from("active_calls").delete().eq("broker_id", brokerId); }
+    catch (e) { console.warn("clearActiveCall falhou", e); }
+  }
+
 
   // Carrega template salvo por corretor (localStorage)
   useEffect(() => {
