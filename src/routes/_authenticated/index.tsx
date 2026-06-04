@@ -599,12 +599,16 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     void load();
     const channel = supabase
       .channel(`active_calls:${brokerId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "active_calls", filter: `broker_id=eq.${brokerId}` },
+      .on("postgres_changes", { event: "*", schema: "public", table: "active_calls" },
         (payload: any) => {
+          const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+          if (!row || row.broker_id !== brokerId) return;
           if (payload.eventType === "DELETE") { setRemoteCall(null); return; }
           applyRow(payload.new);
         })
       .subscribe();
+    // Fallback: re-sincroniza periodicamente caso algum evento se perca
+    const poll = window.setInterval(() => { void load(); }, 5000);
     return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [brokerId]);
 
