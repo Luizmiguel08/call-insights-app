@@ -202,7 +202,7 @@ function LigaCtrlApp() {
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} />}
-        {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
+        {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
