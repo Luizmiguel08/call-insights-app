@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.next_contact_for_broker(uuid);
