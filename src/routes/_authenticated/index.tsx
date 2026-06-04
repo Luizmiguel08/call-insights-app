@@ -1328,7 +1328,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
         _contact_id: contactId,
         _attended: attended,
         _scheduled: scheduled,
-        _notes: note.trim() || null,
+        _notes: note.trim() || undefined,
         _started_at: startedAtIso,
         _ended_at: endedAtIso,
         _duration_seconds: duration,
