@@ -563,8 +563,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return { id: `${friendly}#${sid}`, label: friendly };
   }, []);
   const deviceIdRef = useRef(deviceInfo.id);
+  const remoteWasSetRef = useRef(false);
   const [remoteCall, setRemoteCall] = useState<{
-    contact_name: string; phone: string | null; started_at: string; device_label: string; device_id: string;
+    contact_id: string | null; contact_name: string; phone: string | null;
+    started_at: string; device_label: string; device_id: string;
   } | null>(null);
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
@@ -573,21 +575,26 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   useEffect(() => {
     if (!brokerId) return;
     let cancelled = false;
+    function applyRow(row: any | null) {
+      if (!row) { setRemoteCall(null); return; }
+      const [label] = String(row.device_label || "").split("#");
+      setRemoteCall({
+        contact_id: row.contact_id ?? null,
+        contact_name: row.contact_name,
+        phone: row.phone,
+        started_at: row.started_at,
+        device_label: label || "Dispositivo",
+        device_id: row.device_label || "",
+      });
+    }
     async function load() {
       const { data } = await (supabase as any)
         .from("active_calls")
-        .select("contact_name, phone, started_at, device_label")
+        .select("contact_id, contact_name, phone, started_at, device_label")
         .eq("broker_id", brokerId)
         .maybeSingle();
       if (cancelled) return;
-      if (data) {
-        const [label, id] = String(data.device_label || "").split("#");
-        setRemoteCall({
-          contact_name: data.contact_name, phone: data.phone,
-          started_at: data.started_at, device_label: label || "Dispositivo",
-          device_id: data.device_label || "",
-        });
-      } else setRemoteCall(null);
+      applyRow(data ?? null);
     }
     void load();
     const channel = supabase
@@ -595,18 +602,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       .on("postgres_changes", { event: "*", schema: "public", table: "active_calls", filter: `broker_id=eq.${brokerId}` },
         (payload: any) => {
           if (payload.eventType === "DELETE") { setRemoteCall(null); return; }
-          const row = payload.new;
-          if (!row) return;
-          const [label] = String(row.device_label || "").split("#");
-          setRemoteCall({
-            contact_name: row.contact_name, phone: row.phone,
-            started_at: row.started_at, device_label: label || "Dispositivo",
-            device_id: row.device_label || "",
-          });
+          applyRow(payload.new);
         })
       .subscribe();
     return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [brokerId]);
+
 
   async function upsertActiveCall(contact: { id: string; name: string; phone?: string | null }) {
     if (!brokerId) return;
@@ -722,11 +723,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
 
   const prioritizedQueue = useMemo(() => {
-    if (!retryContactId) return myQueue;
-    const retryContact = myQueue.find((c) => c.id === retryContactId);
-    if (!retryContact) return myQueue;
-    return [retryContact, ...myQueue.filter((c) => c.id !== retryContactId)];
-  }, [myQueue, retryContactId]);
+    // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
+    const pinId = remoteCall?.contact_id || retryContactId;
+    if (!pinId) return myQueue;
+    const pinned = myQueue.find((c) => c.id === pinId);
+    if (!pinned) return myQueue;
+    return [pinned, ...myQueue.filter((c) => c.id !== pinId)];
+  }, [myQueue, retryContactId, remoteCall?.contact_id]);
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
@@ -735,6 +738,25 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     lastOutcomeRef.current = "";
     setSubmittingOutcome(false);
   }, [current?.id, current?.attempts]);
+
+  // Espelho do estado "em ligação" entre dispositivos do mesmo corretor.
+  // Quando outro aparelho liga → entra em modo "em ligação" aqui também.
+  // Quando outro aparelho encerra → sai aqui também.
+  useEffect(() => {
+    if (!remoteCall) {
+      // só limpa o calledAt local se ele veio de um remoto (sem sobrescrever ligação local em andamento)
+      // Heurística: se não há remoto e há calledAt local, mantemos — o usuário pode estar no fluxo local.
+      // Mas se acabou de existir e sumiu, o disparo do delete já chegou; limpa pra refletir encerramento.
+      setCalledAt((cur) => (cur && remoteWasSetRef.current ? null : cur));
+      remoteWasSetRef.current = false;
+      return;
+    }
+    remoteWasSetRef.current = true;
+    if (remoteCall.device_id === deviceIdRef.current) return; // foi este aparelho que disparou
+    const remoteStartMs = new Date(remoteCall.started_at).getTime();
+    setCalledAt((cur) => (cur ? cur : remoteStartMs));
+  }, [remoteCall]);
+
 
   const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const totalUnique = uniqueContactCount(todayCalls);
@@ -872,26 +894,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   return (
     <div className="space-y-5">
-      {remoteIsOtherDevice && (
-        <div className="rounded-lg border-2 border-emerald-500/60 bg-emerald-500/10 px-4 py-3 flex items-center justify-between gap-3 flex-wrap animate-pulse">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inset-0 rounded-full bg-emerald-400 opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-            </span>
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-emerald-300" style={fontDisplay}>
-                Em ligação no {remoteCall!.device_label}
-              </div>
-              <div className="text-sm font-semibold text-zinc-100">
-                {remoteCall!.contact_name}
-                {remoteCall!.phone ? <span className="text-zinc-400 font-normal ml-2" style={fontNumeric}>{remoteCall!.phone}</span> : null}
-              </div>
-            </div>
-          </div>
-          <CallTimer startedAt={new Date(remoteCall!.started_at).getTime()} />
-        </div>
-      )}
+
 
       {/* Header: corretor + meta */}
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
@@ -974,7 +977,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             </a>
           ) : (
             <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>Em ligação</div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>
+                Em ligação{remoteIsOtherDevice ? ` — via ${remoteCall!.device_label}` : ""}
+              </div>
               <CallTimer startedAt={calledAt} />
             </div>
           )}
