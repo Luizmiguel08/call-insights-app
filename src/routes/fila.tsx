@@ -69,6 +69,27 @@ function QueuePage() {
   const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [importProgress, setImportProgress] = useState<string>("");
 
+  // Realtime: sincroniza fila entre dispositivos (ex.: editou no PC, ver no celular)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`fila-sync-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, () => {
+        qc.invalidateQueries({ queryKey: ["queue"] });
+      })
+      .subscribe();
+
+    // Atualiza também ao voltar foco/visibilidade (mobile suspende websocket em background)
+    const onFocus = () => qc.invalidateQueries({ queryKey: ["queue"] });
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+
+    return () => {
+      void supabase.removeChannel(channel);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [qc]);
+
   // Quem está logado? (admin pode atribuir a qualquer um; corretor força a si mesmo)
   const { data: me } = useQuery({
     queryKey: ["me-fila"],
