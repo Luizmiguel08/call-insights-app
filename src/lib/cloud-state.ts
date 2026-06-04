@@ -160,7 +160,7 @@ async function loadAll(): Promise<State> {
     createdAt: new Date(c.created_at).getTime(),
     contactId: c.contact_id ?? undefined,
   }));
-  const contacts: Contact[] = (contactsR.data ?? []).map((c) => ({
+  const contacts: Contact[] = (contactsR.data ?? []).map((c: any) => ({
     id: c.id,
     name: c.name,
     phone: c.phone,
@@ -168,6 +168,7 @@ async function loadAll(): Promise<State> {
     status: statusDbToLocal[c.status] ?? "pendente",
     createdAt: new Date(c.created_at).getTime(),
     attempts: c.call_attempts,
+    listName: c.list_name ?? "Geral",
   }));
   return { brokers, calls, contacts, metaDaily: settingsR.data?.meta_daily ?? 50 };
 }
