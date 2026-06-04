@@ -110,15 +110,35 @@ async function loadAll(): Promise<State> {
     return all;
   }
 
+  async function loadAllCalls() {
+    const pageSize = 1000;
+    let from = 0;
+    const all: any[] = [];
+    while (from < 100000) {
+      const r = await supabase
+        .from("calls")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (r.error) throw r.error;
+      const rows = r.data ?? [];
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
   const [brokersR, callsR, contactsRows, settingsR] = await Promise.all([
     supabase.from("brokers").select("*").order("created_at"),
-    supabase.from("calls").select("*").order("created_at", { ascending: false }).limit(5000),
+    loadAllCalls(),
     loadAllContacts(),
     supabase.from("app_settings").select("*").eq("id", "global").maybeSingle(),
   ]);
   const contactsR = { data: contactsRows, error: null as null };
+  const callsResult = { data: callsR, error: null as null };
   if (brokersR.error) throw brokersR.error;
-  if (callsR.error) throw callsR.error;
+  if (callsResult.error) throw callsResult.error;
   if (contactsR.error) throw contactsR.error;
 
   const brokers: Broker[] = (brokersR.data ?? []).map((b) => ({
@@ -127,7 +147,7 @@ async function loadAll(): Promise<State> {
     userId: b.user_id ?? null,
     approved: b.approved ?? true,
   }));
-  const calls: Call[] = (callsR.data ?? []).map((c) => ({
+  const calls: Call[] = (callsResult.data ?? []).map((c) => ({
     id: c.id,
     date: toLocalDate(c.created_at),
     brokerId: c.broker_id,
@@ -163,6 +183,14 @@ function diff<T extends { id: string }>(prev: T[], next: T[]) {
   return { added, removed, changed };
 }
 
+async function insertInChunks(table: "contacts_queue" | "calls", rows: any[], chunkSize = 300) {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await (supabase.from(table) as any).insert(chunk);
+    if (error) throw error;
+  }
+}
+
 async function syncTo(prev: State, next: State, me: Me) {
   // brokers — apenas admin pode mexer (RLS bloqueia os demais; ainda assim filtramos client-side)
   if (me.isAdmin) {
@@ -185,7 +213,8 @@ async function syncTo(prev: State, next: State, me: Me) {
   // contacts — corretor força broker_id = seu próprio
   const cd = diff(prev.contacts, next.contacts);
   if (cd.added.length) {
-    await supabase.from("contacts_queue").insert(
+    await insertInChunks(
+      "contacts_queue",
       cd.added.map((c) => ({
         id: c.id,
         name: c.name,
@@ -214,7 +243,8 @@ async function syncTo(prev: State, next: State, me: Me) {
   // calls
   const kd = diff(prev.calls, next.calls);
   if (kd.added.length) {
-    await supabase.from("calls").insert(
+    await insertInChunks(
+      "calls",
       kd.added.map((c) => ({
         id: c.id,
         broker_id: me.isAdmin ? c.brokerId : (me.brokerId ?? c.brokerId),
@@ -254,11 +284,13 @@ export function useCloudState() {
   const lastSyncedRef = useRef<State>(defaultState());
   const meRef = useRef<Me | null>(null);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncSeqRef = useRef(0);
 
   const refetch = useCallback(async () => {
     // Ignora ecos do realtime logo após uma escrita local pra evitar "piscar"
     // o estado antigo sobre a atualização otimista.
     if (Date.now() < muteUntilRef.current) return;
+    if (pendingTimer.current) return;
     const s = await loadAll();
     lastSyncedRef.current = s;
     setStateRaw(s);
@@ -305,10 +337,18 @@ export function useCloudState() {
     const prev = lastSyncedRef.current;
     pendingTimer.current = setTimeout(() => {
       const next = state;
+      const syncSeq = ++syncSeqRef.current;
       lastSyncedRef.current = next;
+      pendingTimer.current = null;
       // Silencia ecos do realtime por um curto período após escrever.
-      muteUntilRef.current = Date.now() + 1500;
+      muteUntilRef.current = Date.now() + 3000;
       void syncTo(prev, next, meRef.current!)
+        .then(async () => {
+          if (syncSeq !== syncSeqRef.current) return;
+          const fresh = await loadAll();
+          lastSyncedRef.current = fresh;
+          setStateRaw(fresh);
+        })
         .catch((e) => console.error("Falha ao salvar na nuvem", e));
     }, 80);
     return () => {

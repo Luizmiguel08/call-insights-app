@@ -1190,6 +1190,8 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const [calledAt, setCalledAt] = useState<number | null>(null);
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
   const [waEditing, setWaEditing] = useState(false);
+  const [submittingOutcome, setSubmittingOutcome] = useState(false);
+  const lastOutcomeRef = useRef<string>("");
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
 
@@ -1255,6 +1257,10 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
+    if (submittingOutcome || lastOutcomeRef.current === outcomeKey) return;
+    lastOutcomeRef.current = outcomeKey;
+    setSubmittingOutcome(true);
     const newAttempts = current.attempts + 1;
     // Só permite 2ª tentativa se NÃO atendeu e ainda não tentou 2x.
     const keepForRetry = !attended && !scheduled && newAttempts < 2;
@@ -1294,6 +1300,10 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     }));
     setNote("");
     setCalledAt(null);
+    window.setTimeout(() => {
+      lastOutcomeRef.current = "";
+      setSubmittingOutcome(false);
+    }, 1200);
     if (keepForRetry) {
       toast(`Sem resposta — contato volta no fim da fila para 2ª tentativa`, { description: current.name });
     }
@@ -1321,6 +1331,8 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function callback() {
     if (!current) return;
+    if (submittingOutcome) return;
+    setSubmittingOutcome(true);
     // Joga pro fim da fila: recria com novo createdAt
     setState((s) => ({
       ...s,
@@ -1328,10 +1340,12 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     }));
     setNote("");
     setCalledAt(null);
+    window.setTimeout(() => setSubmittingOutcome(false), 800);
     toast("Movido pro fim da fila");
   }
 
   function startCall() {
+    if (!current || submittingOutcome) return;
     setCalledAt(Date.now());
   }
 
@@ -1399,7 +1413,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
             <a
               href={telHref(current.phone)}
               onClick={startCall}
-              className="flex w-full items-center justify-center gap-3 rounded-md bg-[#c9a24c] py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#c9a24c] transition hover:bg-[#e6c878] active:scale-[0.99]"
+                className={`flex w-full items-center justify-center gap-3 rounded-md py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#c9a24c] transition active:scale-[0.99] ${submittingOutcome ? "pointer-events-none bg-[#8f7b42] opacity-60" : "bg-[#c9a24c] hover:bg-[#e6c878]"}`}
               style={fontDisplay}
             >
               <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
