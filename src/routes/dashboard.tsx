@@ -25,6 +25,7 @@ type Broker = { id: string; name: string; color: string };
 type Call = {
   id: string; broker_id: string; attended: boolean; scheduled: boolean;
   duration_seconds: number; created_at: string; outcome: OutcomeKey | null;
+  client_name?: string | null; phone?: string | null; contact_id?: string | null;
 };
 type Pause = {
   id: string; broker_id: string; started_at: string;
@@ -75,9 +76,12 @@ function DashboardPage() {
     },
   });
 
-  const contactKey = (c: Call & { client?: string; phone?: string; contact_id?: string | null }) => {
-    const anyC = c as any;
-    return anyC.contact_id ?? `${(anyC.client ?? "").trim().toLowerCase()}|${String(anyC.phone ?? "").replace(/\D/g, "")}`;
+  const contactKey = (c: Call) => {
+    const digits = String(c.phone ?? "").replace(/\D/g, "");
+    const name = String(c.client_name ?? "").trim().toLowerCase();
+    if (digits) return `p:${digits}`;
+    if (name) return `n:${name}`;
+    return c.contact_id ? `id:${c.contact_id}` : "unknown";
   };
 
   const ranking = useMemo(() => {
