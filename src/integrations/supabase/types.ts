@@ -282,6 +282,10 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _uid: string }
         Returns: boolean
       }
+      sync_contact_queue_from_calls: {
+        Args: { _contact_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "corretor"
