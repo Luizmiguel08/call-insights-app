@@ -1,0 +1,1 @@
+CREATE POLICY "claim general queue" ON public.contacts_queue FOR UPDATE TO authenticated USING (broker_id IS NULL) WITH CHECK (broker_id = public.current_broker_id() OR public.has_role(auth.uid(), 'admin'::app_role));
