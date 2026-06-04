@@ -221,6 +221,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [client, setClient] = useState("");
   const [phone, setPhone] = useState("");
+  const [showSug, setShowSug] = useState(false);
   const nameRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
@@ -260,6 +261,40 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
     scheduled: today.filter((c) => c.scheduled).length,
   };
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
+
+  // Sugestões: clientes que o corretor já ligou, por nome ou telefone
+  const suggestions = (() => {
+    const q = client.trim().toLowerCase();
+    const qDigits = phone.replace(/\D/g, "");
+    if (q.length < 2 && qDigits.length < 3) return [];
+    const map = new Map<string, { name: string; phone?: string; count: number; lastAt: number; lastAttended: boolean; lastScheduled: boolean }>();
+    for (const c of state.calls) {
+      if (c.brokerId !== brokerId) continue;
+      const nameMatch = q.length >= 2 && c.client.toLowerCase().includes(q);
+      const phoneMatch = qDigits.length >= 3 && (c.phone ?? "").replace(/\D/g, "").includes(qDigits);
+      if (!nameMatch && !phoneMatch) continue;
+      const key = `${c.client.toLowerCase()}|${(c.phone ?? "").replace(/\D/g, "")}`;
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, { name: c.client, phone: c.phone, count: 1, lastAt: c.createdAt, lastAttended: c.attended, lastScheduled: c.scheduled });
+      } else {
+        prev.count += 1;
+        if (c.createdAt > prev.lastAt) {
+          prev.lastAt = c.createdAt;
+          prev.lastAttended = c.attended;
+          prev.lastScheduled = c.scheduled;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.lastAt - a.lastAt).slice(0, 6);
+  })();
+
+  function pickSuggestion(s: { name: string; phone?: string }) {
+    setClient(s.name);
+    if (s.phone) setPhone(s.phone);
+    setShowSug(false);
+    setTimeout(() => nameRef.current?.focus(), 0);
+  }
 
   return (
     <div className="space-y-5">
@@ -302,20 +337,51 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
         <div className="grid gap-3 sm:grid-cols-[1fr_240px]">
           <Field label="Nome do cliente">
-            <input
-              ref={nameRef}
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              onKeyDown={onNameKeyDown}
-              placeholder="Ex.: João Silva"
-              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                ref={nameRef}
+                value={client}
+                onChange={(e) => { setClient(e.target.value); setShowSug(true); }}
+                onFocus={() => setShowSug(true)}
+                onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                onKeyDown={onNameKeyDown}
+                placeholder="Digite o nome ou telefone para buscar no histórico"
+                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+                autoFocus
+              />
+              {showSug && suggestions.length > 0 && (
+                <div className="absolute z-20 mt-1 w-full rounded-md border border-zinc-700 bg-[#0f1117] shadow-2xl overflow-hidden">
+                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-zinc-500 border-b border-zinc-800" style={fontDisplay}>
+                    <History className="inline h-3 w-3 mr-1" /> Já ligou para — {brokerName}
+                  </div>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#171a23] border-b border-zinc-800/50 last:border-b-0"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-zinc-100 truncate">{s.name}</div>
+                        <div className="text-[11px] text-zinc-500 font-mono truncate">
+                          {s.phone ?? "sem telefone"} · {s.count}× · última {new Date(s.lastAt).toLocaleDateString("pt-BR")}
+                        </div>
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${s.lastScheduled ? "bg-[#c9a24c]/20 text-[#c9a24c]" : s.lastAttended ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`} style={fontDisplay}>
+                        {s.lastScheduled ? "agendou" : s.lastAttended ? "atendeu" : "não atend."}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </Field>
           <Field label="Telefone">
             <input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => { setPhone(e.target.value); setShowSug(true); }}
+              onFocus={() => setShowSug(true)}
+              onBlur={() => setTimeout(() => setShowSug(false), 150)}
               placeholder="(11) 99999-8888"
               inputMode="tel"
               className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-mono text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
