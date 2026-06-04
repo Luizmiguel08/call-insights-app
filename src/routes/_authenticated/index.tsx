@@ -1,10 +1,22 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  type Broker, type Call, type Contact, type State, type Tab,
+  todayISO, normalizedContactKey, callContactKey, uniqueContactCount, uniqueContactCountWhere,
+  normalizePhone, telHref, DEFAULT_WA_TEMPLATE, renderWaMessage, waHrefFromMessage, logDialerError,
+  fontDisplay, fontNumeric, inputCls,
+  Field, YesNo, Kpi, Badge, Th, Td,
+} from "@/lib/dialer-shared";
+
+// Lazy-loaded heavy/secondary tabs — keeps initial bundle small for mobile.
+const HistoricoTab = lazy(() => import("@/components/dialer/HistoricoTab"));
+const DashboardTab = lazy(() => import("@/components/dialer/DashboardTab"));
+const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -16,144 +28,12 @@ export const Route = createFileRoute("/_authenticated/")({
   component: LigaCtrlApp,
 });
 
-type Broker = { id: string; name: string; userId?: string | null; approved?: boolean };
-type Call = {
-  id: string;
-  date: string; // YYYY-MM-DD
-  brokerId: string;
-  client: string;
-  phone?: string;
-  attended: boolean;
-  scheduled: boolean;
-  note: string;
-  createdAt: number;
-  contactId?: string;
-};
-type Contact = {
-  id: string;
-  name: string;
-  phone: string;
-  brokerId: string | null; // null = fila geral
-  status: "pendente" | "feito" | "pulado";
-  createdAt: number;
-  attempts: number;
-  listName: string;
-};
-
-type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
-
-function todayISO() {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
-}
-
 function uid() {
   return newId();
 }
 
-// Identifica um contato unicamente para deduplicar tentativas múltiplas.
-// Prioriza telefone/nome normalizado para continuar agrupando corretamente
-// mesmo quando o mesmo cliente vier com contactId diferente em tentativas separadas.
-function normalizedContactKey(input: { name?: string; client?: string; phone?: string; contactId?: string }) {
-  const rawName = (input.name ?? input.client ?? "").trim().toLowerCase();
-  const digits = (input.phone ?? "").replace(/\D/g, "");
-  if (digits) return `p:${digits}`;
-  if (rawName) return `n:${rawName}`;
-  return input.contactId ? `id:${input.contactId}` : "unknown";
-}
-function callContactKey(c: Call) {
-  return normalizedContactKey({ client: c.client, phone: c.phone, contactId: c.contactId });
-}
-function uniqueContactCount(calls: Call[]) {
-  return new Set(calls.map(callContactKey)).size;
-}
-function uniqueContactCountWhere(calls: Call[], pred: (c: Call) => boolean) {
-  const set = new Set<string>();
-  for (const c of calls) if (pred(c)) set.add(callContactKey(c));
-  return set.size;
-}
-
-// Normaliza para formato E.164 com fallback Brasil (+55).
-// - Aceita números com "+" e DDI (qualquer país): mantém como está.
-// - Aceita "00" como prefixo internacional → vira "+".
-// - Sem DDI: assume Brasil. 10 ou 11 dígitos (DDD + número) → +55XXXXXXXXXX.
-// - 12 ou 13 dígitos começando com 55 → +55... (DDI já presente sem o "+").
-// - Demais comprimentos: prefixa "+" para tentar discar como internacional.
-function normalizePhone(s: string) {
-  if (!s) return "";
-  const trimmed = s.trim();
-  const hasPlus = trimmed.startsWith("+");
-  let digits = trimmed.replace(/\D/g, "");
-  if (!digits) return "";
-  if (!hasPlus && digits.startsWith("00")) {
-    digits = digits.slice(2);
-    return "+" + digits;
-  }
-  if (hasPlus) return "+" + digits;
-  // Sem "+": decidir DDI
-  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
-    return "+" + digits;
-  }
-  if (digits.length === 10 || digits.length === 11) {
-    // Brasil: DDD + número (fixo 10 / móvel 11)
-    return "+55" + digits;
-  }
-  // Outros tamanhos: trata como internacional já com DDI
-  return "+" + digits;
-}
-
-function telHref(phone: string) {
-  const p = normalizePhone(phone);
-  return p ? `tel:${p}` : "#";
-}
-
-const DEFAULT_WA_TEMPLATE =
-  "Olá, {nome}! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.";
-
-function renderWaMessage(template: string, clientName?: string) {
-  const firstName = (clientName ?? "").trim().split(/\s+/)[0] || "";
-  return (template || DEFAULT_WA_TEMPLATE)
-    .replaceAll("{nome}", firstName)
-    .replaceAll("{name}", firstName);
-}
-
-function waHrefFromMessage(phone: string, message: string) {
-  const p = normalizePhone(phone);
-  if (!p) return "#";
-  const digits = p.replace(/\D/g, "");
-  const safe = (message || "").slice(0, 1000);
-  return `https://wa.me/${digits}?text=${encodeURIComponent(safe)}`;
-}
-
-type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros";
-
-async function logDialerError(params: {
-  action: string;
-  error: unknown;
-  listName?: string | null;
-  contactId?: string | null;
-  contactName?: string | null;
-  details?: Record<string, unknown> | null;
-}) {
-  try {
-    const err: any = params.error;
-    const message =
-      (typeof err === "string" && err) ||
-      err?.message ||
-      err?.error_description ||
-      "Erro desconhecido";
-    await supabase.rpc("log_dialer_error", {
-      _action: params.action,
-      _error_message: String(message).slice(0, 1000),
-      _list_name: params.listName ?? undefined,
-      _contact_id: params.contactId ?? undefined,
-      _contact_name: params.contactName ?? undefined,
-      _details: (params.details ?? undefined) as any,
-    });
-  } catch (e) {
-    console.error("Falha ao registrar log de erro", e);
-  }
+function TabFallback() {
+  return <div className="py-16 text-center text-sm text-zinc-500">Carregando…</div>;
 }
 
 function LigaCtrlApp() {
