@@ -1256,11 +1256,15 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    if (current.attempts >= 2 && !attended && !scheduled) {
+      toast.error("Esse contato já atingiu o limite de 2 tentativas");
+      return;
+    }
     const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
     if (submittingOutcome || lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
     setSubmittingOutcome(true);
-    const newAttempts = current.attempts + 1;
+    const newAttempts = Math.min(current.attempts + 1, 2);
     // Só permite 2ª tentativa se NÃO atendeu e ainda não tentou 2x.
     const keepForRetry = !attended && !scheduled && newAttempts < 2;
     const call: Call = {
