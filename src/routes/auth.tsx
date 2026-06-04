@@ -100,6 +100,26 @@ function AuthPage() {
           </div>
         </div>
 
+        {mode === "forgot" && forgotSent ? (
+          <div className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 sm:p-8 space-y-4 text-center">
+            <div className="mx-auto h-12 w-12 rounded-full bg-[#c9a24c]/15 flex items-center justify-center">
+              <Mail className="h-6 w-6 text-[#c9a24c]" />
+            </div>
+            <div className="text-sm text-zinc-200 font-medium">Verifique seu e-mail</div>
+            <div className="text-xs text-zinc-400 leading-relaxed">
+              Enviamos um link de recuperação para <span className="text-zinc-200">{email}</span>.
+              Abra a mensagem e clique no link para definir uma nova senha. Pode levar alguns minutos
+              — confira também a caixa de spam.
+            </div>
+            <button
+              type="button"
+              onClick={() => { setForgotSent(false); setMode("signin"); }}
+              className="flex items-center justify-center gap-1 w-full text-center text-xs text-zinc-500 hover:text-[#c9a24c] transition"
+            >
+              <ArrowLeft className="h-3 w-3" /> Voltar para o login
+            </button>
+          </div>
+        ) : (
         <form onSubmit={submit} className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 sm:p-8 space-y-4">
           <div className="text-center text-sm text-zinc-400 mb-2">
             {mode === "signin"
