@@ -248,20 +248,22 @@ function QueuePage() {
                   onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
                 />
               </label>
-              <div className="min-w-[200px]">
-                <Select value={assignTo} onValueChange={setAssignTo}>
-                  <SelectTrigger><SelectValue placeholder="Atribuir a..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Fila geral (sem corretor)</SelectItem>
-                    {brokers.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {me?.isAdmin && (
+                <div className="min-w-[200px]">
+                  <Select value={assignTo} onValueChange={setAssignTo}>
+                    <SelectTrigger><SelectValue placeholder="Atribuir a..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Fila geral (sem corretor)</SelectItem>
+                      {brokers.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="ml-auto flex items-center gap-3">
                 <span className="text-sm text-muted-foreground">
-                  {previewList.length} contato(s) prontos
+                  {importProgress || `${previewList.length} contato(s) prontos`}
                 </span>
                 <Button
                   onClick={() => importContacts.mutate()}
@@ -274,6 +276,7 @@ function QueuePage() {
             </div>
           </div>
         </Card>
+
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <MiniStat label="Total" value={counts.total} />
