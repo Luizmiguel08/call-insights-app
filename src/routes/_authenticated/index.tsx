@@ -1274,8 +1274,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       }
       return out;
     },
-    [state.contacts, brokerId, contactProgress]
+    [state.contacts, brokerId, contactProgress, selectedList]
   );
+
+  const discadorLists = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of state.contacts) {
+      if (c.brokerId === brokerId || c.brokerId === null) {
+        set.add(c.listName || "Geral");
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [state.contacts, brokerId]);
+
 
   const prioritizedQueue = useMemo(() => {
     if (!retryContactId) return myQueue;
