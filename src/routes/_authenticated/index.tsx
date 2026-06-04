@@ -124,10 +124,10 @@ async function logDialerError(params: {
     await supabase.rpc("log_dialer_error", {
       _action: params.action,
       _error_message: String(message).slice(0, 1000),
-      _list_name: params.listName ?? null,
-      _contact_id: params.contactId ?? null,
-      _contact_name: params.contactName ?? null,
-      _details: (params.details ?? null) as any,
+      _list_name: params.listName ?? undefined,
+      _contact_id: params.contactId ?? undefined,
+      _contact_name: params.contactName ?? undefined,
+      _details: (params.details ?? undefined) as any,
     });
   } catch (e) {
     console.error("Falha ao registrar log de erro", e);
