@@ -1284,6 +1284,11 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
 
+  useEffect(() => {
+    lastOutcomeRef.current = "";
+    setSubmittingOutcome(false);
+  }, [current?.id, current?.attempts]);
+
   const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const k = {
     total: todayCalls.length,
@@ -1353,7 +1358,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     window.setTimeout(() => {
       lastOutcomeRef.current = "";
       setSubmittingOutcome(false);
-    }, 1200);
+    }, 250);
     if (keepForRetry) {
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: current.name });
     }
