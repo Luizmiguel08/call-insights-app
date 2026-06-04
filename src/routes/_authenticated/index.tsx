@@ -156,7 +156,10 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   const [note, setNote] = useState("");
   const nameRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+  useEffect(() => {
+    if (!state.brokers.length) return;
+    if (!brokerId || !state.brokers.some((b) => b.id === brokerId)) setBrokerId(state.brokers[0].id);
+  }, [state.brokers, brokerId]);
   useEffect(() => { nameRef.current?.focus(); }, [brokerId, date]);
 
   function quickSave(attended: boolean, scheduled: boolean) {
@@ -569,7 +572,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     started_at: string; device_label: string; device_id: string;
   } | null>(null);
 
-  useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+  useEffect(() => {
+    if (!state.brokers.length) return;
+    if (!brokerId || !state.brokers.some((b) => b.id === brokerId)) setBrokerId(state.brokers[0].id);
+  }, [state.brokers, brokerId]);
 
   // Carrega ligação em andamento + assina realtime
   useEffect(() => {
