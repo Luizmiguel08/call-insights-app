@@ -554,7 +554,80 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
   const lastOutcomeRef = useRef<string>("");
 
+  // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
+  const deviceInfo = useMemo(() => {
+    if (typeof window === "undefined") return { id: "ssr", label: "Dispositivo" };
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const friendly = isMobile ? "Celular" : "Computador";
+    const sid = Math.random().toString(36).slice(2, 8);
+    return { id: `${friendly}#${sid}`, label: friendly };
+  }, []);
+  const deviceIdRef = useRef(deviceInfo.id);
+  const [remoteCall, setRemoteCall] = useState<{
+    contact_name: string; phone: string | null; started_at: string; device_label: string; device_id: string;
+  } | null>(null);
+
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
+
+  // Carrega ligação em andamento + assina realtime
+  useEffect(() => {
+    if (!brokerId) return;
+    let cancelled = false;
+    async function load() {
+      const { data } = await (supabase as any)
+        .from("active_calls")
+        .select("contact_name, phone, started_at, device_label")
+        .eq("broker_id", brokerId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        const [label, id] = String(data.device_label || "").split("#");
+        setRemoteCall({
+          contact_name: data.contact_name, phone: data.phone,
+          started_at: data.started_at, device_label: label || "Dispositivo",
+          device_id: data.device_label || "",
+        });
+      } else setRemoteCall(null);
+    }
+    void load();
+    const channel = supabase
+      .channel(`active_calls:${brokerId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "active_calls", filter: `broker_id=eq.${brokerId}` },
+        (payload: any) => {
+          if (payload.eventType === "DELETE") { setRemoteCall(null); return; }
+          const row = payload.new;
+          if (!row) return;
+          const [label] = String(row.device_label || "").split("#");
+          setRemoteCall({
+            contact_name: row.contact_name, phone: row.phone,
+            started_at: row.started_at, device_label: label || "Dispositivo",
+            device_id: row.device_label || "",
+          });
+        })
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [brokerId]);
+
+  async function upsertActiveCall(contact: { id: string; name: string; phone?: string | null }) {
+    if (!brokerId) return;
+    try {
+      await (supabase as any).from("active_calls").upsert({
+        broker_id: brokerId,
+        contact_id: contact.id,
+        contact_name: contact.name,
+        phone: contact.phone ?? null,
+        device_label: deviceIdRef.current,
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) { console.warn("upsertActiveCall falhou", e); }
+  }
+  async function clearActiveCall() {
+    if (!brokerId) return;
+    try { await (supabase as any).from("active_calls").delete().eq("broker_id", brokerId); }
+    catch (e) { console.warn("clearActiveCall falhou", e); }
+  }
+
 
   // Carrega template salvo por corretor (localStorage)
   useEffect(() => {
@@ -741,6 +814,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
     setNote("");
     setCalledAt(null);
+    void clearActiveCall();
     await refetchCloud();
     window.setTimeout(() => {
       lastOutcomeRef.current = "";
@@ -765,6 +839,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     }));
     setNote("");
     setCalledAt(null);
+    void clearActiveCall();
     toast("Contato pulado");
   }
 
@@ -779,6 +854,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     }));
     setNote("");
     setCalledAt(null);
+    void clearActiveCall();
     window.setTimeout(() => setSubmittingOutcome(false), 800);
     toast("Movido pro fim da fila");
   }
@@ -786,14 +862,40 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   function startCall() {
     if (!current || submittingOutcome) return;
     setCalledAt(Date.now());
+    void upsertActiveCall({ id: current.id, name: current.name, phone: current.phone });
   }
+
 
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
 
+  const remoteIsOtherDevice = remoteCall && remoteCall.device_id !== deviceIdRef.current;
+
   return (
     <div className="space-y-5">
+      {remoteIsOtherDevice && (
+        <div className="rounded-lg border-2 border-emerald-500/60 bg-emerald-500/10 px-4 py-3 flex items-center justify-between gap-3 flex-wrap animate-pulse">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inset-0 rounded-full bg-emerald-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+            </span>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-emerald-300" style={fontDisplay}>
+                Em ligação no {remoteCall!.device_label}
+              </div>
+              <div className="text-sm font-semibold text-zinc-100">
+                {remoteCall!.contact_name}
+                {remoteCall!.phone ? <span className="text-zinc-400 font-normal ml-2" style={fontNumeric}>{remoteCall!.phone}</span> : null}
+              </div>
+            </div>
+          </div>
+          <CallTimer startedAt={new Date(remoteCall!.started_at).getTime()} />
+        </div>
+      )}
+
       {/* Header: corretor + meta */}
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+
         <div className="flex flex-wrap items-end gap-4">
           <Field label="Corretor" className="min-w-[220px]">
             <div className="relative">
