@@ -37,6 +37,7 @@ type Contact = {
   status: "pendente" | "feito" | "pulado";
   createdAt: number;
   attempts: number;
+  listName: string;
 };
 
 type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
