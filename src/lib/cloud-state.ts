@@ -307,8 +307,8 @@ export function useCloudState() {
       return;
     }
     refetchInFlightRef.current = true;
-    const s = await loadAll();
     try {
+      const s = await loadAll();
       lastSyncedRef.current = s;
       dirtyRef.current = false;
       setStateRaw(s);
@@ -403,7 +403,7 @@ export function useCloudState() {
     return () => {
       if (pendingTimer.current) clearTimeout(pendingTimer.current);
     };
-  }, [state, hydrated]);
+  }, [state, hydrated, scheduleRefetch]);
 
 
 

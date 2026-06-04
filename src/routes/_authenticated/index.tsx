@@ -205,7 +205,7 @@ function LigaCtrlApp() {
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
-        {tab === "corretores" && <CorretoresTab state={state} setState={setState} isAdmin={isAdmin} me={me} />}
+        {tab === "corretores" && <CorretoresTab state={state} fullState={fullState} setState={setState} isAdmin={isAdmin} me={me} />}
       </main>
     </div>
   );
@@ -950,8 +950,7 @@ function DashboardTab({ state }: { state: State }) {
 
 /* ---------------- CORRETORES / EQUIPE ---------------- */
 
-function CorretoresTab({ state, setState, isAdmin, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
-  const { fullState } = useCloudState();
+function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: State; fullState: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
 
   // Visão corretor: só vê o próprio cadastro
   if (!isAdmin) {
