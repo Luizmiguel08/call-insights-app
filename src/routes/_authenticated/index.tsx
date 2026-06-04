@@ -1425,6 +1425,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
                 {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>)}
               </select>
             </div>
+          </Field>
           <Field label="Lista para discar" className="min-w-[200px]">
             <select
               value={selectedList}
@@ -1436,7 +1437,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
                 <option key={l} value={l} className="bg-[#171a23]">{l}</option>
               ))}
             </select>
-          </Field>
           </Field>
           <div className="flex-1 min-w-[260px]">
             <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]" style={fontDisplay}>
