@@ -1,20 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-
 import { Trophy, Phone, Clock, Calendar, CheckCircle2, Coffee, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDuration, OUTCOME_LABELS, type OutcomeKey } from "@/lib/format";
+import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
       { title: "Dashboard — Ranking de corretores" },
-      { name: "description", content: "Ranking, TMA e métricas de tabulação por corretor." },
+      { name: "description", content: "Ranking, TMA e métricas por corretor." },
     ],
   }),
   component: DashboardPage,
@@ -23,11 +22,18 @@ export const Route = createFileRoute("/dashboard")({
 const db = supabase as any;
 
 type Broker = { id: string; name: string; color: string };
-type Call = {
-  id: string; broker_id: string; attended: boolean; scheduled: boolean;
-  duration_seconds: number; created_at: string; outcome: OutcomeKey | null;
-  client_name?: string | null; phone?: string | null; contact_id?: string | null;
+type KpiRow = {
+  broker_id: string;
+  day: string;
+  calls: number;
+  attended: number;
+  scheduled: number;
+  attempts: number;
+  total_seconds: number;
+  attended_seconds: number;
+  attended_attempts: number;
 };
+type HourlyRow = { broker_id: string; day: string; hour: number; attempts: number };
 type Pause = {
   id: string; broker_id: string; started_at: string;
   ended_at: string | null; duration_seconds: number;
@@ -35,15 +41,29 @@ type Pause = {
 
 function DashboardPage() {
   const [period, setPeriod] = useState<"today" | "week" | "month">("today");
+  const queryClient = useQueryClient();
 
   const range = useMemo(() => {
-    const start = new Date();
-    const end = new Date();
-    if (period === "today") start.setHours(0, 0, 0, 0);
-    else if (period === "week") { start.setDate(start.getDate() - 6); start.setHours(0, 0, 0, 0); }
-    else { start.setDate(1); start.setHours(0, 0, 0, 0); }
-    end.setHours(23, 59, 59, 999);
-    return { start: start.toISOString(), end: end.toISOString() };
+    // Janela em data local (America/Sao_Paulo) — bate com a view que agrega por day.
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60_000;
+    const today = new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+
+    const startDate = new Date(now);
+    if (period === "today") {
+      // nada
+    } else if (period === "week") {
+      startDate.setDate(startDate.getDate() - 6);
+    } else {
+      startDate.setDate(1);
+    }
+    const startStr = new Date(startDate.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+
+    // Para a query de pausas (timestamp tz), recompõe ISO de início/fim do período.
+    const startTs = new Date(`${startStr}T00:00:00`).toISOString();
+    const endTs = new Date(`${today}T23:59:59.999`).toISOString();
+
+    return { startDay: startStr, endDay: today, startTs, endTs };
   }, [period]);
 
   const { data: brokers = [] } = useQuery({
@@ -55,36 +75,48 @@ function DashboardPage() {
     },
   });
 
-  const queryClient = useQueryClient();
-
-  const { data: calls = [] } = useQuery({
-    queryKey: ["calls-all", range.start, range.end],
+  // KPIs já agregados e deduplicados no banco
+  const { data: kpis = [] } = useQuery<KpiRow[]>({
+    queryKey: ["kpis-daily", range.startDay, range.endDay],
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { data, error } = await db.from("calls").select("*")
-        .gte("created_at", range.start).lte("created_at", range.end);
+      const { data, error } = await db.from("broker_kpis_daily").select("*")
+        .gte("day", range.startDay).lte("day", range.endDay);
       if (error) throw error;
-      return data as Call[];
+      return (data ?? []) as KpiRow[];
     },
   });
 
-  const { data: pauses = [] } = useQuery({
-    queryKey: ["pauses", range.start, range.end],
+  // Distribuição por hora — também pré-agregada
+  const { data: hourlyRows = [] } = useQuery<HourlyRow[]>({
+    queryKey: ["hourly-agg", range.startDay, range.endDay],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await db.from("broker_calls_hourly").select("*")
+        .gte("day", range.startDay).lte("day", range.endDay);
+      if (error) throw error;
+      return (data ?? []) as HourlyRow[];
+    },
+  });
+
+  const { data: pauses = [] } = useQuery<Pause[]>({
+    queryKey: ["pauses", range.startTs, range.endTs],
     refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await db.from("broker_pauses").select("*")
-        .gte("started_at", range.start).lte("started_at", range.end);
+        .gte("started_at", range.startTs).lte("started_at", range.endTs);
       if (error) throw error;
-      return data as Pause[];
+      return (data ?? []) as Pause[];
     },
   });
 
-  // Realtime: invalida queries quando há novas calls/pauses, evitando depender só do polling.
+  // Realtime: invalida quando há novas calls/pauses, o banco recalcula a view automaticamente.
   useEffect(() => {
     const ch = supabase
       .channel(`dashboard-sync-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["calls-all"] });
+        queryClient.invalidateQueries({ queryKey: ["kpis-daily"] });
+        queryClient.invalidateQueries({ queryKey: ["hourly-agg"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "broker_pauses" }, () => {
         queryClient.invalidateQueries({ queryKey: ["pauses"] });
@@ -93,85 +125,60 @@ function DashboardPage() {
     return () => { void supabase.removeChannel(ch); };
   }, [queryClient]);
 
-
-  const contactKey = (c: Call) => {
-    const digits = String(c.phone ?? "").replace(/\D/g, "");
-    const name = String(c.client_name ?? "").trim().toLowerCase();
-    if (digits) return `p:${digits}`;
-    if (name) return `n:${name}`;
-    return c.contact_id ? `id:${c.contact_id}` : "unknown";
-  };
-
+  // Ranking — somatório das linhas diárias por corretor (já vem deduplicado dia-a-dia)
   const ranking = useMemo(() => {
     const map = new Map(brokers.map((b) => [b.id, {
-      broker: b, total: 0, attended: 0, scheduled: 0, time: 0, attendedTime: 0,
-      pauseTime: 0,
-      seen: new Set<string>(), seenAttended: new Set<string>(), seenScheduled: new Set<string>(),
-      outcomes: { attended: 0, no_answer: 0, voicemail: 0, wrong_number: 0, callback: 0, not_interested: 0, scheduled: 0 } as Record<OutcomeKey, number>,
+      broker: b, calls: 0, attempts: 0, attended: 0, scheduled: 0,
+      totalSeconds: 0, attendedSeconds: 0, attendedAttempts: 0, pauseSeconds: 0,
     }]));
-    for (const c of calls) {
-      const row = map.get(c.broker_id);
+    for (const k of kpis) {
+      const row = map.get(k.broker_id);
       if (!row) continue;
-      const key = contactKey(c);
-      if (!row.seen.has(key)) { row.seen.add(key); row.total += 1; }
-      if (c.attended) {
-        if (!row.seenAttended.has(key)) { row.seenAttended.add(key); row.attended += 1; }
-        row.attendedTime += c.duration_seconds || 0;
-      }
-      if (c.scheduled && !row.seenScheduled.has(key)) { row.seenScheduled.add(key); row.scheduled += 1; }
-      row.time += c.duration_seconds || 0;
-      if (c.outcome) row.outcomes[c.outcome] += 1;
+      row.calls += k.calls;
+      row.attempts += k.attempts;
+      row.attended += k.attended;
+      row.scheduled += k.scheduled;
+      row.totalSeconds += k.total_seconds;
+      row.attendedSeconds += k.attended_seconds;
+      row.attendedAttempts += k.attended_attempts;
     }
     for (const p of pauses) {
       const row = map.get(p.broker_id);
       if (!row) continue;
-      row.pauseTime += p.ended_at ? p.duration_seconds
+      row.pauseSeconds += p.ended_at ? p.duration_seconds
         : Math.floor((Date.now() - new Date(p.started_at).getTime()) / 1000);
     }
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [brokers, calls, pauses]);
+    return Array.from(map.values())
+      .filter((r) => r.calls > 0 || r.pauseSeconds > 0 || brokers.length <= 12)
+      .sort((a, b) => b.calls - a.calls);
+  }, [brokers, kpis, pauses]);
 
   const totals = useMemo(() => {
-    const seen = new Set<string>();
-    const seenAtt = new Set<string>();
-    const seenSch = new Set<string>();
-    let attTime = 0; let attCount = 0; let time = 0;
-    for (const c of calls) {
-      const key = contactKey(c);
-      seen.add(key);
-      if (c.attended) {
-        seenAtt.add(key);
-        attTime += c.duration_seconds || 0;
-        attCount += 1;
-      }
-      if (c.scheduled) seenSch.add(key);
-      time += c.duration_seconds || 0;
+    let calls = 0, attended = 0, scheduled = 0, totalSeconds = 0, attendedSeconds = 0, attendedAttempts = 0;
+    for (const k of kpis) {
+      calls += k.calls; attended += k.attended; scheduled += k.scheduled;
+      totalSeconds += k.total_seconds; attendedSeconds += k.attended_seconds; attendedAttempts += k.attended_attempts;
     }
     return {
-      calls: seen.size,
-      attended: seenAtt.size,
-      scheduled: seenSch.size,
-      time,
-      avg: attCount ? Math.round(attTime / attCount) : 0,
+      calls, attended, scheduled, time: totalSeconds,
+      avg: attendedAttempts ? Math.round(attendedSeconds / attendedAttempts) : 0,
     };
-  }, [calls]);
+  }, [kpis]);
 
-  const max = Math.max(1, ...ranking.map((r) => r.total));
+  const max = Math.max(1, ...ranking.map((r) => r.calls));
 
-  // Distribuição por hora (0-23) por corretor — identifica horário de pico
   const hourly = useMemo(() => {
     const byBroker = new Map<string, { broker: Broker; hours: number[] }>();
     for (const b of brokers) byBroker.set(b.id, { broker: b, hours: new Array(24).fill(0) });
-    for (const c of calls) {
-      const row = byBroker.get(c.broker_id);
+    for (const r of hourlyRows) {
+      const row = byBroker.get(r.broker_id);
       if (!row) continue;
-      const h = new Date(c.created_at).getHours();
-      row.hours[h] += 1;
+      row.hours[r.hour] = (row.hours[r.hour] ?? 0) + r.attempts;
     }
     const rows = Array.from(byBroker.values()).filter((r) => r.hours.some((v) => v > 0));
     const maxH = Math.max(1, ...rows.flatMap((r) => r.hours));
     return { rows, maxH };
-  }, [brokers, calls]);
+  }, [brokers, hourlyRows]);
 
   return (
     <AppLayout>
@@ -205,7 +212,7 @@ function DashboardPage() {
             <Clock className="h-5 w-5 text-primary" />
             <div>
               <h2 className="font-display text-lg font-bold text-foreground">Horário de pico por corretor</h2>
-              <p className="text-xs text-muted-foreground">Distribuição de ligações ao longo do dia (0–23h)</p>
+              <p className="text-xs text-muted-foreground">Distribuição de tentativas ao longo do dia (0–23h)</p>
             </div>
           </div>
           {hourly.rows.length === 0 ? (
@@ -220,7 +227,7 @@ function DashboardPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-foreground">{row.broker.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {total} ligações · pico às <b className="text-foreground">{String(peakIdx).padStart(2, "0")}h</b>
+                        {total} tentativas · pico às <b className="text-foreground">{String(peakIdx).padStart(2, "0")}h</b>
                       </p>
                     </div>
                     <div className="flex h-20 items-end gap-px rounded-md bg-muted/40 p-2">
@@ -236,7 +243,7 @@ function DashboardPage() {
                                 backgroundColor: row.broker.color,
                                 opacity: v > 0 ? 1 : 0.15,
                               }}
-                              title={`${String(h).padStart(2, "0")}h — ${v} ligação(ões)`}
+                              title={`${String(h).padStart(2, "0")}h — ${v} tentativa(s)`}
                             />
                           </div>
                         );
@@ -262,9 +269,9 @@ function DashboardPage() {
           ) : (
             <div className="space-y-5">
               {ranking.map((row, i) => {
-                const pct = (row.total / max) * 100;
-                const rate = row.total ? Math.round((row.attended / row.total) * 100) : 0;
-                const tma = row.attended ? Math.round(row.attendedTime / row.attended) : 0;
+                const pct = (row.calls / max) * 100;
+                const rate = row.calls ? Math.round((row.attended / row.calls) * 100) : 0;
+                const tma = row.attendedAttempts ? Math.round(row.attendedSeconds / row.attendedAttempts) : 0;
                 return (
                   <div key={row.broker.id} className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -280,29 +287,16 @@ function DashboardPage() {
                           <p className="font-semibold text-foreground">{row.broker.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {row.attended} atendidas · {row.scheduled} agendadas · TMA {formatDuration(tma)} · {rate}% taxa
-                            {row.pauseTime > 0 && <> · <Coffee className="inline h-3 w-3" /> {formatDuration(row.pauseTime)} pausa</>}
+                            {row.pauseSeconds > 0 && <> · <Coffee className="inline h-3 w-3" /> {formatDuration(row.pauseSeconds)} pausa</>}
                           </p>
                         </div>
                       </div>
-                      <p className="font-display text-2xl font-bold tabular-nums text-foreground">{row.total}</p>
+                      <p className="font-display text-2xl font-bold tabular-nums text-foreground">{row.calls}</p>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
                       <div className="h-full rounded-full transition-all"
                         style={{ width: `${pct}%`, backgroundColor: row.broker.color }} />
                     </div>
-                    {row.total > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {(Object.keys(row.outcomes) as OutcomeKey[]).map((k) => {
-                          const v = row.outcomes[k];
-                          if (!v) return null;
-                          return (
-                            <span key={k} className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                              {OUTCOME_LABELS[k]}: <b className="text-foreground">{v}</b>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
                 );
               })}

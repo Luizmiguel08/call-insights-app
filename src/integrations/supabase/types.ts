@@ -370,7 +370,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      broker_calls_hourly: {
+        Row: {
+          attempts: number | null
+          broker_id: string | null
+          day: string | null
+          hour: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broker_kpis_daily: {
+        Row: {
+          attempts: number | null
+          attended: number | null
+          attended_attempts: number | null
+          attended_seconds: number | null
+          broker_id: string | null
+          calls: number | null
+          day: string | null
+          scheduled: number | null
+          total_seconds: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_clear_contacts: {
