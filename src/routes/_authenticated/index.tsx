@@ -564,7 +564,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   }, []);
   const deviceIdRef = useRef(deviceInfo.id);
   const [remoteCall, setRemoteCall] = useState<{
-    contact_name: string; phone: string | null; started_at: string; device_label: string; device_id: string;
+    contact_id: string | null; contact_name: string; phone: string | null;
+    started_at: string; device_label: string; device_id: string;
   } | null>(null);
 
   useEffect(() => { if (!brokerId && state.brokers[0]) setBrokerId(state.brokers[0].id); }, [state.brokers, brokerId]);
@@ -573,21 +574,26 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   useEffect(() => {
     if (!brokerId) return;
     let cancelled = false;
+    function applyRow(row: any | null) {
+      if (!row) { setRemoteCall(null); return; }
+      const [label] = String(row.device_label || "").split("#");
+      setRemoteCall({
+        contact_id: row.contact_id ?? null,
+        contact_name: row.contact_name,
+        phone: row.phone,
+        started_at: row.started_at,
+        device_label: label || "Dispositivo",
+        device_id: row.device_label || "",
+      });
+    }
     async function load() {
       const { data } = await (supabase as any)
         .from("active_calls")
-        .select("contact_name, phone, started_at, device_label")
+        .select("contact_id, contact_name, phone, started_at, device_label")
         .eq("broker_id", brokerId)
         .maybeSingle();
       if (cancelled) return;
-      if (data) {
-        const [label, id] = String(data.device_label || "").split("#");
-        setRemoteCall({
-          contact_name: data.contact_name, phone: data.phone,
-          started_at: data.started_at, device_label: label || "Dispositivo",
-          device_id: data.device_label || "",
-        });
-      } else setRemoteCall(null);
+      applyRow(data ?? null);
     }
     void load();
     const channel = supabase
@@ -595,18 +601,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       .on("postgres_changes", { event: "*", schema: "public", table: "active_calls", filter: `broker_id=eq.${brokerId}` },
         (payload: any) => {
           if (payload.eventType === "DELETE") { setRemoteCall(null); return; }
-          const row = payload.new;
-          if (!row) return;
-          const [label] = String(row.device_label || "").split("#");
-          setRemoteCall({
-            contact_name: row.contact_name, phone: row.phone,
-            started_at: row.started_at, device_label: label || "Dispositivo",
-            device_id: row.device_label || "",
-          });
+          applyRow(payload.new);
         })
       .subscribe();
     return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [brokerId]);
+
 
   async function upsertActiveCall(contact: { id: string; name: string; phone?: string | null }) {
     if (!brokerId) return;
