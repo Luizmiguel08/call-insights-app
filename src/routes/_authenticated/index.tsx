@@ -1716,8 +1716,8 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
 
     try {
       const { data, error } = await supabase.rpc("admin_clear_contacts", {
-        _broker_id: targetBrokerId,
-        _list_name: listFilter,
+        _broker_id: targetBrokerId ?? undefined,
+        _list_name: listFilter ?? undefined,
         _only_done: onlyDone,
         _include_general: includeGeneral,
       });
