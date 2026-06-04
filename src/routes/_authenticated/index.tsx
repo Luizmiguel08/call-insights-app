@@ -1209,6 +1209,19 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   const date = todayISO();
 
+  const retryContactId = useMemo(() => {
+    const lastCall = state.calls.find(
+      (c) => c.brokerId === brokerId && c.contactId && !c.attended && !c.scheduled,
+    );
+    if (!lastCall?.contactId) return null;
+    const contact = state.contacts.find((c) => c.id === lastCall.contactId);
+    if (!contact) return null;
+    if (contact.status !== "pendente") return null;
+    if (contact.attempts !== 1) return null;
+    if (!(contact.brokerId === brokerId || contact.brokerId === null)) return null;
+    return contact.id;
+  }, [state.calls, state.contacts, brokerId]);
+
   // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
   const myQueue = useMemo(
     () => {
@@ -1235,8 +1248,15 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     [state.contacts, brokerId]
   );
 
-  const current = myQueue[0];
-  const next = myQueue[1];
+  const prioritizedQueue = useMemo(() => {
+    if (!retryContactId) return myQueue;
+    const retryContact = myQueue.find((c) => c.id === retryContactId);
+    if (!retryContact) return myQueue;
+    return [retryContact, ...myQueue.filter((c) => c.id !== retryContactId)];
+  }, [myQueue, retryContactId]);
+
+  const current = prioritizedQueue[0];
+  const next = prioritizedQueue[1];
 
   const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const k = {
