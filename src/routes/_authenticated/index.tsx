@@ -52,6 +52,19 @@ function uid() {
   return newId();
 }
 
+// Identifica um contato unicamente para deduplicar tentativas múltiplas.
+function callContactKey(c: Call) {
+  return c.contactId ?? `${(c.client ?? "").trim().toLowerCase()}|${(c.phone ?? "").replace(/\D/g, "")}`;
+}
+function uniqueContactCount(calls: Call[]) {
+  return new Set(calls.map(callContactKey)).size;
+}
+function uniqueContactCountWhere(calls: Call[], pred: (c: Call) => boolean) {
+  const set = new Set<string>();
+  for (const c of calls) if (pred(c)) set.add(callContactKey(c));
+  return set.size;
+}
+
 // Normaliza para formato E.164 com fallback Brasil (+55).
 // - Aceita números com "+" e DDI (qualquer país): mantém como está.
 // - Aceita "00" como prefixo internacional → vira "+".
