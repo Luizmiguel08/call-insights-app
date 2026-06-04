@@ -52,6 +52,19 @@ function uid() {
   return newId();
 }
 
+// Identifica um contato unicamente para deduplicar tentativas múltiplas.
+function callContactKey(c: Call) {
+  return c.contactId ?? `${(c.client ?? "").trim().toLowerCase()}|${(c.phone ?? "").replace(/\D/g, "")}`;
+}
+function uniqueContactCount(calls: Call[]) {
+  return new Set(calls.map(callContactKey)).size;
+}
+function uniqueContactCountWhere(calls: Call[], pred: (c: Call) => boolean) {
+  const set = new Set<string>();
+  for (const c of calls) if (pred(c)) set.add(callContactKey(c));
+  return set.size;
+}
+
 // Normaliza para formato E.164 com fallback Brasil (+55).
 // - Aceita números com "+" e DDI (qualquer país): mantém como está.
 // - Aceita "00" como prefixo internacional → vira "+".
@@ -300,11 +313,13 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   const dialReady = phone.trim().length > 0;
 
   const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
+  const attendedUnique = uniqueContactCountWhere(today, (c) => c.attended);
+  const totalUnique = uniqueContactCount(today);
   const k = {
-    total: today.length,
-    attended: today.filter((c) => c.attended).length,
-    notAttended: today.filter((c) => !c.attended).length,
-    scheduled: today.filter((c) => c.scheduled).length,
+    total: totalUnique,
+    attended: attendedUnique,
+    notAttended: Math.max(0, totalUnique - attendedUnique),
+    scheduled: uniqueContactCountWhere(today, (c) => c.scheduled),
   };
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
 
@@ -798,24 +813,27 @@ function DashboardTab({ state }: { state: State }) {
 
   const calls = useMemo(() => state.calls.filter((c) => (date ? c.date === date : true)), [state.calls, date]);
 
+  const totalUnique = uniqueContactCount(calls);
+  const attendedUnique = uniqueContactCountWhere(calls, (c) => c.attended);
   const k = {
-    total: calls.length,
-    attended: calls.filter((c) => c.attended).length,
-    notAttended: calls.filter((c) => !c.attended).length,
-    scheduled: calls.filter((c) => c.scheduled).length,
+    total: totalUnique,
+    attended: attendedUnique,
+    notAttended: Math.max(0, totalUnique - attendedUnique),
+    scheduled: uniqueContactCountWhere(calls, (c) => c.scheduled),
   };
   const rate = k.total ? Math.round((k.scheduled / k.total) * 100) : 0;
 
   const ranking = state.brokers.map((b) => {
     const own = calls.filter((c) => c.brokerId === b.id);
-    const att = own.filter((c) => c.attended).length;
-    const sch = own.filter((c) => c.scheduled).length;
+    const tot = uniqueContactCount(own);
+    const att = uniqueContactCountWhere(own, (c) => c.attended);
+    const sch = uniqueContactCountWhere(own, (c) => c.scheduled);
     return {
       broker: b,
-      total: own.length,
+      total: tot,
       attended: att,
       scheduled: sch,
-      rate: own.length ? Math.round((sch / own.length) * 100) : 0,
+      rate: tot ? Math.round((sch / tot) * 100) : 0,
     };
   }).sort((a, b) => b.total - a.total);
 
@@ -987,7 +1005,7 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
   if (!isAdmin) {
     const myBroker = state.brokers[0];
     const myCalls = state.calls;
-    const sch = myCalls.filter((c) => c.scheduled).length;
+    const sch = uniqueContactCountWhere(myCalls, (c) => c.scheduled);
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
@@ -996,7 +1014,7 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
           <div className="mt-1 text-sm text-zinc-500">{me?.email}</div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Kpi label="Total ligações" value={myCalls.length} color="#c9a24c" />
+          <Kpi label="Total ligações" value={uniqueContactCount(myCalls)} color="#c9a24c" />
           <Kpi label="Agendamentos" value={sch} color="#eab308" />
           <Kpi label="Meta diária" value={state.metaDaily} color="#22c55e" />
         </div>
@@ -1081,11 +1099,12 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
           <tbody>
             {approved.map((b) => {
               const own = fullState.calls.filter((c) => c.brokerId === b.id);
-              const sch = own.filter((c) => c.scheduled).length;
+              const tot = uniqueContactCount(own);
+              const sch = uniqueContactCountWhere(own, (c) => c.scheduled);
               return (
                 <tr key={b.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">
                   <Td className="font-semibold text-zinc-100">{b.name}</Td>
-                  <Td className="text-right text-2xl tracking-tight" style={fontNumeric}>{own.length}</Td>
+                  <Td className="text-right text-2xl tracking-tight" style={fontNumeric}>{tot}</Td>
                   <Td className="text-right text-2xl tracking-tight text-yellow-400" style={fontNumeric}>{sch}</Td>
                   <Td>
                     <button onClick={() => remove(b.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400">
@@ -1334,11 +1353,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   }, [current?.id, current?.attempts]);
 
   const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
+  const totalUnique = uniqueContactCount(todayCalls);
+  const attendedUnique = uniqueContactCountWhere(todayCalls, (c) => c.attended);
   const k = {
-    total: todayCalls.length,
-    attended: todayCalls.filter((c) => c.attended).length,
-    notAttended: todayCalls.filter((c) => !c.attended).length,
-    scheduled: todayCalls.filter((c) => c.scheduled).length,
+    total: totalUnique,
+    attended: attendedUnique,
+    notAttended: Math.max(0, totalUnique - attendedUnique),
+    scheduled: uniqueContactCountWhere(todayCalls, (c) => c.scheduled),
   };
   const meta = state.metaDaily || 50;
   const pct = Math.min(100, Math.round((k.total / meta) * 100));
