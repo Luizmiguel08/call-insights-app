@@ -563,6 +563,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return { id: `${friendly}#${sid}`, label: friendly };
   }, []);
   const deviceIdRef = useRef(deviceInfo.id);
+  const remoteWasSetRef = useRef(false);
   const [remoteCall, setRemoteCall] = useState<{
     contact_id: string | null; contact_name: string; phone: string | null;
     started_at: string; device_label: string; device_id: string;
