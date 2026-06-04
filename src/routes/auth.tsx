@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, Mail, Lock, LogIn, UserPlus, User } from "lucide-react";
+import { Phone, Mail, Lock, LogIn, UserPlus, User, KeyRound, ArrowLeft } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
