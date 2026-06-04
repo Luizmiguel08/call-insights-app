@@ -416,6 +416,17 @@ export function useCloudState() {
   const view: State = (() => {
     if (!me) return state;
     if (me.isAdmin) {
+      // Admin com corretor associado: discador/contatos/ligações ficam escopados
+      // ao próprio corretor. Lista de brokers continua completa para as abas admin.
+      const myBrokerId = me.brokerId;
+      if (myBrokerId) {
+        return {
+          ...state,
+          brokers: state.brokers.filter((b) => b.approved !== false),
+          contacts: state.contacts.filter((c) => c.brokerId === myBrokerId),
+          calls: state.calls.filter((c) => c.brokerId === myBrokerId),
+        };
+      }
       return { ...state, brokers: state.brokers.filter((b) => b.approved !== false) };
     }
     const myBrokerId = me.brokerId;
