@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, Clock, Coffee } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/lib/format";
+
 
 export const Route = createFileRoute("/sessoes")({
   head: () => ({
@@ -31,6 +32,8 @@ type Pause = {
 };
 
 function SessionsPage() {
+  const queryClient = useQueryClient();
+
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers"],
     queryFn: async () => {
@@ -48,7 +51,7 @@ function SessionsPage() {
       if (error) throw error;
       return data as Session[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 60_000,
   });
 
   const { data: pauses = [] } = useQuery({
@@ -59,8 +62,23 @@ function SessionsPage() {
       if (error) throw error;
       return data as Pause[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 60_000,
   });
+
+  // Realtime: atualiza imediatamente quando sessões/pausas mudam.
+  useEffect(() => {
+    const ch = supabase
+      .channel(`sessoes-sync-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "broker_sessions" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "broker_pauses" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["pauses-all"] });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [queryClient]);
+
 
   const grouped = useMemo(() => {
     return sessions.map((s) => {
