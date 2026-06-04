@@ -1353,11 +1353,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   }, [current?.id, current?.attempts]);
 
   const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
+  const totalUnique = uniqueContactCount(todayCalls);
+  const attendedUnique = uniqueContactCountWhere(todayCalls, (c) => c.attended);
   const k = {
-    total: todayCalls.length,
-    attended: todayCalls.filter((c) => c.attended).length,
-    notAttended: todayCalls.filter((c) => !c.attended).length,
-    scheduled: todayCalls.filter((c) => c.scheduled).length,
+    total: totalUnique,
+    attended: attendedUnique,
+    notAttended: Math.max(0, totalUnique - attendedUnique),
+    scheduled: uniqueContactCountWhere(todayCalls, (c) => c.scheduled),
   };
   const meta = state.metaDaily || 50;
   const pct = Math.min(100, Math.round((k.total / meta) * 100));
