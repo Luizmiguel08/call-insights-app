@@ -1210,14 +1210,27 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
   const myQueue = useMemo(
-    () => state.contacts
-      .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
-      .sort((a, b) => {
-        // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
-        if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
-        if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
-        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-      }),
+    () => {
+      const sorted = state.contacts
+        .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
+        .sort((a, b) => {
+          // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
+          if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
+          if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+          return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+        });
+      // Dedupe: mesmo telefone (ou mesmo nome, se sem telefone) aparece só uma vez na fila.
+      const seen = new Set<string>();
+      const out: typeof sorted = [];
+      for (const c of sorted) {
+        const digits = (c.phone || "").replace(/\D+/g, "");
+        const key = digits ? `p:${digits}` : `n:${c.name.trim().toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(c);
+      }
+      return out;
+    },
     [state.contacts, brokerId]
   );
 
