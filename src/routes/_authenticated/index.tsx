@@ -1209,6 +1209,19 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
 
   const date = todayISO();
 
+  const contactProgress = useMemo(() => {
+    const progress = new Map<string, { attempts: number; resolved: boolean }>();
+    for (const call of state.calls) {
+      if (call.brokerId !== brokerId) continue;
+      const key = sameContactKey({ phone: call.phone, name: call.client });
+      const currentProgress = progress.get(key) ?? { attempts: 0, resolved: false };
+      currentProgress.attempts = Math.min(2, currentProgress.attempts + 1);
+      if (call.attended || call.scheduled) currentProgress.resolved = true;
+      progress.set(key, currentProgress);
+    }
+    return progress;
+  }, [state.calls, brokerId]);
+
   const retryContactId = useMemo(() => {
     const lastCall = state.calls.find(
       (c) => c.brokerId === brokerId && c.contactId && !c.attended && !c.scheduled,
@@ -1216,16 +1229,29 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
     if (!lastCall?.contactId) return null;
     const contact = state.contacts.find((c) => c.id === lastCall.contactId);
     if (!contact) return null;
+    const progress = contactProgress.get(sameContactKey(contact));
+    const effectiveAttempts = Math.max(contact.attempts, progress?.attempts ?? 0);
     if (contact.status !== "pendente") return null;
-    if (contact.attempts !== 1) return null;
+    if (progress?.resolved) return null;
+    if (effectiveAttempts !== 1) return null;
     if (!(contact.brokerId === brokerId || contact.brokerId === null)) return null;
     return contact.id;
-  }, [state.calls, state.contacts, brokerId]);
+  }, [state.calls, state.contacts, brokerId, contactProgress]);
 
   // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
   const myQueue = useMemo(
     () => {
       const sorted = state.contacts
+        .map((c) => {
+          const progress = contactProgress.get(sameContactKey(c));
+          const effectiveAttempts = Math.max(c.attempts, progress?.attempts ?? 0);
+          const resolved = c.status !== "pendente" || Boolean(progress?.resolved) || effectiveAttempts >= 2;
+          return {
+            ...c,
+            attempts: Math.min(2, effectiveAttempts),
+            status: resolved ? "feito" as const : c.status,
+          };
+        })
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
         .sort((a, b) => {
           // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
@@ -1245,7 +1271,7 @@ function DiscadorTab({ state, setState, goFila }: { state: State; setState: Reac
       }
       return out;
     },
-    [state.contacts, brokerId]
+    [state.contacts, brokerId, contactProgress]
   );
 
   const prioritizedQueue = useMemo(() => {
