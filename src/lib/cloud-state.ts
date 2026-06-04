@@ -381,10 +381,10 @@ export function useCloudState() {
   useEffect(() => {
     if (!hydrated || !meRef.current) return;
     if (!dirtyRef.current) return;
-    // Silencia ecos do realtime IMEDIATAMENTE ao alterar estado local,
-    // pra evitar que um evento de outro corretor disparado no meio do
-    // debounce sobrescreva a atualização otimista do usuário atual.
-    muteUntilRef.current = Date.now() + 4000;
+    // Silencia ecos do realtime brevemente ao alterar estado local
+    // pra evitar piscadas, mas curto o suficiente pra não atrasar
+    // a sincronização com ações do servidor (ex: triggers de RPC).
+    muteUntilRef.current = Date.now() + 600;
     if (pendingTimer.current) clearTimeout(pendingTimer.current);
     const prev = lastSyncedRef.current;
     pendingTimer.current = setTimeout(() => {
@@ -393,8 +393,8 @@ export function useCloudState() {
       lastSyncedRef.current = next;
       dirtyRef.current = false;
       pendingTimer.current = null;
-      // Re-arma o mute pra cobrir a janela de gravação + eco vindo do servidor.
-      muteUntilRef.current = Date.now() + 4000;
+      // Re-arma o mute pra cobrir a janela de gravação + eco do servidor.
+      muteUntilRef.current = Date.now() + 600;
       void syncTo(prev, next, meRef.current!)
         .then(() => {
           if (syncSeq !== syncSeqRef.current) return;
@@ -403,7 +403,7 @@ export function useCloudState() {
           console.error("Falha ao salvar na nuvem", e);
           void scheduleRefetch();
         });
-    }, 80);
+    }, 30);
     return () => {
       if (pendingTimer.current) clearTimeout(pendingTimer.current);
     };
