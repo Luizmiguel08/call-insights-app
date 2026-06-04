@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, Mail, Lock, LogIn, UserPlus, User } from "lucide-react";
+import { Phone, Mail, Lock, LogIn, UserPlus, User, KeyRound, ArrowLeft } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
@@ -20,7 +20,7 @@ const fontDisplay = { fontFamily: "'Fraunces', Georgia, serif", fontOpticalSizin
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +38,24 @@ function AuthPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !password) return toast.error("Preencha e-mail e senha");
+    if (!email) return toast.error("Informe seu e-mail");
+    if (mode === "forgot") {
+      setLoading(true);
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        toast.success("Se este e-mail estiver cadastrado, enviaremos um link de recuperação.");
+        setMode("signin");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao enviar e-mail");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    if (!password) return toast.error("Preencha e-mail e senha");
     if (password.length < 8) return toast.error("Senha precisa ter pelo menos 8 caracteres");
     setLoading(true);
     try {
@@ -83,7 +100,11 @@ function AuthPage() {
 
         <form onSubmit={submit} className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 sm:p-8 space-y-4">
           <div className="text-center text-sm text-zinc-400 mb-2">
-            {mode === "signin" ? "Entre com seu e-mail e senha" : "Crie sua conta de corretor"}
+            {mode === "signin"
+              ? "Entre com seu e-mail e senha"
+              : mode === "signup"
+              ? "Crie sua conta de corretor"
+              : "Informe seu e-mail para receber o link de recuperação"}
           </div>
 
           {mode === "signup" && (
@@ -112,34 +133,68 @@ function AuthPage() {
             />
           </div>
 
-          <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-            <input
-              type="password"
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
-            />
-          </div>
+          {mode !== "forgot" && (
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <input
+                type="password"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+              />
+            </div>
+          )}
+
+          {mode === "signin" && (
+            <button
+              type="button"
+              onClick={() => setMode("forgot")}
+              className="block w-full text-right text-xs text-zinc-500 hover:text-[#c9a24c] transition"
+            >
+              Esqueci minha senha
+            </button>
+          )}
 
           <button
             type="submit"
             disabled={loading}
             className="flex w-full items-center justify-center gap-2 rounded-md bg-[#c9a24c] py-3 text-sm font-semibold uppercase tracking-[0.2em] text-black shadow-[0_0_24px_-6px_#c9a24c] transition hover:bg-[#e6c878] active:scale-[0.99] disabled:opacity-60"
           >
-            {mode === "signin" ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-            {loading ? "Aguarde..." : mode === "signin" ? "Entrar" : "Criar conta"}
+            {mode === "signin" ? (
+              <LogIn className="h-4 w-4" />
+            ) : mode === "signup" ? (
+              <UserPlus className="h-4 w-4" />
+            ) : (
+              <KeyRound className="h-4 w-4" />
+            )}
+            {loading
+              ? "Aguarde..."
+              : mode === "signin"
+              ? "Entrar"
+              : mode === "signup"
+              ? "Criar conta"
+              : "Enviar link de recuperação"}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="block w-full text-center text-xs text-zinc-500 hover:text-[#c9a24c] transition"
-          >
-            {mode === "signin" ? "Não tem conta? Criar nova" : "Já tem conta? Entrar"}
-          </button>
+          {mode === "forgot" ? (
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              className="flex items-center justify-center gap-1 w-full text-center text-xs text-zinc-500 hover:text-[#c9a24c] transition"
+            >
+              <ArrowLeft className="h-3 w-3" /> Voltar para o login
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+              className="block w-full text-center text-xs text-zinc-500 hover:text-[#c9a24c] transition"
+            >
+              {mode === "signin" ? "Não tem conta? Criar nova" : "Já tem conta? Entrar"}
+            </button>
+          )}
         </form>
 
         <div className="mt-6 text-center text-[10px] uppercase tracking-[0.3em] text-zinc-600 flex items-center justify-center gap-2">
