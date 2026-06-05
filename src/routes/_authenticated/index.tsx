@@ -556,6 +556,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const [waEditing, setWaEditing] = useState(false);
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
   const lastOutcomeRef = useRef<string>("");
+  const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
+  const outcomeStartRef = useRef<number>(0);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
