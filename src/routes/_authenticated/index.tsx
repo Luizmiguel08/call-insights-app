@@ -1012,8 +1012,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
               {current.phone || "(sem telefone)"}
             </div>
             {current.attempts > 0 && (
-              <div className="mt-2 inline-block rounded bg-amber-500/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-amber-300" style={fontDisplay}>
-                Tentativa {current.attempts + 1} de 2
+              <div className="mt-2 inline-flex items-center gap-2 rounded bg-amber-500/20 border border-amber-400/40 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-200 animate-pulse" style={fontDisplay}>
+                ⚠ 2ª Tentativa obrigatória — mesmo cliente
               </div>
             )}
             {current.brokerId === null && (
