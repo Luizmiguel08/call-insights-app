@@ -738,12 +738,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   const prioritizedQueue = useMemo(() => {
     // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
-    const pinId = remoteCall?.contact_id || retryContactId;
+    // Prioridade: trava local de retry (2ª tentativa obrigatória) > ligação remota > retry detectado por calls
+    const pinId = localRetryPinId || remoteCall?.contact_id || retryContactId;
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
     return [pinned, ...myQueue.filter((c) => c.id !== pinId)];
-  }, [myQueue, retryContactId, remoteCall?.contact_id]);
+  }, [myQueue, retryContactId, remoteCall?.contact_id, localRetryPinId]);
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
