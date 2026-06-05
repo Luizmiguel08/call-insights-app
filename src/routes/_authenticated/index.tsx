@@ -560,6 +560,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const outcomeStartRef = useRef<number>(0);
   // Trava local: força permanecer no mesmo contato até completar 2 tentativas
   const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
+  const [suppressedCompletedKeys, setSuppressedCompletedKeys] = useState<string[]>([]);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -639,6 +640,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   }
   async function clearActiveCall() {
     if (!brokerId) return;
+    setRemoteCall(null);
     try { await (supabase as any).from("active_calls").delete().eq("broker_id", brokerId); }
     catch (e) { console.warn("clearActiveCall falhou", e); }
   }
