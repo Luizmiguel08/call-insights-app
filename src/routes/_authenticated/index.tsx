@@ -561,6 +561,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   // Trava local: força permanecer no mesmo contato até completar 2 tentativas
   const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
+  // Fonte da verdade do "próximo cliente": vem do backend (RPC). Elimina race conditions
+  // entre realtime/refetch e a fila calculada localmente.
+  const [serverNextId, setServerNextId] = useState<string | null>(null);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -622,6 +625,27 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     const poll = window.setInterval(() => { void load(); }, 5000);
     return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
   }, [brokerId]);
+
+  // Pergunta ao backend quem é o próximo cliente sempre que mudar corretor/lista.
+  // Mantém o frontend sincronizado mesmo após realtime atrasado.
+  useEffect(() => {
+    if (!brokerId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any).rpc("next_contact_for_broker", {
+          _broker: brokerId,
+          _list_name: selectedList === "all" ? null : selectedList,
+        });
+        if (cancelled) return;
+        setServerNextId((data as any)?.id ?? null);
+      } catch (e) {
+        console.warn("next_contact_for_broker falhou", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [brokerId, selectedList, state.contacts.length, state.calls.length]);
+
 
 
   async function upsertActiveCall(contact: { id: string; name: string; phone?: string | null }) {
@@ -757,13 +781,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   const prioritizedQueue = useMemo(() => {
     // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
-    // Prioridade: trava local de retry (2ª tentativa obrigatória) > ligação remota > retry detectado por calls
-    const pinId = localRetryPinId || remoteCall?.contact_id || retryContactId;
+    // Prioridade: trava local de retry (2ª tentativa) > ligação remota > próximo do servidor > retry detectado por calls
+    const pinId = localRetryPinId || remoteCall?.contact_id || serverNextId || retryContactId;
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
     return [pinned, ...myQueue.filter((c) => c.id !== pinId)];
-  }, [myQueue, retryContactId, remoteCall?.contact_id, localRetryPinId]);
+  }, [myQueue, retryContactId, remoteCall?.contact_id, localRetryPinId, serverNextId]);
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
@@ -898,7 +922,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     // 2) RPC em background — não bloqueia a UI. Se falhar, reverte.
     void (async () => {
       try {
-        const { error } = await supabase.rpc("record_call_outcome", {
+        const { data, error } = await supabase.rpc("record_call_outcome", {
           _contact_id: contactId,
           _attended: attended,
           _scheduled: scheduled,
@@ -908,6 +932,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
           _duration_seconds: duration,
         });
         if (error) throw error;
+        // Backend é a fonte da verdade do próximo cliente.
+        const nextFromServer = (data as any)?.next?.id ?? null;
+        setServerNextId(nextFromServer);
         // Reconciliação fica por conta do realtime (scheduleRefetch).
         // Evita um loadAll() pesado depois de cada ligação.
       } catch (e: any) {
