@@ -907,6 +907,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
+    setLocalRetryPinId(null);
     void clearActiveCall();
     toast("Contato pulado");
   }
