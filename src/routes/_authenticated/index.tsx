@@ -674,6 +674,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return progress;
   }, [state.calls, brokerId]);
 
+  useEffect(() => {
+    setSuppressedCompletedKeys((keys) =>
+      keys.filter((key) =>
+        state.contacts.some((c) => {
+          if (sameContactKey(c) !== key) return false;
+          const progress = contactProgress.get(key);
+          const effectiveAttempts = Math.max(c.attempts, progress?.attempts ?? 0);
+          return c.status === "pendente" && !progress?.resolved && effectiveAttempts < 2;
+        })
+      )
+    );
+  }, [state.contacts, contactProgress]);
+
   const retryContactId = useMemo(() => {
     const lastCall = state.calls.find(
       (c) => c.brokerId === brokerId && c.contactId && !c.attended && !c.scheduled,
@@ -681,6 +694,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (!lastCall?.contactId) return null;
     const contact = state.contacts.find((c) => c.id === lastCall.contactId);
     if (!contact) return null;
+    if (suppressedCompletedKeys.includes(sameContactKey(contact))) return null;
     const progress = contactProgress.get(sameContactKey(contact));
     const effectiveAttempts = Math.max(contact.attempts, progress?.attempts ?? 0);
     if (contact.status !== "pendente") return null;
@@ -688,7 +702,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (effectiveAttempts !== 1) return null;
     if (!(contact.brokerId === brokerId || contact.brokerId === null)) return null;
     return contact.id;
-  }, [state.calls, state.contacts, brokerId, contactProgress]);
+  }, [state.calls, state.contacts, brokerId, contactProgress, suppressedCompletedKeys]);
 
   // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
   const myQueue = useMemo(
