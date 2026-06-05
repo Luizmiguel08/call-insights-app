@@ -558,6 +558,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const lastOutcomeRef = useRef<string>("");
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
   const outcomeStartRef = useRef<number>(0);
+  // Trava local: força permanecer no mesmo contato até completar 2 tentativas
+  const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
