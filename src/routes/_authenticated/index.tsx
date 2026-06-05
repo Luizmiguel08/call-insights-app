@@ -984,7 +984,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
           <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
             <span>Próximo da fila — {brokerName}</span>
-            <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
+            <span className="flex items-center gap-2">
+              {lastSwitchMs !== null && (
+                <span className="inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-400">
+                  {lastSwitchMs} ms
+                </span>
+              )}
+              <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
+            </span>
           </div>
 
           <div className="my-4">
