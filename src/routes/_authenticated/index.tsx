@@ -560,6 +560,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const outcomeStartRef = useRef<number>(0);
   // Trava local: força permanecer no mesmo contato até completar 2 tentativas
   const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
+  const [suppressedCompletedKeys, setSuppressedCompletedKeys] = useState<string[]>([]);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -639,6 +640,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   }
   async function clearActiveCall() {
     if (!brokerId) return;
+    setRemoteCall(null);
     try { await (supabase as any).from("active_calls").delete().eq("broker_id", brokerId); }
     catch (e) { console.warn("clearActiveCall falhou", e); }
   }
@@ -672,6 +674,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return progress;
   }, [state.calls, brokerId]);
 
+  useEffect(() => {
+    setSuppressedCompletedKeys((keys) =>
+      keys.filter((key) =>
+        state.contacts.some((c) => {
+          if (sameContactKey(c) !== key) return false;
+          const progress = contactProgress.get(key);
+          const effectiveAttempts = Math.max(c.attempts, progress?.attempts ?? 0);
+          return c.status === "pendente" && !progress?.resolved && effectiveAttempts < 2;
+        })
+      )
+    );
+  }, [state.contacts, contactProgress]);
+
   const retryContactId = useMemo(() => {
     const lastCall = state.calls.find(
       (c) => c.brokerId === brokerId && c.contactId && !c.attended && !c.scheduled,
@@ -679,6 +694,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (!lastCall?.contactId) return null;
     const contact = state.contacts.find((c) => c.id === lastCall.contactId);
     if (!contact) return null;
+    if (suppressedCompletedKeys.includes(sameContactKey(contact))) return null;
     const progress = contactProgress.get(sameContactKey(contact));
     const effectiveAttempts = Math.max(contact.attempts, progress?.attempts ?? 0);
     if (contact.status !== "pendente") return null;
@@ -686,7 +702,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (effectiveAttempts !== 1) return null;
     if (!(contact.brokerId === brokerId || contact.brokerId === null)) return null;
     return contact.id;
-  }, [state.calls, state.contacts, brokerId, contactProgress]);
+  }, [state.calls, state.contacts, brokerId, contactProgress, suppressedCompletedKeys]);
 
   // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
   const myQueue = useMemo(
@@ -702,6 +718,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             status: resolved ? "feito" as const : c.status,
           };
         })
+        .filter((c) => !suppressedCompletedKeys.includes(sameContactKey(c)))
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
         .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
         .sort((a, b) => {
@@ -722,7 +739,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       }
       return out;
     },
-    [state.contacts, brokerId, contactProgress, selectedList]
+    [state.contacts, brokerId, contactProgress, selectedList, suppressedCompletedKeys]
   );
 
   const discadorLists = useMemo(() => {
@@ -856,10 +873,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     }
     if (!attended && !scheduled && newAttemptsLocal < 2) {
       // Trava o mesmo contato como próximo da fila até a 2ª tentativa
+      setSuppressedCompletedKeys((keys) => keys.filter((key) => key !== contactKey));
       setLocalRetryPinId(contactId);
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
     } else {
       // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: libera a trava
+      setSuppressedCompletedKeys((keys) => Array.from(new Set([...keys, contactKey])));
       setLocalRetryPinId(null);
     }
 
@@ -902,6 +921,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
               : c
           ),
         }));
+        setSuppressedCompletedKeys((keys) => keys.filter((key) => key !== contactKey));
         lastOutcomeRef.current = "";
       }
     })();
