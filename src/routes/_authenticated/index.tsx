@@ -846,8 +846,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
           _duration_seconds: duration,
         });
         if (error) throw error;
-        // Refetch silencioso só pra reconciliar contadores/histórico.
-        void refetchCloud();
+        // Reconciliação fica por conta do realtime (scheduleRefetch).
+        // Evita um loadAll() pesado depois de cada ligação.
       } catch (e: any) {
         console.error("Falha ao registrar ligação", e);
         toast.error(e?.message || "Falha ao registrar ligação — desfazendo");
