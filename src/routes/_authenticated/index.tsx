@@ -746,6 +746,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
 
+  // Monitora tempo entre clicar no outcome e aparecer o próximo cliente
+  useEffect(() => {
+    if (outcomeStartRef.current > 0) {
+      const elapsed = Math.round(performance.now() - outcomeStartRef.current);
+      setLastSwitchMs(elapsed);
+      outcomeStartRef.current = 0;
+    }
+  }, [current?.id]);
+
   useEffect(() => {
     lastOutcomeRef.current = "";
     setSubmittingOutcome(false);
