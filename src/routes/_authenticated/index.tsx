@@ -980,6 +980,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
         // Backend é a fonte da verdade do próximo cliente.
         const nextFromServer = (data as any)?.next?.id ?? null;
         setServerNextId(nextFromServer);
+        void refreshServerNext("record-call-outcome-success");
         // Reconciliação fica por conta do realtime (scheduleRefetch).
         // Evita um loadAll() pesado depois de cada ligação.
       } catch (e: any) {
@@ -1036,6 +1037,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       [key]: Date.now() + 15000,
     }));
     void clearActiveCall();
+    void refreshServerNext("skip");
     toast("Contato pulado");
   }
 
@@ -1053,6 +1055,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setCalledAt(null);
     setLocalRetryPinId(null);
     void clearActiveCall();
+    void refreshServerNext("callback");
     setSubmittingOutcome(false);
     toast("Movido pro fim da fila");
   }
