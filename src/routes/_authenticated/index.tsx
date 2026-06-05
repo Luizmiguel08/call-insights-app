@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
@@ -563,7 +563,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
   // Fonte da verdade do "próximo cliente": vem do backend (RPC). Elimina race conditions
   // entre realtime/refetch e a fila calculada localmente.
-  const [serverNextId, setServerNextId] = useState<string | null>(null);
+  const [serverNextId, setServerNextId] = useState<string | null | undefined>(undefined);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -626,25 +626,26 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
   }, [brokerId]);
 
-  // Pergunta ao backend quem é o próximo cliente sempre que mudar corretor/lista.
-  // Mantém o frontend sincronizado mesmo após realtime atrasado.
+  const refreshServerNext = useCallback(async (reason = "manual") => {
+    if (!brokerId) {
+      setServerNextId(null);
+      return;
+    }
+    try {
+      const { data, error } = await (supabase as any).rpc("next_contact_for_broker", {
+        _broker: brokerId,
+        _list_name: selectedList === "all" ? null : selectedList,
+      });
+      if (error) throw error;
+      setServerNextId((data as any)?.id ?? null);
+    } catch (e) {
+      console.warn(`next_contact_for_broker falhou (${reason})`, e);
+    }
+  }, [brokerId, selectedList]);
+
   useEffect(() => {
-    if (!brokerId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await (supabase as any).rpc("next_contact_for_broker", {
-          _broker: brokerId,
-          _list_name: selectedList === "all" ? null : selectedList,
-        });
-        if (cancelled) return;
-        setServerNextId((data as any)?.id ?? null);
-      } catch (e) {
-        console.warn("next_contact_for_broker falhou", e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [brokerId, selectedList, state.contacts.length, state.calls.length]);
+    void refreshServerNext("broker-or-list-change");
+  }, [refreshServerNext]);
 
 
 
@@ -782,7 +783,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const prioritizedQueue = useMemo(() => {
     // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
     // Prioridade: trava local de retry (2ª tentativa) > ligação remota > próximo do servidor > retry detectado por calls
-    const pinId = localRetryPinId || remoteCall?.contact_id || serverNextId || retryContactId;
+    const hasServerHead = serverNextId !== undefined;
+    const pinId = localRetryPinId || remoteCall?.contact_id || (hasServerHead ? serverNextId : retryContactId);
+    if (!localRetryPinId && !remoteCall?.contact_id && hasServerHead && serverNextId === null) return [];
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
@@ -791,6 +794,50 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
+
+  useEffect(() => {
+    if (!brokerId) return;
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function scheduleHeadRefresh(reason: string) {
+      if (cancelled) return;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        void refreshServerNext(reason);
+      }, 40);
+    }
+
+    const channel = supabase
+      .channel(`dialer-head:${brokerId}:${selectedList}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, (payload: any) => {
+        const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+        if (!row || row.broker_id !== brokerId) return;
+        scheduleHeadRefresh("calls-realtime");
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, (payload: any) => {
+        const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+        if (!row) return;
+        const rowBroker = row.broker_id ?? null;
+        const rowList = row.list_name ?? "Geral";
+        if (rowBroker !== brokerId && rowBroker !== null) return;
+        if (selectedList !== "all" && rowList !== selectedList) return;
+        scheduleHeadRefresh("contacts-realtime");
+      })
+      .subscribe();
+
+    const poll = window.setInterval(() => {
+      scheduleHeadRefresh("head-poll");
+    }, 1200);
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
+  }, [brokerId, selectedList, refreshServerNext]);
 
   // Monitora tempo entre clicar no outcome e aparecer o próximo cliente
   useEffect(() => {
@@ -935,6 +982,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
         // Backend é a fonte da verdade do próximo cliente.
         const nextFromServer = (data as any)?.next?.id ?? null;
         setServerNextId(nextFromServer);
+        void refreshServerNext("record-call-outcome-success");
         // Reconciliação fica por conta do realtime (scheduleRefetch).
         // Evita um loadAll() pesado depois de cada ligação.
       } catch (e: any) {
@@ -991,6 +1039,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       [key]: Date.now() + 15000,
     }));
     void clearActiveCall();
+    void refreshServerNext("skip");
     toast("Contato pulado");
   }
 
@@ -1008,6 +1057,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setCalledAt(null);
     setLocalRetryPinId(null);
     void clearActiveCall();
+    void refreshServerNext("callback");
     setSubmittingOutcome(false);
     toast("Movido pro fim da fila");
   }
