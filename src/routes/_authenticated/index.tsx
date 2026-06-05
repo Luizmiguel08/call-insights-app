@@ -924,6 +924,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
+    setLocalRetryPinId(null);
     void clearActiveCall();
     setSubmittingOutcome(false);
     toast("Movido pro fim da fila");
