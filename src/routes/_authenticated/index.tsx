@@ -556,6 +556,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const [waEditing, setWaEditing] = useState(false);
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
   const lastOutcomeRef = useRef<string>("");
+  const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
+  const outcomeStartRef = useRef<number>(0);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -744,6 +746,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
 
+  // Monitora tempo entre clicar no outcome e aparecer o próximo cliente
+  useEffect(() => {
+    if (outcomeStartRef.current > 0) {
+      const elapsed = Math.round(performance.now() - outcomeStartRef.current);
+      setLastSwitchMs(elapsed);
+      outcomeStartRef.current = 0;
+    }
+  }, [current?.id]);
+
   useEffect(() => {
     lastOutcomeRef.current = "";
     setSubmittingOutcome(false);
@@ -801,6 +812,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
     if (lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
+    outcomeStartRef.current = performance.now();
 
     const contactId = current.id;
     const contactName = current.name;
@@ -972,7 +984,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
           <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
             <span>Próximo da fila — {brokerName}</span>
-            <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
+            <span className="flex items-center gap-2">
+              {lastSwitchMs !== null && (
+                <span className="inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-400">
+                  {lastSwitchMs} ms
+                </span>
+              )}
+              <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
+            </span>
           </div>
 
           <div className="my-4">
