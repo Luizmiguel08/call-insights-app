@@ -558,6 +558,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const lastOutcomeRef = useRef<string>("");
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
   const outcomeStartRef = useRef<number>(0);
+  // Trava local: força permanecer no mesmo contato até completar 2 tentativas
+  const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -736,12 +738,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   const prioritizedQueue = useMemo(() => {
     // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
-    const pinId = remoteCall?.contact_id || retryContactId;
+    // Prioridade: trava local de retry (2ª tentativa obrigatória) > ligação remota > retry detectado por calls
+    const pinId = localRetryPinId || remoteCall?.contact_id || retryContactId;
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
     return [pinned, ...myQueue.filter((c) => c.id !== pinId)];
-  }, [myQueue, retryContactId, remoteCall?.contact_id]);
+  }, [myQueue, retryContactId, remoteCall?.contact_id, localRetryPinId]);
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
@@ -842,7 +845,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
     }
     if (!attended && !scheduled && newAttemptsLocal < 2) {
+      // Trava o mesmo contato como próximo da fila até a 2ª tentativa
+      setLocalRetryPinId(contactId);
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
+    } else {
+      // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: libera a trava
+      setLocalRetryPinId(null);
     }
 
     // 2) RPC em background — não bloqueia a UI. Se falhar, reverte.
@@ -899,6 +907,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
+    setLocalRetryPinId(null);
     void clearActiveCall();
     toast("Contato pulado");
   }
@@ -915,6 +924,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
+    setLocalRetryPinId(null);
     void clearActiveCall();
     setSubmittingOutcome(false);
     toast("Movido pro fim da fila");
@@ -1002,8 +1012,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
               {current.phone || "(sem telefone)"}
             </div>
             {current.attempts > 0 && (
-              <div className="mt-2 inline-block rounded bg-amber-500/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-amber-300" style={fontDisplay}>
-                Tentativa {current.attempts + 1} de 2
+              <div className="mt-2 inline-flex items-center gap-2 rounded bg-amber-500/20 border border-amber-400/40 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-200 animate-pulse" style={fontDisplay}>
+                ⚠ 2ª Tentativa obrigatória — mesmo cliente
               </div>
             )}
             {current.brokerId === null && (
