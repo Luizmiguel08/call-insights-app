@@ -819,7 +819,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
     const contactId = current.id;
     const contactName = current.name;
+    const contactKey = sameContactKey(current);
     const attemptsBefore = current.attempts;
+    const previousContactsSnapshot = new Map(
+      state.contacts
+        .filter((c) => sameContactKey(c) === contactKey)
+        .map((c) => [c.id, { attempts: c.attempts, status: c.status }] as const),
+    );
     const startedAtIso = calledAt ? new Date(calledAt).toISOString() : undefined;
     const endedAtIso = new Date().toISOString();
     const duration = calledAt ? Math.max(0, Math.round((Date.now() - calledAt) / 1000)) : 0;
@@ -831,8 +837,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
-        c.id === contactId
-          ? { ...c, attempts: newAttemptsLocal, status: (resolved || newAttemptsLocal >= 2) ? "feito" : c.status }
+        sameContactKey(c) === contactKey
+          ? {
+              ...c,
+              attempts: Math.max(c.attempts, newAttemptsLocal),
+              status: (resolved || newAttemptsLocal >= 2) ? "feito" : c.status,
+            }
           : c
       ),
     }));
@@ -883,8 +893,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
         setState((s) => ({
           ...s,
           contacts: s.contacts.map((c) =>
-            c.id === contactId
-              ? { ...c, attempts: attemptsBefore, status: "pendente" }
+            previousContactsSnapshot.has(c.id)
+              ? {
+                  ...c,
+                  attempts: previousContactsSnapshot.get(c.id)!.attempts,
+                  status: previousContactsSnapshot.get(c.id)!.status,
+                }
               : c
           ),
         }));
