@@ -718,6 +718,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             status: resolved ? "feito" as const : c.status,
           };
         })
+        .filter((c) => !suppressedCompletedKeys.includes(sameContactKey(c)))
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
         .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
         .sort((a, b) => {
@@ -738,7 +739,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       }
       return out;
     },
-    [state.contacts, brokerId, contactProgress, selectedList]
+    [state.contacts, brokerId, contactProgress, selectedList, suppressedCompletedKeys]
   );
 
   const discadorLists = useMemo(() => {
