@@ -561,6 +561,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   // Trava local: força permanecer no mesmo contato até completar 2 tentativas
   const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
+  // Fonte da verdade do "próximo cliente": vem do backend (RPC). Elimina race conditions
+  // entre realtime/refetch e a fila calculada localmente.
+  const [serverNextId, setServerNextId] = useState<string | null>(null);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
