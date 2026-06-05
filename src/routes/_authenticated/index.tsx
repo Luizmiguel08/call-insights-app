@@ -563,7 +563,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
   // Fonte da verdade do "próximo cliente": vem do backend (RPC). Elimina race conditions
   // entre realtime/refetch e a fila calculada localmente.
-  const [serverNextId, setServerNextId] = useState<string | null>(null);
+  const [serverNextId, setServerNextId] = useState<string | null | undefined>(undefined);
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -783,7 +783,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const prioritizedQueue = useMemo(() => {
     // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
     // Prioridade: trava local de retry (2ª tentativa) > ligação remota > próximo do servidor > retry detectado por calls
-    const pinId = localRetryPinId || remoteCall?.contact_id || serverNextId || retryContactId;
+    const hasServerHead = serverNextId !== undefined;
+    const pinId = localRetryPinId || remoteCall?.contact_id || (hasServerHead ? serverNextId : retryContactId);
+    if (!localRetryPinId && !remoteCall?.contact_id && hasServerHead && serverNextId === null) return [];
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
