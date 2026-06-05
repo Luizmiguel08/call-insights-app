@@ -873,10 +873,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     }
     if (!attended && !scheduled && newAttemptsLocal < 2) {
       // Trava o mesmo contato como próximo da fila até a 2ª tentativa
+      setSuppressedCompletedKeys((keys) => keys.filter((key) => key !== contactKey));
       setLocalRetryPinId(contactId);
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
     } else {
       // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: libera a trava
+      setSuppressedCompletedKeys((keys) => Array.from(new Set([...keys, contactKey])));
       setLocalRetryPinId(null);
     }
 
@@ -919,6 +921,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
               : c
           ),
         }));
+        setSuppressedCompletedKeys((keys) => keys.filter((key) => key !== contactKey));
         lastOutcomeRef.current = "";
       }
     })();
