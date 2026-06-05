@@ -845,7 +845,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
     }
     if (!attended && !scheduled && newAttemptsLocal < 2) {
+      // Trava o mesmo contato como próximo da fila até a 2ª tentativa
+      setLocalRetryPinId(contactId);
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
+    } else {
+      // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: libera a trava
+      setLocalRetryPinId(null);
     }
 
     // 2) RPC em background — não bloqueia a UI. Se falhar, reverte.
