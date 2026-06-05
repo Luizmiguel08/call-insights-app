@@ -560,7 +560,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const outcomeStartRef = useRef<number>(0);
   // Trava local: força permanecer no mesmo contato até completar 2 tentativas
   const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
-  const [suppressedCompletedKeys, setSuppressedCompletedKeys] = useState<string[]>([]);
+  const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -675,16 +675,18 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   }, [state.calls, brokerId]);
 
   useEffect(() => {
-    setSuppressedCompletedKeys((keys) =>
-      keys.filter((key) =>
-        state.contacts.some((c) => {
-          if (sameContactKey(c) !== key) return false;
-          const progress = contactProgress.get(key);
-          const effectiveAttempts = Math.max(c.attempts, progress?.attempts ?? 0);
-          return c.status === "pendente" && !progress?.resolved && effectiveAttempts < 2;
-        })
-      )
-    );
+    setSuppressedCompletedUntil((entries) => {
+      const now = Date.now();
+      let changed = false;
+      const next = Object.fromEntries(
+        Object.entries(entries).filter(([, until]) => {
+          const keep = until > now;
+          if (!keep) changed = true;
+          return keep;
+        }),
+      );
+      return changed ? next : entries;
+    });
   }, [state.contacts, contactProgress]);
 
   const retryContactId = useMemo(() => {
@@ -813,6 +815,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   function sameContactKey(c: { phone?: string; name: string; id?: string }) {
     return normalizedContactKey({ name: c.name, phone: c.phone, contactId: c.id });
+  }
+
+  function isContactSuppressed(contactKey: string) {
+    return (suppressedCompletedUntil[contactKey] ?? 0) > Date.now();
   }
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
