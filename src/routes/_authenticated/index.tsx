@@ -901,7 +901,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     // 2) RPC em background — não bloqueia a UI. Se falhar, reverte.
     void (async () => {
       try {
-        const { error } = await supabase.rpc("record_call_outcome", {
+        const { data, error } = await supabase.rpc("record_call_outcome", {
           _contact_id: contactId,
           _attended: attended,
           _scheduled: scheduled,
@@ -911,6 +911,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
           _duration_seconds: duration,
         });
         if (error) throw error;
+        // Backend é a fonte da verdade do próximo cliente.
+        const nextFromServer = (data as any)?.next?.id ?? null;
+        setServerNextId(nextFromServer);
         // Reconciliação fica por conta do realtime (scheduleRefetch).
         // Evita um loadAll() pesado depois de cada ligação.
       } catch (e: any) {
