@@ -959,6 +959,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     activeCallSourceRef.current = null;
     setCalledAt(null);
     setLocalRetryPinId(null);
+    setSuppressedCompletedUntil((entries) => ({
+      ...entries,
+      [key]: Date.now() + 15000,
+    }));
     void clearActiveCall();
     toast("Contato pulado");
   }
