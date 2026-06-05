@@ -626,6 +626,27 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
   }, [brokerId]);
 
+  // Pergunta ao backend quem é o próximo cliente sempre que mudar corretor/lista.
+  // Mantém o frontend sincronizado mesmo após realtime atrasado.
+  useEffect(() => {
+    if (!brokerId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await (supabase as any).rpc("next_contact_for_broker", {
+          _broker: brokerId,
+          _list_name: selectedList === "all" ? null : selectedList,
+        });
+        if (cancelled) return;
+        setServerNextId((data as any)?.id ?? null);
+      } catch (e) {
+        console.warn("next_contact_for_broker falhou", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [brokerId, selectedList, state.contacts.length, state.calls.length]);
+
+
 
   async function upsertActiveCall(contact: { id: string; name: string; phone?: string | null }) {
     if (!brokerId) return;
