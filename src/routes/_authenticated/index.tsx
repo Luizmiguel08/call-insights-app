@@ -812,6 +812,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
     if (lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
+    outcomeStartRef.current = performance.now();
 
     const contactId = current.id;
     const contactName = current.name;
