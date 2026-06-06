@@ -1445,16 +1445,25 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             const outcomesLocked = callStatus === "calling" || callStatus === "answered";
             const lockedHint = outcomesLocked ? "Encerre a ligação para tabular" : undefined;
             return (
-              <div className="mt-3 grid grid-cols-3 gap-2.5">
-                <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
-                  <X className="h-5 w-5" strokeWidth={3} /> Não atendeu
-                </OutcomeBtn>
-                <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
-                  <Check className="h-5 w-5" strokeWidth={3} /> Atendeu
-                </OutcomeBtn>
-                <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
-                  <Calendar className="h-5 w-5" strokeWidth={3} /> Agendou
-                </OutcomeBtn>
+              <div className="mt-5 flex items-start justify-center gap-6 sm:gap-10">
+                <div className="flex flex-col items-center gap-2">
+                  <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
+                    <X className="h-7 w-7" strokeWidth={3} />
+                  </OutcomeBtn>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-400" style={fontDisplay}>Não atendeu</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
+                    <Check className="h-7 w-7" strokeWidth={3} />
+                  </OutcomeBtn>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400" style={fontDisplay}>Atendeu</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
+                    <Calendar className="h-7 w-7" strokeWidth={3} />
+                  </OutcomeBtn>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400" style={fontDisplay}>Agendou</span>
+                </div>
               </div>
             );
           })()}
