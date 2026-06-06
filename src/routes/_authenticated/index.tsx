@@ -653,6 +653,57 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     void refreshServerNext("broker-or-list-change");
   }, [refreshServerNext]);
 
+  // Sincronização em background a cada 60s — fila completa, sem bloquear UI
+  useEffect(() => {
+    if (!brokerId) return;
+    const id = window.setInterval(() => {
+      void refetchCloud().then(() => setLastSyncedAt(Date.now())).catch(() => {});
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [brokerId, refetchCloud]);
+
+  // Marca timestamp de sync sempre que a fila do estado mudar
+  useEffect(() => { setLastSyncedAt(Date.now()); }, [state.contacts.length, state.calls.length]);
+
+  // Canal broadcast dialer:{brokerId} — espelha note + callStatus entre dispositivos
+  useEffect(() => {
+    if (!brokerId) return;
+    const channel = supabase.channel(`dialer:${brokerId}`, { config: { broadcast: { self: false } } });
+    channel
+      .on("broadcast", { event: "note" }, (msg: any) => {
+        const p = msg?.payload;
+        if (!p || p.deviceId === deviceIdRef.current) return;
+        noteIncomingRef.current = true;
+        setNote(String(p.note ?? ""));
+        setTimeout(() => { noteIncomingRef.current = false; }, 0);
+      })
+      .on("broadcast", { event: "call_status" }, (msg: any) => {
+        const p = msg?.payload;
+        if (!p || p.deviceId === deviceIdRef.current) return;
+        if (p.status === "ended") { setCallStatus("ended"); }
+        else if (p.status === "answered") { setCallStatus("answered"); }
+        else if (p.status === "calling") { setCallStatus("calling"); }
+        else if (p.status === "idle") { setCallStatus("idle"); }
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [brokerId]);
+
+  // Helper para broadcast
+  const broadcastRef = useRef<any>(null);
+  useEffect(() => {
+    if (!brokerId) return;
+    const ch = supabase.channel(`dialer-send:${brokerId}`);
+    ch.subscribe((status) => { if (status === "SUBSCRIBED") broadcastRef.current = ch; });
+    return () => { broadcastRef.current = null; void supabase.removeChannel(ch); };
+  }, [brokerId]);
+
+  const broadcastStatus = useCallback((status: "idle" | "calling" | "answered" | "ended") => {
+    broadcastRef.current?.send({ type: "broadcast", event: "call_status", payload: { status, deviceId: deviceIdRef.current } });
+  }, []);
+
+
+
 
 
   async function upsertActiveCall(contact: { id: string; name: string; phone?: string | null }) {
