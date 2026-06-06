@@ -908,7 +908,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   useEffect(() => {
     lastOutcomeRef.current = "";
     setSubmittingOutcome(false);
+    setCallStatus("idle");
+    setOutcomeError(null);
   }, [current?.id, current?.attempts]);
+
 
   // Espelho do estado "em ligação" entre dispositivos do mesmo corretor.
   // Quando outro aparelho liga → entra em modo "em ligação" aqui também.
