@@ -6,6 +6,9 @@ import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import wolfBg from "@/assets/wolf-wall-street.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
+import { useDialerSession } from "@/hooks/useDialerSession";
+import { recordContactAttempt } from "@/hooks/useContactBuffer";
+import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
   type Broker, type Call, type Contact, type State, type Tab,
   todayISO, normalizedContactKey, callContactKey, uniqueContactCount, uniqueContactCountWhere,
@@ -13,6 +16,7 @@ import {
   fontDisplay, fontNumeric, inputCls,
   Field, YesNo, Kpi, Badge, Th, Td,
 } from "@/lib/dialer-shared";
+
 
 // Lazy-loaded heavy/secondary tabs — keeps initial bundle small for mobile.
 const HistoricoTab = lazy(() => import("@/components/dialer/HistoricoTab"));
@@ -41,11 +45,14 @@ function LigaCtrlApp() {
   const navigate = useNavigate();
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
+  // Único subscriber Realtime para o estado vivo do discador (espelha mobile↔desktop)
+  const dialerSession = useDialerSession(me?.userId ?? null);
 
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
+
 
   // Aguardando aprovação do admin
   if (hydrated && me && !me.isAdmin && !me.approved) {
@@ -96,10 +103,12 @@ function LigaCtrlApp() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ConnectionIndicator state={dialerSession.isConnected} lastSyncAt={dialerSession.lastSyncAt} />
             <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
               <div className="hidden sm:flex items-center justify-end gap-1 text-[#c9a24c]"><Cloud className="h-3 w-3" /> {hydrated ? "sincronizado" : "carregando..."}</div>
               <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
             </div>
+
             <button
               onClick={signOut}
               title="Sair"
@@ -133,7 +142,7 @@ function LigaCtrlApp() {
       </header>
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
-        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} />}
+        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} userId={me?.userId ?? null} dialerSession={dialerSession} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
@@ -593,7 +602,7 @@ function PendingRow({ broker, onRename, onApprove, onReject }: { broker: Broker;
 
 /* ---------------- DISCADOR ---------------- */
 
-function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void> }) {
+function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSession }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void>; userId: string | null; dialerSession: ReturnType<typeof useDialerSession> }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [selectedList, setSelectedList] = useState<string>("all");
   const [note, setNote] = useState("");
@@ -1085,7 +1094,22 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       setLocalRetryPinId(null);
     }
 
-    // 2) RPC em background — não bloqueia a UI. Se falhar, reverte.
+    // 2a) Registra a tentativa em contact_attempts (paralelo, fire-and-forget)
+    if (userId) {
+      void recordContactAttempt({
+        contactId,
+        userId,
+        brokerId,
+        result: scheduled ? "scheduled" : attended ? "answered" : "no_answer",
+        attemptNumber: newAttemptsLocal,
+        observation: noteSnapshot || null,
+      });
+    }
+    // 2b) Espelha estado da sessão entre dispositivos (paralelo)
+    void dialerSession.updateSession({ current_contact_id: null, call_status: "idle", observation: "", call_started_at: null });
+
+    // 3) RPC em background — não bloqueia a UI. Se falhar, reverte.
+
     void (async () => {
       try {
         const { data, error } = await supabase.rpc("record_call_outcome", {
@@ -1143,6 +1167,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   function skip() {
     if (!current) return;
     const key = sameContactKey(current);
+    const skippedId = current.id;
+    const skippedAttempts = current.attempts;
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
@@ -1156,6 +1182,18 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setCalledAt(null);
     setCallStatus("idle");
     broadcastStatus("idle");
+    if (userId) {
+      void recordContactAttempt({
+        contactId: skippedId,
+        userId,
+        brokerId,
+        result: "skipped",
+        attemptNumber: Math.min(2, skippedAttempts + 1),
+      });
+    }
+    void dialerSession.updateSession({ current_contact_id: null, call_status: "idle", observation: "", call_started_at: null });
+
+
 
     setLocalRetryPinId(null);
     setSuppressedCompletedUntil((entries) => ({
