@@ -1215,7 +1215,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
         <div className="rounded-xl border-2 border-[#c9a24c]/40 bg-gradient-to-b from-[#171a23] to-[#0f1117] p-6 shadow-[0_0_60px_-20px_#c9a24c]">
 
           <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-            <span>Próximo da fila — {brokerName}</span>
+            <span className="flex items-center gap-2">
+              <span>Próximo da fila — {brokerName}</span>
+              <SyncBadge ts={lastSyncedAt} />
+            </span>
             <span className="flex items-center gap-2">
               {lastSwitchMs !== null && (
                 <span className="inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-400">
@@ -1226,42 +1229,52 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             </span>
           </div>
 
-          <div className="my-4">
-            <div className="text-[40px] sm:text-[56px] leading-[1.02] tracking-[-0.02em] font-semibold text-zinc-50" style={fontDisplay}>
-              {current.name}
-            </div>
-            <div className="mt-3 text-2xl sm:text-3xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
-              {current.phone || "(sem telefone)"}
-            </div>
-            {current.attempts > 0 && (
-              <div className="mt-2 inline-flex items-center gap-2 rounded bg-amber-500/20 border border-amber-400/40 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-200 animate-pulse" style={fontDisplay}>
-                ⚠ 2ª Tentativa obrigatória — mesmo cliente
+          {/* Card animado com slide ao trocar de contato */}
+          <div key={current.id} className="animate-slide-in-x">
+            <div className="my-4">
+              <div className="text-[40px] sm:text-[56px] leading-[1.02] tracking-[-0.02em] font-semibold text-zinc-50" style={fontDisplay}>
+                {current.name}
               </div>
-            )}
-            {current.brokerId === null && (
-              <div className="mt-1 inline-block text-[10px] uppercase tracking-widest text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded mt-2">Fila geral</div>
+              <div className="mt-3 text-2xl sm:text-3xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
+                {current.phone || "(sem telefone)"}
+              </div>
+              {current.attempts > 0 && (
+                <div className="mt-2 inline-flex items-center gap-2 rounded bg-amber-500/20 border border-amber-400/40 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-200 animate-pulse" style={fontDisplay}>
+                  ⚠ 2ª Tentativa obrigatória — mesmo cliente
+                </div>
+              )}
+              {current.brokerId === null && (
+                <div className="mt-1 inline-block text-[10px] uppercase tracking-widest text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded mt-2">Fila geral</div>
+              )}
+            </div>
+
+            {/* Ligar / Encerrar */}
+            {callStatus === "calling" || callStatus === "answered" ? (
+              <button
+                type="button"
+                onClick={endCall}
+                className="flex w-full items-center justify-center gap-3 rounded-md border-2 border-emerald-500/60 bg-emerald-500/15 py-5 text-lg font-bold uppercase tracking-[0.2em] text-emerald-300 transition active:scale-[0.99] hover:bg-emerald-500/25"
+                style={fontDisplay}
+              >
+                <span className="flex items-center" aria-hidden>
+                  <span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" />
+                </span>
+                Encerrar ligação
+                <CallTimer startedAt={calledAt ?? Date.now()} />
+                {remoteIsOtherDevice && <span className="ml-2 text-[10px] uppercase opacity-70">via {remoteCall!.device_label}</span>}
+              </button>
+            ) : (
+              <a
+                href={telHref(current.phone)}
+                onClick={startCall}
+                className={`flex w-full items-center justify-center gap-3 rounded-md py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#c9a24c] transition active:scale-[0.99] ${submittingOutcome ? "pointer-events-none bg-[#8f7b42] opacity-60" : "bg-[#c9a24c] hover:bg-[#e6c878]"}`}
+                style={fontDisplay}
+              >
+                <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
+                Ligar agora
+              </a>
             )}
           </div>
-
-          {/* Botão LIGAR */}
-          {!calledAt ? (
-            <a
-              href={telHref(current.phone)}
-              onClick={startCall}
-                className={`flex w-full items-center justify-center gap-3 rounded-md py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#c9a24c] transition active:scale-[0.99] ${submittingOutcome ? "pointer-events-none bg-[#8f7b42] opacity-60" : "bg-[#c9a24c] hover:bg-[#e6c878]"}`}
-              style={fontDisplay}
-            >
-              <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
-              Ligar agora
-            </a>
-          ) : (
-            <div className="rounded-md border-2 border-emerald-500/50 bg-emerald-500/10 py-4 text-center">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-emerald-400" style={fontDisplay}>
-                Em ligação{remoteIsOtherDevice ? ` — via ${remoteCall!.device_label}` : ""}
-              </div>
-              <CallTimer startedAt={calledAt} />
-            </div>
-          )}
 
           {/* WhatsApp — mensagem editável por corretor / por ligação */}
           <div className="mt-3 space-y-2">
@@ -1329,24 +1342,67 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
           <div className="mt-4">
             <textarea
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNote(v);
+                if (noteIncomingRef.current) return;
+                if (noteBroadcastTimerRef.current) clearTimeout(noteBroadcastTimerRef.current);
+                noteBroadcastTimerRef.current = setTimeout(() => {
+                  broadcastRef.current?.send({ type: "broadcast", event: "note", payload: { note: v, deviceId: deviceIdRef.current } });
+                }, 250);
+              }}
               rows={2}
               placeholder="Observação (opcional)"
               className={inputCls + " resize-none py-2"}
             />
+            {/* Chips de resposta rápida */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {["Não atendeu", "Caixa postal", "Número errado", "Sem interesse"].map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => setNote(chip)}
+                  className="rounded-full border border-zinc-700 bg-[#0f1117] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-300 hover:border-[#c9a24c]/60 hover:text-[#c9a24c]"
+                  style={fontDisplay}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <BigKey kbd="" color="red" onClick={() => recordOutcome(false, false)}>
-              <X className="h-5 w-5" strokeWidth={3} /> Não atendeu
-            </BigKey>
-            <BigKey kbd="" color="green" onClick={() => recordOutcome(true, false)}>
-              <Check className="h-5 w-5" strokeWidth={3} /> Atendeu
-            </BigKey>
-            <BigKey kbd="" color="orange" onClick={() => recordOutcome(true, true)}>
-              <Calendar className="h-5 w-5" strokeWidth={3} /> Agendou
-            </BigKey>
-          </div>
+          {/* Banner de erro com retry */}
+          {outcomeError && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <span className="truncate">⚠ {outcomeError.label}</span>
+              <button
+                type="button"
+                onClick={() => { const r = outcomeError.retry; setOutcomeError(null); r(); }}
+                className="shrink-0 rounded-md border border-red-400/60 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-500/20"
+                style={fontDisplay}
+              >
+                <RefreshCw className="inline h-3.5 w-3.5 mr-1" /> Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {(() => {
+            const outcomesLocked = callStatus === "calling" || callStatus === "answered";
+            const lockedHint = outcomesLocked ? "Encerre a ligação para tabular" : undefined;
+            return (
+              <div className="mt-3 grid grid-cols-3 gap-2.5">
+                <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
+                  <X className="h-5 w-5" strokeWidth={3} /> Não atendeu
+                </OutcomeBtn>
+                <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
+                  <Check className="h-5 w-5" strokeWidth={3} /> Atendeu
+                </OutcomeBtn>
+                <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
+                  <Calendar className="h-5 w-5" strokeWidth={3} /> Agendou
+                </OutcomeBtn>
+              </div>
+            );
+          })()}
 
           <div className="mt-3 grid grid-cols-2 gap-3">
             <button
@@ -1365,13 +1421,18 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             </button>
           </div>
 
-          {next && (
-            <div className="mt-5 flex items-center gap-3 rounded-md border border-dashed border-zinc-800 px-4 py-3">
-              <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
-              <span className="flex-1 truncate text-sm font-semibold text-zinc-300">{next.name}</span>
-              <span className="text-xs tabular-nums text-zinc-500">{next.phone}</span>
-            </div>
-          )}
+          {/* Preview do próximo contato — sempre fixo no rodapé do card */}
+          <div className="mt-5 flex items-center gap-3 rounded-md border border-dashed border-zinc-800 bg-[#0f1117]/60 px-4 py-3">
+            <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
+            {next ? (
+              <>
+                <span className="flex-1 truncate text-sm font-semibold text-zinc-300">{next.name}</span>
+                <span className="text-xs tabular-nums text-zinc-500">{next.phone}</span>
+              </>
+            ) : (
+              <span className="flex-1 truncate text-sm text-zinc-500">Sem próximos na fila</span>
+            )}
+          </div>
         </div>
       ) : (
         <div className="rounded-xl border-2 border-dashed border-zinc-800 bg-[#171a23] p-10 text-center">
@@ -1388,16 +1449,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Ligações hoje" value={k.total} color="#c9a24c" />
-        <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
-        <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
-        <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
+      {/* Barra de stats — sticky no rodapé */}
+      <div className="sticky bottom-0 -mx-3 sm:-mx-6 mt-4 border-t border-zinc-800 bg-[#0b0d13]/95 backdrop-blur px-3 sm:px-6 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] z-20">
+        <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
+          <StatPill label="Ligações" value={k.total} color="#c9a24c" />
+          <StatPill label="Atendidas" value={k.attended} color="#22c55e" />
+          <StatPill label="Não atend." value={k.notAttended} color="#ef4444" />
+          <StatPill label="Agendadas" value={k.scheduled} color="#eab308" />
+        </div>
       </div>
     </div>
   );
 }
+
 
 function CallTimer({ startedAt }: { startedAt: number }) {
   const [, force] = useState(0);
