@@ -1058,6 +1058,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
       } catch (e: any) {
         console.error("Falha ao registrar ligação", e);
         toast.error(e?.message || "Falha ao registrar ligação — desfazendo");
+        setOutcomeError({ label: e?.message || "Falha ao registrar ligação", retry: () => recordOutcome(attended, scheduled) });
+
         void logDialerError({
           action: "record_call_outcome",
           error: e,
