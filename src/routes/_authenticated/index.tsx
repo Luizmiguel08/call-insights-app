@@ -45,11 +45,14 @@ function LigaCtrlApp() {
   const navigate = useNavigate();
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
+  // Único subscriber Realtime para o estado vivo do discador (espelha mobile↔desktop)
+  const dialerSession = useDialerSession(me?.userId ?? null);
 
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
+
 
   // Aguardando aprovação do admin
   if (hydrated && me && !me.isAdmin && !me.approved) {
