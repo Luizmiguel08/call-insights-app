@@ -552,18 +552,24 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
   const [selectedList, setSelectedList] = useState<string>("all");
   const [note, setNote] = useState("");
   const [calledAt, setCalledAt] = useState<number | null>(null);
+  const [callStatus, setCallStatus] = useState<"idle" | "calling" | "answered" | "ended">("idle");
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
   const [waEditing, setWaEditing] = useState(false);
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
   const lastOutcomeRef = useRef<string>("");
+  const lastOutcomeTimeRef = useRef<number>(0);
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
   const outcomeStartRef = useRef<number>(0);
-  // Trava local: força permanecer no mesmo contato até completar 2 tentativas
   const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
-  // Fonte da verdade do "próximo cliente": vem do backend (RPC). Elimina race conditions
-  // entre realtime/refetch e a fila calculada localmente.
   const [serverNextId, setServerNextId] = useState<string | null | undefined>(undefined);
+  // Sincronização em background + indicador visual
+  const [lastSyncedAt, setLastSyncedAt] = useState<number>(() => Date.now());
+  const [outcomeError, setOutcomeError] = useState<null | { label: string; retry: () => void }>(null);
+  // Para evitar loop no broadcast de notas
+  const noteIncomingRef = useRef(false);
+  const noteBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
