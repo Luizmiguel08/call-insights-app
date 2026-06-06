@@ -1167,6 +1167,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   function skip() {
     if (!current) return;
     const key = sameContactKey(current);
+    const skippedId = current.id;
+    const skippedAttempts = current.attempts;
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
@@ -1180,6 +1182,18 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     setCalledAt(null);
     setCallStatus("idle");
     broadcastStatus("idle");
+    if (userId) {
+      void recordContactAttempt({
+        contactId: skippedId,
+        userId,
+        brokerId,
+        result: "skipped",
+        attemptNumber: Math.min(2, skippedAttempts + 1),
+      });
+    }
+    void dialerSession.updateSession({ current_contact_id: null, call_status: "idle", observation: "", call_started_at: null });
+
+
 
     setLocalRetryPinId(null);
     setSuppressedCompletedUntil((entries) => ({
