@@ -1,68 +1,85 @@
-## Refatoração do Discador — Performance, Espelhamento e UX
+# Refatoração do Discador — Estado Único + Realtime + Espelhamento
 
-Escopo: reescrever a tela `/` (src/routes/_authenticated/index.tsx) e componentes auxiliares para entregar todos os requisitos. Backend já tem `next_contact_for_broker` e `record_call_outcome`; nada de migrações novas, exceto habilitar Realtime em `active_calls` se ainda não estiver, para espelhar estado por dispositivo.
+Esta é uma reescrita arquitetural significativa do discador. Vou trabalhar em duas fases: **banco primeiro** (migração precisa de aprovação antes do código), depois **frontend completo**.
 
-### 1. Performance & fila local
-- Manter buffer em memória com os próximos **5 contatos** via nova RPC paginada client-side: já existe `contacts_queue` carregado no `state.contacts`; derivar `prefetchQueue` (slice 5) e usar como fonte de "Próximo" instantâneo.
-- "Pular" / "Próximo" consomem do buffer local primeiro; chamada ao backend acontece em background (fire-and-forget) e o buffer se reabastece.
-- Background sync a cada **60s** via `setInterval` que chama `loadCloudState()` sem bloquear UI; toast sutil "Sincronizado agora" + timestamp + bolinha verde pulsante no header.
-- Contatos atualizados na última sync ganham marca `recentlyUpdatedIds` (Set) → indicador sutil (ponto âmbar) na lista.
+---
 
-### 2. Animação de troca de contato
-- Componente `<ContactCard>` isolado com `key={contactId}` e classes `animate-[slide-in_150ms]`. Ao trocar, wrapper aplica slide-out → swap → slide-in (CSS puro, sem re-render do pai).
-- Adicionar keyframes `slide-in-x` / `slide-out-x` em `src/styles.css`.
+## Fase 1 — Banco de dados (migração)
 
-### 3. Debounce & anti-bug nos botões
-- Hook `useDebouncedAction(fn, 300)` aplicado em Atendeu / Não atendeu / Agendou.
-- Botões desabilitados enquanto `callStatus !== "ended"` (estados: `idle | calling | answered | ended`).
-- Ao registrar resultado: limpar `notes` e `callStatus` ANTES do fetch do próximo.
-- Try/catch: em falha, mostrar banner com botão "Tentar novamente" (não trava UI).
+### Tabela `dialer_sessions`
+Estado vivo da sessão por usuário (1 linha por usuário, upsert).
+- `user_id` (unique) — única fonte de verdade da sessão
+- `current_contact_id`, `call_status` (idle|calling|answered|ended), `call_started_at`, `observation`, `device_origin` (mobile|desktop), `updated_at`
 
-### 4. Estado local imediato da ligação
-- `useState<"idle"|"calling"|"answered"|"ended">` controlado por cliques, não por API.
-- Botão "Ligar agora" → vira "Encerrar ligação" com cronômetro (mm:ss) + indicador de onda animado (3 barras CSS).
+RLS: usuário só lê/escreve sua própria linha. Realtime habilitado via `ALTER PUBLICATION supabase_realtime ADD TABLE dialer_sessions`.
 
-### 5. Espelhamento mobile ↔ desktop (Realtime)
-- Canal `dialer:{userId}` via `supabase.channel(...).on("broadcast", ...)`.
-- Broadcast dos eventos: `contact_changed`, `call_status`, `notes_typed` (throttle 250ms), `outcome_recorded`.
-- Receiver aplica patch local; ao receber `outcome_recorded` de outro device, avança automaticamente para o próximo do buffer.
-- Sem polling — apenas o sync de 60s para o snapshot da fila.
+### Tabela `contact_attempts`
+Histórico imutável de tentativas.
+- `contact_id`, `user_id`, `result` (no_answer|answered|scheduled|skipped|return_later), `attempt_number`, `observation`, `called_at`
 
-### 6. Layout (mudanças visuais)
-- **Header**: barra de progresso da meta diária (Progress component) sempre visível.
-- **Card do contato**: animação de slide; rodapé fixo com "Próximo: {nome}".
-- **Chips de resposta rápida** abaixo do textarea: Não atendeu / Caixa postal / Número errado / Sem interesse → preenchem `notes`.
-- **Botões de resultado**: `py-3.5` (14px), `gap-2.5` (10px), cores:
-  - Não Atendeu: `bg-red-900 hover:bg-red-800 text-red-50`
-  - Atendeu: `bg-emerald-900 hover:bg-emerald-800 text-emerald-50`
-  - Agendou: `bg-amber-700 hover:bg-amber-600 text-amber-50`
-- **Barra de stats** fixa no bottom: Ligações / Atendidas / Não atendeu / Agendadas (hoje).
+RLS: usuário só lê/insere as próprias.
 
-### 7. Arquivos a alterar
-- `src/routes/_authenticated/index.tsx` — orquestração principal.
-- `src/components/dialer/ContactCard.tsx` *(novo)* — card animado isolado.
-- `src/components/dialer/CallControls.tsx` *(novo)* — botão ligar/encerrar + timer + onda.
-- `src/components/dialer/OutcomeButtons.tsx` *(novo)* — botões grandes com debounce.
-- `src/components/dialer/QuickChips.tsx` *(novo)* — chips de resposta rápida.
-- `src/components/dialer/DailyProgress.tsx` *(novo)* — barra meta + stats bottom.
-- `src/components/dialer/SyncIndicator.tsx` *(novo)* — bolinha + timestamp.
-- `src/hooks/useDebouncedAction.ts` *(novo)*.
-- `src/hooks/useDialerRealtime.ts` *(novo)* — canal broadcast.
-- `src/styles.css` — keyframes slide-x e classe wave.
+### RPC `dialer_prefetch_queue(_limit int)`
+Retorna próximos N contatos pendentes do corretor JÁ com `attempt_count` agregado de `contact_attempts` — uma única round-trip para hidratar o buffer.
 
-### 8. Fora de escopo
-- Migrações de banco (uso apenas das RPCs/tabelas existentes).
-- Mudanças no fluxo de autenticação ou outras rotas.
-- VoIP / WebRTC (continua `tel:`).
+GRANTs explícitos em ambas tabelas para `authenticated` + `service_role` (não `anon`).
 
-### Diagrama de fluxo
+---
+
+## Fase 2 — Frontend
+
+### Novo hook `src/hooks/useDialerSession.ts`
+- Carrega a linha de `dialer_sessions` (upsert se não existir) uma vez ao montar.
+- Subscribe em canal Realtime único `dialer_session:{userId}` escutando `postgres_changes` UPDATE filtrado por `user_id`.
+- Retorna `{ session, updateSession, isConnected, lastSyncAt }`.
+- `updateSession(patch)` é **otimista**: aplica em `useState` local imediatamente, dispara UPDATE no Supabase em paralelo. Em erro: rollback + toast.
+- `isConnected` reflete status real do canal (`SUBSCRIBED` → verde, `CHANNEL_ERROR`/`TIMED_OUT` → âmbar, offline → vermelho).
+- Eco do próprio device é detectado via `device_origin` + `updated_at` para evitar flicker.
+
+### Novo hook `src/hooks/useContactBuffer.ts`
+- Buffer local: `useRef<Contact[]>` com até 10 contatos.
+- Carga inicial via RPC `dialer_prefetch_queue(10)`.
+- Quando `buffer.length <= 3`, faz refill silencioso em background (fire-and-forget).
+- Expõe: `current`, `peekNext(n)`, `advance()` (shift), `registerAttempt(contactId, result)` (incrementa attempt_count local + insert em background).
+- Estado de erro com retry quando buffer vazio + falha de rede.
+
+### Refator de `src/routes/_authenticated/index.tsx`
+Substitui a lógica atual de estado por:
+- `useDialerSession(userId)` para sessão/realtime.
+- `useContactBuffer()` para fila.
+- Handlers de outcome: (1) inicia slide-out via classe CSS, (2) **em paralelo**: `INSERT contact_attempts` + `updateSession({ current_contact_id: next.id, call_status: 'idle', observation: '' })` + `buffer.advance()`, (3) slide-in do próximo. Tudo sem await sequencial.
+- Botão "Pular" segue mesmo fluxo com `result: 'skipped'`.
+- Debounce 300ms já existente nos botões mantido.
+- Card mostra "Xª tentativa" lendo `attempt_count` do buffer (já vem do RPC).
+- Header: bolinha de conexão (verde/âmbar/vermelho) + timestamp última sync.
+- Sem `setTimeout` para race conditions, sem `invalidateQueries` na fila, sem reload.
+
+### Arquivos
+- `src/hooks/useDialerSession.ts` (novo)
+- `src/hooks/useContactBuffer.ts` (novo)
+- `src/components/dialer/ConnectionIndicator.tsx` (novo)
+- `src/routes/_authenticated/index.tsx` (refator do bloco do discador)
+- `src/styles.css` (keyframes slide-in/out já existem, reaproveitar)
+
+### Fora de escopo
+- Não mexer em layout visual aprovado anteriormente (duas colunas desktop, botões circulares, etc.).
+- Não tocar em outras rotas/abas (Histórico, Dashboard, Corretores, Erros).
+- Não mexer em `record_call_outcome` / `next_contact_for_broker` existentes — `contact_attempts` é registro complementar para a UI; o RPC legado continua sendo chamado em paralelo para manter `calls`/`contacts_queue` em sincronia com o resto do app (Histórico, Dashboard).
+
+---
+
+## Diagrama do fluxo de clique em "Não Atendeu"
 
 ```text
-clique "Não Atendeu"
-  → debounce 300ms
-  → limpa notes + callStatus
-  → optimistic: avança para buffer[0] (slide animation)
-  → background: record_call_outcome RPC
-  → broadcast outcome_recorded no canal dialer:{userId}
-  → background: refill buffer (próximos 5)
+clique
+  ├─ 0ms: classe slide-out no card (CSS puro, 150ms)
+  ├─ paralelo:
+  │   ├─ buffer.advance() → próximo já em memória
+  │   ├─ updateSession({ current_contact_id: next.id, ... }) → otimista + UPDATE Supabase
+  │   ├─ INSERT contact_attempts (result: 'no_answer', attempt_number: n+1)
+  │   └─ RPC record_call_outcome (mantém legado em dia)
+  ├─ 150ms: slide-in do próximo
+  └─ se buffer.length <= 3: refill silencioso
 ```
+
+Outros devices recebem o UPDATE de `dialer_sessions` via Realtime em <200ms e fazem a mesma transição visual.

@@ -231,6 +231,39 @@ export type Database = {
           },
         ]
       }
+      contact_attempts: {
+        Row: {
+          attempt_number: number
+          broker_id: string | null
+          called_at: string
+          contact_id: string
+          id: string
+          observation: string | null
+          result: string
+          user_id: string
+        }
+        Insert: {
+          attempt_number: number
+          broker_id?: string | null
+          called_at?: string
+          contact_id: string
+          id?: string
+          observation?: string | null
+          result: string
+          user_id: string
+        }
+        Update: {
+          attempt_number?: number
+          broker_id?: string | null
+          called_at?: string
+          contact_id?: string
+          id?: string
+          observation?: string | null
+          result?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       contacts_queue: {
         Row: {
           broker_id: string | null
@@ -326,6 +359,42 @@ export type Database = {
           list_name?: string | null
           user_email?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      dialer_sessions: {
+        Row: {
+          call_started_at: string | null
+          call_status: string
+          created_at: string
+          current_contact_id: string | null
+          device_origin: string | null
+          id: string
+          observation: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          call_started_at?: string | null
+          call_status?: string
+          created_at?: string
+          current_contact_id?: string | null
+          device_origin?: string | null
+          id?: string
+          observation?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          call_started_at?: string | null
+          call_status?: string
+          created_at?: string
+          current_contact_id?: string | null
+          device_origin?: string | null
+          id?: string
+          observation?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -466,6 +535,19 @@ export type Database = {
         Returns: Json
       }
       current_broker_id: { Args: never; Returns: string }
+      dialer_prefetch_queue: {
+        Args: { _limit?: number; _list_name?: string }
+        Returns: {
+          attempt_count: number
+          broker_id: string
+          created_at: string
+          id: string
+          list_name: string
+          name: string
+          phone: string
+          priority: number
+        }[]
+      }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _uid: string }
         Returns: boolean
