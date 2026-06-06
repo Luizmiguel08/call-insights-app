@@ -1295,31 +1295,40 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
               )}
             </div>
 
-            {/* Ligar / Encerrar */}
+            {/* Ligar / Encerrar — botão circular */}
             {callStatus === "calling" || callStatus === "answered" ? (
-              <button
-                type="button"
-                onClick={endCall}
-                className="flex w-full items-center justify-center gap-3 rounded-md border-2 border-emerald-500/60 bg-emerald-500/15 py-5 text-lg font-bold uppercase tracking-[0.2em] text-emerald-300 transition active:scale-[0.99] hover:bg-emerald-500/25"
-                style={fontDisplay}
-              >
-                <span className="flex items-center" aria-hidden>
-                  <span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" />
-                </span>
-                Encerrar ligação
+              <div className="flex flex-col items-center gap-3 py-4">
+                <button
+                  type="button"
+                  onClick={endCall}
+                  aria-label="Encerrar ligação"
+                  className="group relative flex h-28 w-28 items-center justify-center rounded-full bg-emerald-400 text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 hover:bg-emerald-300"
+                >
+                  <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping" aria-hidden />
+                  <span className="relative flex items-center gap-1" aria-hidden>
+                    <span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" />
+                  </span>
+                </button>
+                <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300" style={fontDisplay}>
+                  Encerrar
+                </div>
                 <CallTimer startedAt={calledAt ?? Date.now()} />
-                {remoteIsOtherDevice && <span className="ml-2 text-[10px] uppercase opacity-70">via {remoteCall!.device_label}</span>}
-              </button>
+                {remoteIsOtherDevice && <span className="text-[10px] uppercase opacity-70">via {remoteCall!.device_label}</span>}
+              </div>
             ) : (
-              <a
-                href={telHref(current.phone)}
-                onClick={startCall}
-                className={`flex w-full items-center justify-center gap-3 rounded-md py-5 text-lg font-bold uppercase tracking-[0.2em] text-black shadow-[0_0_40px_-8px_#c9a24c] transition active:scale-[0.99] ${submittingOutcome ? "pointer-events-none bg-[#8f7b42] opacity-60" : "bg-[#c9a24c] hover:bg-[#e6c878]"}`}
-                style={fontDisplay}
-              >
-                <PhoneCall className="h-6 w-6" strokeWidth={2.5} />
-                Ligar agora
-              </a>
+              <div className="flex flex-col items-center gap-3 py-4">
+                <a
+                  href={telHref(current.phone)}
+                  onClick={startCall}
+                  aria-label="Ligar agora"
+                  className={`relative flex h-28 w-28 items-center justify-center rounded-full text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 ${submittingOutcome ? "pointer-events-none bg-emerald-500/50 opacity-60" : "bg-emerald-400 hover:bg-emerald-300"}`}
+                >
+                  <Phone className="h-12 w-12" strokeWidth={2} />
+                </a>
+                <div className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-400" style={fontDisplay}>
+                  Ligar
+                </div>
+              </div>
             )}
           </div>
 
