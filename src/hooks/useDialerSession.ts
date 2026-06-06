@@ -55,7 +55,7 @@ export function useDialerSession(userId: string | null | undefined) {
         return;
       }
       if (data) {
-        setSession(data as DialerSession);
+        setSession(data as unknown as DialerSession);
         setLastSyncAt(Date.now());
         return;
       }
@@ -71,7 +71,7 @@ export function useDialerSession(userId: string | null | undefined) {
         return;
       }
       if (inserted) {
-        setSession(inserted as DialerSession);
+        setSession(inserted as unknown as DialerSession);
         setLastSyncAt(Date.now());
       }
     })();
@@ -153,7 +153,7 @@ export function useDialerSession(userId: string | null | undefined) {
       }
       if (data) {
         localEchoRef.current = (data as any).updated_at;
-        setSession(data as DialerSession);
+        setSession(data as unknown as DialerSession);
         setLastSyncAt(Date.now());
       }
     },
