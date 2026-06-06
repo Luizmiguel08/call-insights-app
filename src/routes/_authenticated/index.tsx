@@ -388,6 +388,53 @@ function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" |
   );
 }
 
+function OutcomeBtn({ variant, onClick, disabled, title, children }: { variant: "danger" | "success" | "gold"; onClick: () => void; disabled?: boolean; title?: string; children: React.ReactNode }) {
+  const map = {
+    danger:  "bg-red-900 hover:bg-red-800 text-red-50 border-red-700",
+    success: "bg-emerald-900 hover:bg-emerald-800 text-emerald-50 border-emerald-700",
+    gold:    "bg-amber-700 hover:bg-amber-600 text-amber-50 border-amber-600",
+  } as const;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`flex items-center justify-center gap-2 rounded-md border-2 px-3 py-3.5 text-sm sm:text-base font-bold uppercase tracking-wider transition active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${map[variant]}`}
+      style={fontDisplay}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatPill({ label, value, color }: { label: string; value: number | string; color: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-md border border-zinc-800 bg-[#13161f] px-2 py-1.5">
+      <span className="text-[9px] font-semibold uppercase tracking-widest text-zinc-500" style={fontDisplay}>{label}</span>
+      <span className="text-lg sm:text-xl font-semibold leading-none tabular-nums" style={{ ...fontNumeric, color }}>{value}</span>
+    </div>
+  );
+}
+
+function SyncBadge({ ts }: { ts: number }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 15000);
+    return () => clearInterval(id);
+  }, []);
+  const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  const label = diff < 5 ? "agora" : diff < 60 ? `${diff}s` : `${Math.floor(diff / 60)}min`;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-emerald-300 normal-case" title={new Date(ts).toLocaleTimeString("pt-BR")}>
+      <span className="sync-dot" />
+      sincronizado {label}
+    </span>
+  );
+}
+
+
+
 /* ---------------- CORRETORES / EQUIPE ---------------- */
 
 function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: State; fullState: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null }) {
