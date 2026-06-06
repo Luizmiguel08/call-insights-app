@@ -390,9 +390,9 @@ function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" |
 
 function OutcomeBtn({ variant, onClick, disabled, title, children }: { variant: "danger" | "success" | "gold"; onClick: () => void; disabled?: boolean; title?: string; children: React.ReactNode }) {
   const map = {
-    danger:  "bg-red-900 hover:bg-red-800 text-red-50 border-red-700",
-    success: "bg-emerald-900 hover:bg-emerald-800 text-emerald-50 border-emerald-700",
-    gold:    "bg-amber-700 hover:bg-amber-600 text-amber-50 border-amber-600",
+    danger:  "bg-red-500 hover:bg-red-400 shadow-[0_0_40px_-6px_rgba(239,68,68,0.6)]",
+    success: "bg-emerald-500 hover:bg-emerald-400 shadow-[0_0_40px_-6px_rgba(34,197,94,0.6)]",
+    gold:    "bg-amber-500 hover:bg-amber-400 shadow-[0_0_40px_-6px_rgba(245,158,11,0.6)]",
   } as const;
   return (
     <button
@@ -400,10 +400,9 @@ function OutcomeBtn({ variant, onClick, disabled, title, children }: { variant: 
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`flex items-center justify-center gap-2 rounded-md border-2 px-3 py-3.5 text-sm sm:text-base font-bold uppercase tracking-wider transition active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${map[variant]}`}
-      style={fontDisplay}
+      className={`group relative flex h-20 w-20 items-center justify-center rounded-full text-black transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${map[variant]}`}
     >
-      {children}
+      <span className="relative flex items-center justify-center">{children}</span>
     </button>
   );
 }
@@ -1446,16 +1445,25 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             const outcomesLocked = callStatus === "calling" || callStatus === "answered";
             const lockedHint = outcomesLocked ? "Encerre a ligação para tabular" : undefined;
             return (
-              <div className="mt-3 grid grid-cols-3 gap-2.5">
-                <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
-                  <X className="h-5 w-5" strokeWidth={3} /> Não atendeu
-                </OutcomeBtn>
-                <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
-                  <Check className="h-5 w-5" strokeWidth={3} /> Atendeu
-                </OutcomeBtn>
-                <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
-                  <Calendar className="h-5 w-5" strokeWidth={3} /> Agendou
-                </OutcomeBtn>
+              <div className="mt-5 flex items-start justify-center gap-6 sm:gap-10">
+                <div className="flex flex-col items-center gap-2">
+                  <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
+                    <X className="h-7 w-7" strokeWidth={3} />
+                  </OutcomeBtn>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-400" style={fontDisplay}>Não atendeu</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
+                    <Check className="h-7 w-7" strokeWidth={3} />
+                  </OutcomeBtn>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400" style={fontDisplay}>Atendeu</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
+                    <Calendar className="h-7 w-7" strokeWidth={3} />
+                  </OutcomeBtn>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400" style={fontDisplay}>Agendou</span>
+                </div>
               </div>
             );
           })()}
