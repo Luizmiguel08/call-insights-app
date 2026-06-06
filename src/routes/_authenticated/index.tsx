@@ -951,6 +951,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    // Debounce 300ms: bloqueia duplo clique acidental no mobile
+    const nowTs = Date.now();
+    if (nowTs - lastOutcomeTimeRef.current < 300) return;
+    lastOutcomeTimeRef.current = nowTs;
+    // Bloqueia tabulação enquanto ligação ainda está ativa (calling / answered)
+    if (callStatus === "calling" || callStatus === "answered") {
+      toast.error("Encerre a ligação antes de tabular");
+      return;
+    }
     if (current.attempts >= 2 && !attended && !scheduled) {
       toast.error("Esse contato já atingiu o limite de 2 tentativas");
       void logDialerError({
@@ -967,6 +976,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
     outcomeStartRef.current = performance.now();
+    setOutcomeError(null);
+    setCallStatus("idle");
+    broadcastStatus("idle");
+
 
     const contactId = current.id;
     const contactName = current.name;
