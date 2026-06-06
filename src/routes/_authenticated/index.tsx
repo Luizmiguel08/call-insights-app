@@ -1108,6 +1108,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
+    setCallStatus("idle");
+    broadcastStatus("idle");
+
     setLocalRetryPinId(null);
     setSuppressedCompletedUntil((entries) => ({
       ...entries,
