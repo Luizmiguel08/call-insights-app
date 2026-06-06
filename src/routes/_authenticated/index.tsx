@@ -1275,218 +1275,241 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
             </span>
           </div>
 
-          {/* Card animado com slide ao trocar de contato */}
-          <div key={current.id} className="animate-slide-in-x">
-            <div className="my-4">
-              <div className="text-[40px] sm:text-[56px] leading-[1.02] tracking-[-0.02em] font-semibold text-zinc-50" style={fontDisplay}>
-                {current.name}
-              </div>
-              <div className="mt-3 text-2xl sm:text-3xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
-                {current.phone || "(sem telefone)"}
-              </div>
-              {current.attempts > 0 && (
-                <div className="mt-2 inline-flex items-center gap-2 rounded bg-amber-500/20 border border-amber-400/40 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-200 animate-pulse" style={fontDisplay}>
-                  ⚠ 2ª Tentativa obrigatória — mesmo cliente
+          {/* Layout 2 colunas no desktop: identidade à esquerda, ações à direita */}
+          <div key={current.id} className="animate-slide-in-x lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10">
+
+            {/* Coluna esquerda — identidade do contato */}
+            <div className="lg:border-r lg:border-zinc-800/70 lg:pr-8">
+              <div className="my-4 lg:mt-2">
+                <div className="text-[40px] sm:text-[52px] lg:text-[56px] leading-[1.02] tracking-[-0.02em] font-semibold text-zinc-50" style={fontDisplay}>
+                  {current.name}
                 </div>
-              )}
-              {current.brokerId === null && (
-                <div className="mt-1 inline-block text-[10px] uppercase tracking-widest text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded mt-2">Fila geral</div>
-              )}
+                <div className="mt-3 text-2xl sm:text-3xl tracking-tight text-[#c9a24c] break-all" style={fontNumeric}>
+                  {current.phone || "(sem telefone)"}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {current.attempts > 0 && (
+                    <div className="inline-flex items-center gap-2 rounded bg-amber-500/20 border border-amber-400/40 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-200 animate-pulse" style={fontDisplay}>
+                      ⚠ 2ª Tentativa obrigatória
+                    </div>
+                  )}
+                  {current.brokerId === null && (
+                    <div className="inline-block text-[10px] uppercase tracking-widest text-zinc-400 bg-zinc-800 px-2 py-1 rounded">Fila geral</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview do próximo contato — embaixo da identidade no desktop */}
+              <div className="mt-6 hidden lg:flex items-center gap-3 rounded-md border border-dashed border-zinc-800 bg-[#0f1117]/60 px-4 py-3">
+                <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
+                {next ? (
+                  <>
+                    <span className="flex-1 truncate text-sm font-semibold text-zinc-300">{next.name}</span>
+                    <span className="text-xs tabular-nums text-zinc-500">{next.phone}</span>
+                  </>
+                ) : (
+                  <span className="flex-1 truncate text-sm text-zinc-500">Sem próximos na fila</span>
+                )}
+              </div>
             </div>
 
-            {/* Ligar / Encerrar — botão circular */}
-            {callStatus === "calling" || callStatus === "answered" ? (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <button
-                  type="button"
-                  onClick={endCall}
-                  aria-label="Encerrar ligação"
-                  className="group relative flex h-28 w-28 items-center justify-center rounded-full bg-emerald-400 text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 hover:bg-emerald-300"
-                >
-                  <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping" aria-hidden />
-                  <span className="relative flex items-center gap-1" aria-hidden>
-                    <span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" />
-                  </span>
-                </button>
-                <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300" style={fontDisplay}>
-                  Encerrar
-                </div>
-                <CallTimer startedAt={calledAt ?? Date.now()} />
-                {remoteIsOtherDevice && <span className="text-[10px] uppercase opacity-70">via {remoteCall!.device_label}</span>}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <a
-                  href={telHref(current.phone)}
-                  onClick={startCall}
-                  aria-label="Ligar agora"
-                  className={`relative flex h-28 w-28 items-center justify-center rounded-full text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 ${submittingOutcome ? "pointer-events-none bg-emerald-500/50 opacity-60" : "bg-emerald-400 hover:bg-emerald-300"}`}
-                >
-                  <Phone className="h-12 w-12" strokeWidth={2} />
-                </a>
-                <div className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-400" style={fontDisplay}>
-                  Ligar
-                </div>
-              </div>
-            )}
-          </div>
+            {/* Coluna direita — ações */}
+            <div className="lg:pl-2">
 
-          {/* WhatsApp — mensagem editável por corretor / por ligação */}
-          <div className="mt-3 space-y-2">
-            <div className="flex gap-2">
-              <a
-                href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600/60 bg-emerald-600/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-300 transition hover:bg-emerald-600/20"
-                style={fontDisplay}
-              >
-                <MessageCircle className="h-4 w-4" /> WhatsApp
-              </a>
-              <button
-                type="button"
-                onClick={() => setWaEditing((v) => !v)}
-                className="rounded-md border border-zinc-700 px-3 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
-                style={fontDisplay}
-                title="Editar mensagem"
-              >
-                {waEditing ? "Fechar" : "Editar msg"}
-              </button>
-            </div>
-            {waEditing && (
-              <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                    Mensagem do WhatsApp · use <span className="text-[#c9a24c]">{"{nome}"}</span> pro primeiro nome
-                  </label>
-                  <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+              {/* Ligar / Encerrar — botão circular */}
+              {callStatus === "calling" || callStatus === "answered" ? (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <button
+                    type="button"
+                    onClick={endCall}
+                    aria-label="Encerrar ligação"
+                    className="group relative flex h-28 w-28 items-center justify-center rounded-full bg-emerald-400 text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 hover:bg-emerald-300"
+                  >
+                    <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping" aria-hidden />
+                    <span className="relative flex items-center gap-1" aria-hidden>
+                      <span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" />
+                    </span>
+                  </button>
+                  <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300" style={fontDisplay}>
+                    Encerrar
+                  </div>
+                  <CallTimer startedAt={calledAt ?? Date.now()} />
+                  {remoteIsOtherDevice && <span className="text-[10px] uppercase opacity-70">via {remoteCall!.device_label}</span>}
                 </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <a
+                    href={telHref(current.phone)}
+                    onClick={startCall}
+                    aria-label="Ligar agora"
+                    className={`relative flex h-28 w-28 items-center justify-center rounded-full text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 ${submittingOutcome ? "pointer-events-none bg-emerald-500/50 opacity-60" : "bg-emerald-400 hover:bg-emerald-300"}`}
+                  >
+                    <Phone className="h-12 w-12" strokeWidth={2} />
+                  </a>
+                  <div className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-400" style={fontDisplay}>
+                    Ligar
+                  </div>
+                </div>
+              )}
+
+              {/* WhatsApp — mensagem editável por corretor / por ligação */}
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-2">
+                  <a
+                    href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600/60 bg-emerald-600/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-300 transition hover:bg-emerald-600/20"
+                    style={fontDisplay}
+                  >
+                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setWaEditing((v) => !v)}
+                    className="rounded-md border border-zinc-700 px-3 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                    style={fontDisplay}
+                    title="Editar mensagem"
+                  >
+                    {waEditing ? "Fechar" : "Editar msg"}
+                  </button>
+                </div>
+                {waEditing && (
+                  <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                        Mensagem do WhatsApp · use <span className="text-[#c9a24c]">{"{nome}"}</span> pro primeiro nome
+                      </label>
+                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                    </div>
+                    <textarea
+                      value={waMsg}
+                      onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
+                      rows={3}
+                      className={inputCls + " resize-none py-2"}
+                      placeholder={DEFAULT_WA_TEMPLATE}
+                    />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={saveWaTemplate}
+                        className="rounded-md bg-[#c9a24c] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
+                        style={fontDisplay}
+                      >
+                        Salvar como padrão
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWaMsg(DEFAULT_WA_TEMPLATE)}
+                        className="rounded-md border border-zinc-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                        style={fontDisplay}
+                      >
+                        Restaurar padrão
+                      </button>
+                      <span className="ml-auto text-[10px] text-zinc-500">
+                        Pré-visualização: <span className="text-zinc-300">{renderWaMessage(waMsg, current.name)}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tabulação */}
+              <div className="mt-4">
                 <textarea
-                  value={waMsg}
-                  onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
-                  rows={3}
+                  value={note}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setNote(v);
+                    if (noteIncomingRef.current) return;
+                    if (noteBroadcastTimerRef.current) clearTimeout(noteBroadcastTimerRef.current);
+                    noteBroadcastTimerRef.current = setTimeout(() => {
+                      broadcastRef.current?.send({ type: "broadcast", event: "note", payload: { note: v, deviceId: deviceIdRef.current } });
+                    }, 250);
+                  }}
+                  rows={2}
+                  placeholder="Observação (opcional)"
                   className={inputCls + " resize-none py-2"}
-                  placeholder={DEFAULT_WA_TEMPLATE}
                 />
+                {/* Chips de resposta rápida */}
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={saveWaTemplate}
-                    className="rounded-md bg-[#c9a24c] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
-                    style={fontDisplay}
-                  >
-                    Salvar como padrão
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWaMsg(DEFAULT_WA_TEMPLATE)}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
-                    style={fontDisplay}
-                  >
-                    Restaurar padrão
-                  </button>
-                  <span className="ml-auto text-[10px] text-zinc-500">
-                    Pré-visualização: <span className="text-zinc-300">{renderWaMessage(waMsg, current.name)}</span>
-                  </span>
+                  {["Não atendeu", "Caixa postal", "Número errado", "Sem interesse"].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setNote(chip)}
+                      className="rounded-full border border-zinc-700 bg-[#0f1117] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-300 hover:border-[#c9a24c]/60 hover:text-[#c9a24c]"
+                      style={fontDisplay}
+                    >
+                      {chip}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Tabulação */}
-          <div className="mt-4">
-            <textarea
-              value={note}
-              onChange={(e) => {
-                const v = e.target.value;
-                setNote(v);
-                if (noteIncomingRef.current) return;
-                if (noteBroadcastTimerRef.current) clearTimeout(noteBroadcastTimerRef.current);
-                noteBroadcastTimerRef.current = setTimeout(() => {
-                  broadcastRef.current?.send({ type: "broadcast", event: "note", payload: { note: v, deviceId: deviceIdRef.current } });
-                }, 250);
-              }}
-              rows={2}
-              placeholder="Observação (opcional)"
-              className={inputCls + " resize-none py-2"}
-            />
-            {/* Chips de resposta rápida */}
-            <div className="mt-2 flex flex-wrap gap-2">
-              {["Não atendeu", "Caixa postal", "Número errado", "Sem interesse"].map((chip) => (
+              {/* Banner de erro com retry */}
+              {outcomeError && (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  <span className="truncate">⚠ {outcomeError.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => { const r = outcomeError.retry; setOutcomeError(null); r(); }}
+                    className="shrink-0 rounded-md border border-red-400/60 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-500/20"
+                    style={fontDisplay}
+                  >
+                    <RefreshCw className="inline h-3.5 w-3.5 mr-1" /> Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {(() => {
+                const outcomesLocked = callStatus === "calling" || callStatus === "answered";
+                const lockedHint = outcomesLocked ? "Encerre a ligação para tabular" : undefined;
+                return (
+                  <div className="mt-5 flex items-start justify-center gap-6 sm:gap-10">
+                    <div className="flex flex-col items-center gap-2">
+                      <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
+                        <X className="h-7 w-7" strokeWidth={3} />
+                      </OutcomeBtn>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-400" style={fontDisplay}>Não atendeu</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-2">
+                      <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
+                        <Check className="h-7 w-7" strokeWidth={3} />
+                      </OutcomeBtn>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400" style={fontDisplay}>Atendeu</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-2">
+                      <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
+                        <Calendar className="h-7 w-7" strokeWidth={3} />
+                      </OutcomeBtn>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400" style={fontDisplay}>Agendou</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
                 <button
-                  key={chip}
-                  type="button"
-                  onClick={() => setNote(chip)}
-                  className="rounded-full border border-zinc-700 bg-[#0f1117] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-300 hover:border-[#c9a24c]/60 hover:text-[#c9a24c]"
+                  onClick={callback}
+                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
                   style={fontDisplay}
                 >
-                  {chip}
+                  <Undo2 className="h-4 w-4" /> Retornar depois
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Banner de erro com retry */}
-          {outcomeError && (
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              <span className="truncate">⚠ {outcomeError.label}</span>
-              <button
-                type="button"
-                onClick={() => { const r = outcomeError.retry; setOutcomeError(null); r(); }}
-                className="shrink-0 rounded-md border border-red-400/60 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-500/20"
-                style={fontDisplay}
-              >
-                <RefreshCw className="inline h-3.5 w-3.5 mr-1" /> Tentar novamente
-              </button>
-            </div>
-          )}
-
-          {(() => {
-            const outcomesLocked = callStatus === "calling" || callStatus === "answered";
-            const lockedHint = outcomesLocked ? "Encerre a ligação para tabular" : undefined;
-            return (
-              <div className="mt-5 flex items-start justify-center gap-6 sm:gap-10">
-                <div className="flex flex-col items-center gap-2">
-                  <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
-                    <X className="h-7 w-7" strokeWidth={3} />
-                  </OutcomeBtn>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-400" style={fontDisplay}>Não atendeu</span>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
-                    <Check className="h-7 w-7" strokeWidth={3} />
-                  </OutcomeBtn>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400" style={fontDisplay}>Atendeu</span>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
-                    <Calendar className="h-7 w-7" strokeWidth={3} />
-                  </OutcomeBtn>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400" style={fontDisplay}>Agendou</span>
-                </div>
+                <button
+                  onClick={skip}
+                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                  style={fontDisplay}
+                >
+                  <SkipForward className="h-4 w-4" /> Pular
+                </button>
               </div>
-            );
-          })()}
-
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <button
-              onClick={callback}
-              className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
-              style={fontDisplay}
-            >
-              <Undo2 className="h-4 w-4" /> Retornar depois
-            </button>
-            <button
-              onClick={skip}
-              className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
-              style={fontDisplay}
-            >
-              <SkipForward className="h-4 w-4" /> Pular
-            </button>
+            </div>
           </div>
 
-          {/* Preview do próximo contato — sempre fixo no rodapé do card */}
-          <div className="mt-5 flex items-center gap-3 rounded-md border border-dashed border-zinc-800 bg-[#0f1117]/60 px-4 py-3">
+          {/* Preview do próximo — só no mobile (no desktop está na coluna esquerda) */}
+          <div className="mt-5 flex items-center gap-3 rounded-md border border-dashed border-zinc-800 bg-[#0f1117]/60 px-4 py-3 lg:hidden">
             <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
             {next ? (
               <>
