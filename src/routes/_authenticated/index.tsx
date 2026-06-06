@@ -1094,7 +1094,22 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       setLocalRetryPinId(null);
     }
 
-    // 2) RPC em background — não bloqueia a UI. Se falhar, reverte.
+    // 2a) Registra a tentativa em contact_attempts (paralelo, fire-and-forget)
+    if (userId) {
+      void recordContactAttempt({
+        contactId,
+        userId,
+        brokerId,
+        result: scheduled ? "scheduled" : attended ? "answered" : "no_answer",
+        attemptNumber: newAttemptsLocal,
+        observation: noteSnapshot || null,
+      });
+    }
+    // 2b) Espelha estado da sessão entre dispositivos (paralelo)
+    void dialerSession.updateSession({ current_contact_id: null, call_status: "idle", observation: "", call_started_at: null });
+
+    // 3) RPC em background — não bloqueia a UI. Se falhar, reverte.
+
     void (async () => {
       try {
         const { data, error } = await supabase.rpc("record_call_outcome", {
