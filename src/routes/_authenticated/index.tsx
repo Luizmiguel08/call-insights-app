@@ -103,10 +103,12 @@ function LigaCtrlApp() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ConnectionIndicator state={dialerSession.isConnected} lastSyncAt={dialerSession.lastSyncAt} />
             <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
               <div className="hidden sm:flex items-center justify-end gap-1 text-[#c9a24c]"><Cloud className="h-3 w-3" /> {hydrated ? "sincronizado" : "carregando..."}</div>
               <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
             </div>
+
             <button
               onClick={signOut}
               title="Sair"
