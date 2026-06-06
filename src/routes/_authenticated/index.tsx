@@ -1123,8 +1123,17 @@ function DiscadorTab({ state, setState, goFila, refetchCloud }: { state: State; 
     if (!current || submittingOutcome) return;
     activeCallSourceRef.current = "local";
     setCalledAt(Date.now());
+    setCallStatus("calling");
+    broadcastStatus("calling");
     void upsertActiveCall({ id: current.id, name: current.name, phone: current.phone });
   }
+
+  function endCall() {
+    setCallStatus("ended");
+    broadcastStatus("ended");
+    void clearActiveCall();
+  }
+
 
 
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
