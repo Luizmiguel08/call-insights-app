@@ -6,6 +6,9 @@ import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import wolfBg from "@/assets/wolf-wall-street.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
+import { useDialerSession } from "@/hooks/useDialerSession";
+import { recordContactAttempt } from "@/hooks/useContactBuffer";
+import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
   type Broker, type Call, type Contact, type State, type Tab,
   todayISO, normalizedContactKey, callContactKey, uniqueContactCount, uniqueContactCountWhere,
@@ -13,6 +16,7 @@ import {
   fontDisplay, fontNumeric, inputCls,
   Field, YesNo, Kpi, Badge, Th, Td,
 } from "@/lib/dialer-shared";
+
 
 // Lazy-loaded heavy/secondary tabs — keeps initial bundle small for mobile.
 const HistoricoTab = lazy(() => import("@/components/dialer/HistoricoTab"));
