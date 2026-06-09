@@ -1256,16 +1256,23 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   function startCall() {
     if (!current || submittingOutcome) return;
     activeCallSourceRef.current = "local";
-    setCalledAt(Date.now());
+    const now = new Date();
+    setCalledAt(now.getTime());
     setCallStatus("calling");
     broadcastStatus("calling");
     void upsertActiveCall({ id: current.id, name: current.name, phone: current.phone });
+    void dialerSession.updateSession({
+      current_contact_id: current.id,
+      call_status: "calling",
+      call_started_at: now.toISOString(),
+    });
   }
 
   function endCall() {
     setCallStatus("ended");
     broadcastStatus("ended");
     void clearActiveCall();
+    void dialerSession.updateSession({ call_status: "ended" });
   }
 
 
