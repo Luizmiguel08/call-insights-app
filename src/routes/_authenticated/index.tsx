@@ -975,6 +975,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     if (!remoteCall) {
       if (activeCallSourceRef.current === "remote") {
         setCalledAt(null);
+        setCallStatus("idle");
       }
       activeCallSourceRef.current = null;
       return;
@@ -983,7 +984,32 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     activeCallSourceRef.current = "remote";
     const remoteStartMs = new Date(remoteCall.started_at).getTime();
     setCalledAt(remoteStartMs);
+    // Espelha o status de ligação: se o outro device está ligando, este entra em "calling" também
+    setCallStatus((prev) => (prev === "answered" ? prev : "calling"));
   }, [remoteCall]);
+
+  // Espelho de call_status via dialer_sessions (cobre devices que abrem DEPOIS do início da ligação,
+  // ou quando o outro device clica em "Atendeu" sem ainda ter encerrado).
+  useEffect(() => {
+    const s = dialerSession.session;
+    if (!s) return;
+    if (s.device_origin === dialerSession.deviceOrigin) return; // eco do próprio device
+    if (s.call_status === "answered") setCallStatus("answered");
+    else if (s.call_status === "calling") {
+      setCallStatus((prev) => (prev === "answered" ? prev : "calling"));
+      if (s.call_started_at) setCalledAt(new Date(s.call_started_at).getTime());
+    } else if (s.call_status === "ended" || s.call_status === "idle") {
+      if (activeCallSourceRef.current !== "local") {
+        setCallStatus(s.call_status as any);
+        if (s.call_status === "idle") setCalledAt(null);
+      }
+    }
+    if (typeof s.observation === "string" && !noteIncomingRef.current) {
+      noteIncomingRef.current = true;
+      setNote(s.observation);
+      setTimeout(() => { noteIncomingRef.current = false; }, 0);
+    }
+  }, [dialerSession.session, dialerSession.deviceOrigin]);
 
 
   const todayCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
