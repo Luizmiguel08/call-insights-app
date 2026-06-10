@@ -615,7 +615,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const lastOutcomeTimeRef = useRef<number>(0);
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
   const outcomeStartRef = useRef<number>(0);
-  const [localRetryPinId, setLocalRetryPinId] = useState<string | null>(null);
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
   const [serverNextId, setServerNextId] = useState<string | null | undefined>(undefined);
   // Sincronização em background + indicador visual
@@ -826,23 +825,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     });
   }, [state.contacts, contactProgress]);
 
-  const retryContactId = useMemo(() => {
-    const lastCall = state.calls.find(
-      (c) => c.brokerId === brokerId && c.contactId && !c.attended && !c.scheduled,
-    );
-    if (!lastCall?.contactId) return null;
-    const contact = state.contacts.find((c) => c.id === lastCall.contactId);
-    if (!contact) return null;
-    if (isContactSuppressed(sameContactKey(contact))) return null;
-    const progress = contactProgress.get(sameContactKey(contact));
-    const effectiveAttempts = Math.max(contact.attempts, progress?.attempts ?? 0);
-    if (contact.status !== "pendente") return null;
-    if (progress?.resolved) return null;
-    if (effectiveAttempts !== 1) return null;
-    if (!(contact.brokerId === brokerId || contact.brokerId === null)) return null;
-    return contact.id;
-  }, [state.calls, state.contacts, brokerId, contactProgress, suppressedCompletedUntil]);
-
   // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
   const myQueue = useMemo(
     () => {
@@ -861,8 +843,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
         .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
         .sort((a, b) => {
-          // Atribuídos primeiro, depois por ordem de criação, com id como desempate estável
+          // Atribuídos primeiro, depois menor número de tentativas, e só então ordem de criação.
           if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
+          if (a.attempts !== b.attempts) return a.attempts - b.attempts;
           if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
           return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
         });
@@ -894,15 +877,20 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   const prioritizedQueue = useMemo(() => {
     // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
-    // Prioridade: trava local de retry (2ª tentativa) > ligação remota > próximo do servidor > retry detectado por calls
+    // Prioridade: ligação remota > próximo do servidor, mas nunca pulando contatos com menos tentativas.
     const hasServerHead = serverNextId !== undefined;
-    const pinId = localRetryPinId || remoteCall?.contact_id || (hasServerHead ? serverNextId : retryContactId);
-    if (!localRetryPinId && !remoteCall?.contact_id && hasServerHead && serverNextId === null) return [];
+    const localHead = myQueue[0];
+    const serverPinned = serverNextId ? myQueue.find((c) => c.id === serverNextId) : null;
+    const canTrustServerHead = Boolean(
+      serverPinned && (!localHead || serverPinned.attempts <= localHead.attempts),
+    );
+    const pinId = remoteCall?.contact_id || (hasServerHead && canTrustServerHead ? serverNextId : null);
+    if (!remoteCall?.contact_id && hasServerHead && serverNextId === null) return [];
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
     return [pinned, ...myQueue.filter((c) => c.id !== pinId)];
-  }, [myQueue, retryContactId, remoteCall?.contact_id, localRetryPinId, serverNextId]);
+  }, [myQueue, remoteCall?.contact_id, serverNextId]);
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
