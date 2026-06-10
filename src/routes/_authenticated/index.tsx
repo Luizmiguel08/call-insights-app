@@ -960,12 +960,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     }
   }, [current?.id]);
 
+  // IMPORTANTE: reseta APENAS quando muda de contato (id). Não resetar em
+  // mudança de `attempts` — caso contrário, o ref é limpo logo após o
+  // incremento otimista e um segundo clique acidental gera ligação duplicada.
   useEffect(() => {
     lastOutcomeRef.current = "";
     setSubmittingOutcome(false);
     setCallStatus("idle");
     setOutcomeError(null);
-  }, [current?.id, current?.attempts]);
+  }, [current?.id]);
 
 
   // Espelho do estado "em ligação" entre dispositivos do mesmo corretor.
