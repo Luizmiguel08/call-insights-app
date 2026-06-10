@@ -1272,49 +1272,67 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   const remoteIsOtherDevice = remoteCall && remoteCall.device_id !== deviceIdRef.current;
 
+  const brokerInitials = (brokerName || "—")
+    .split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "—";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
-
-      {/* Header: corretor + meta */}
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
-
-        <div className="flex flex-wrap items-end gap-4">
-          <Field label="Corretor" className="min-w-[220px]">
-            <div className="relative">
-              <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " pl-9 appearance-none text-base font-semibold"}>
-                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>)}
+      {/* Header bento: corretor + lista (8) | meta (4) */}
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 lg:col-span-8 rounded-2xl border border-[#c9a24c]/20 bg-[#1a1a1a]/95 backdrop-blur p-5 shadow-2xl flex flex-wrap items-center gap-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#c9a24c] to-[#f0d78c] font-bold text-[#0d0d0d] shadow-lg shadow-[#c9a24c]/20" style={fontDisplay}>
+              {brokerInitials}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500" style={fontDisplay}>Corretor</div>
+              <select
+                value={brokerId}
+                onChange={(e) => setBrokerId(e.target.value)}
+                className="bg-transparent border-0 p-0 -ml-0.5 text-[#f0d78c] text-lg font-bold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a24c] truncate max-w-[220px]"
+                style={fontDisplay}
+              >
+                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#1a1a1a]">{b.name}</option>)}
               </select>
             </div>
-          </Field>
-          <Field label="Lista para discar" className="min-w-[200px]">
+          </div>
+          <div className="hidden sm:block h-10 w-px bg-zinc-800" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500" style={fontDisplay}>Lista para discar</div>
             <select
               value={selectedList}
               onChange={(e) => setSelectedList(e.target.value)}
-              className={inputCls + " appearance-none"}
+              className="bg-transparent border-0 p-0 -ml-0.5 text-zinc-100 text-base font-semibold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a24c] truncate max-w-full"
+              style={fontDisplay}
             >
-              <option value="all" className="bg-[#171a23]">Todas as listas</option>
+              <option value="all" className="bg-[#1a1a1a]">Todas as listas</option>
               {discadorLists.map((l) => (
-                <option key={l} value={l} className="bg-[#171a23]">{l}</option>
+                <option key={l} value={l} className="bg-[#1a1a1a]">{l}</option>
               ))}
             </select>
-          </Field>
-          <div className="flex-1 min-w-[260px]">
-            <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]" style={fontDisplay}>
-              <span className="flex items-center gap-1.5 text-zinc-500">
-                <Target className="h-3.5 w-3.5" /> Meta diária — {meta} ligações
-              </span>
-              <span className={`tabular-nums ${reached ? "text-emerald-400" : "text-zinc-300"}`}>
-                {k.total} / {meta} {reached && "✓"}
-              </span>
-            </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${pct}%`, backgroundColor: reached ? "#22c55e" : "#c9a24c" }}
-              />
-            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 lg:col-span-4 rounded-2xl border border-[#c9a24c]/20 bg-[#1a1a1a]/95 backdrop-blur p-5 flex flex-col justify-center gap-2">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+              <Target className="h-3.5 w-3.5" /> Meta diária
+            </span>
+            <span className={`text-sm font-bold tabular-nums ${reached ? "text-emerald-400" : "text-[#f0d78c]"}`} style={fontDisplay}>
+              {k.total}/{meta}{reached && " ✓"}
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-[#0d0d0d] border border-[#c9a24c]/10 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${pct}%`,
+                background: reached
+                  ? "linear-gradient(to right, #22c55e, #6ee7b7)"
+                  : "linear-gradient(to right, #c9a24c, #f0d78c)",
+              }}
+            />
           </div>
         </div>
       </div>
