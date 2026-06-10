@@ -1114,6 +1114,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     }
     if (!attended && !scheduled && newAttemptsLocal < 2) {
       // Mantém o contato pendente para futura 2ª tentativa, sem furar a ordem da fila.
+      setForcedCurrentContactId(contactId);
       setSuppressedCompletedUntil((entries) => {
         const next = { ...entries };
         delete next[contactKey];
@@ -1122,6 +1123,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
     } else {
       // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: oculta temporariamente o contato concluído.
+      setForcedCurrentContactId(null);
       setSuppressedCompletedUntil((entries) => ({
         ...entries,
         [contactKey]: Date.now() + 15000,
@@ -1193,6 +1195,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           delete next[contactKey];
           return next;
         });
+        setForcedCurrentContactId(contactId);
         lastOutcomeRef.current = "";
       } finally {
         setSubmittingOutcome(false);
@@ -1202,6 +1205,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   function skip() {
     if (!current) return;
+    setForcedCurrentContactId(null);
     const key = sameContactKey(current);
     const skippedId = current.id;
     const skippedAttempts = current.attempts;
@@ -1240,6 +1244,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   function callback() {
     if (!current) return;
     if (submittingOutcome) return;
+    setForcedCurrentContactId(null);
     setSubmittingOutcome(true);
     // Joga pro fim da fila: recria com novo createdAt
     setState((s) => ({
@@ -1260,6 +1265,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   function startCall() {
     if (!current || submittingOutcome) return;
+    setForcedCurrentContactId(current.id);
     activeCallSourceRef.current = "local";
     const now = new Date();
     setCalledAt(now.getTime());
