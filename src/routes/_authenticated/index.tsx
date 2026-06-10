@@ -1044,7 +1044,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const nowTs = Date.now();
     if (nowTs - lastOutcomeTimeRef.current < 1200) return;
     lastOutcomeTimeRef.current = nowTs;
-    setSubmittingOutcome(true);
     // Bloqueia tabulação enquanto ligação ainda está ativa (calling / answered)
     if (callStatus === "calling" || callStatus === "answered") {
       toast.error("Encerre a ligação antes de tabular");
