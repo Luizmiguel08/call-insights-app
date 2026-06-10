@@ -960,12 +960,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     }
   }, [current?.id]);
 
+  // IMPORTANTE: reseta APENAS quando muda de contato (id). Não resetar em
+  // mudança de `attempts` — caso contrário, o ref é limpo logo após o
+  // incremento otimista e um segundo clique acidental gera ligação duplicada.
   useEffect(() => {
     lastOutcomeRef.current = "";
     setSubmittingOutcome(false);
     setCallStatus("idle");
     setOutcomeError(null);
-  }, [current?.id, current?.attempts]);
+  }, [current?.id]);
 
 
   // Espelho do estado "em ligação" entre dispositivos do mesmo corretor.
@@ -1035,9 +1038,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
-    // Debounce 300ms: bloqueia duplo clique acidental no mobile
+    // Debounce 1200ms: bloqueia duplo clique acidental (mobile/desktop)
     const nowTs = Date.now();
-    if (nowTs - lastOutcomeTimeRef.current < 300) return;
+    if (nowTs - lastOutcomeTimeRef.current < 1200) return;
     lastOutcomeTimeRef.current = nowTs;
     // Bloqueia tabulação enquanto ligação ainda está ativa (calling / answered)
     if (callStatus === "calling" || callStatus === "answered") {
@@ -1056,7 +1059,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       });
       return;
     }
-    const outcomeKey = `${current.id}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
+    // Inclui `attempts` na chave: bloqueia clique repetido na MESMA tentativa,
+    // mas permite a 2ª tentativa legítima do mesmo contato.
+    const outcomeKey = `${current.id}:${current.attempts}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
     if (lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
     outcomeStartRef.current = performance.now();
