@@ -60,7 +60,10 @@ async function loadMe(): Promise<Me | null> {
   const isAdmin = (rolesR.data ?? []).some((r) => r.role === "admin");
   const hasCorretorRole = (rolesR.data ?? []).some((r) => r.role === "corretor");
   if (!isAdmin && !hasCorretorRole) {
-    await supabase.from("user_roles").insert({ user_id: user.id, role: "corretor" });
+    // Self-insert no longer allowed by RLS. Server-side function grants the
+    // 'corretor' role only when an admin has already linked a broker row to
+    // this user, preventing privilege escalation.
+    await (supabase as any).rpc("claim_corretor_role_if_eligible");
   }
 
   let broker = brokerR.data;
