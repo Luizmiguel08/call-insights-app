@@ -1038,6 +1038,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    // Guarda anti-duplo-clique: enquanto outra tabulação está em voo, ignora.
+    if (submittingOutcome) return;
     // Debounce 1200ms: bloqueia duplo clique acidental (mobile/desktop)
     const nowTs = Date.now();
     if (nowTs - lastOutcomeTimeRef.current < 1200) return;
@@ -1064,6 +1066,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const outcomeKey = `${current.id}:${current.attempts}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
     if (lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
+    setSubmittingOutcome(true);
     outcomeStartRef.current = performance.now();
     setOutcomeError(null);
     setCallStatus("idle");
@@ -1191,6 +1194,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           return next;
         });
         lastOutcomeRef.current = "";
+      } finally {
+        setSubmittingOutcome(false);
       }
     })();
   }
@@ -1539,8 +1544,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               )}
 
               {(() => {
-                const outcomesLocked = callStatus === "calling" || callStatus === "answered";
-                const lockedHint = outcomesLocked ? "Encerre a ligação para tabular" : undefined;
+                const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome;
+                const lockedHint = submittingOutcome ? "Registrando ligação..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined);
                 return (
                   <div className="mt-5 flex items-start justify-center gap-6 sm:gap-10">
                     <div className="flex flex-col items-center gap-2">
