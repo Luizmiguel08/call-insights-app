@@ -1066,6 +1066,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const outcomeKey = `${current.id}:${current.attempts}:${attended ? "1" : "0"}:${scheduled ? "1" : "0"}`;
     if (lastOutcomeRef.current === outcomeKey) return;
     lastOutcomeRef.current = outcomeKey;
+    setSubmittingOutcome(true);
     outcomeStartRef.current = performance.now();
     setOutcomeError(null);
     setCallStatus("idle");
