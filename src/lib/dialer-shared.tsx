@@ -38,11 +38,16 @@ export function todayISO() {
 }
 
 export function normalizedContactKey(input: { name?: string; client?: string; phone?: string; contactId?: string }) {
+  // If we have a hard link to a queue contact, it's the strongest identity.
+  if (input.contactId) return `id:${input.contactId}`;
   const rawName = (input.name ?? input.client ?? "").trim().toLowerCase();
   const digits = (input.phone ?? "").replace(/\D/g, "");
+  // Combine phone + name so that 30 quick-log entries with the same generic
+  // phone but different client names don't collapse into a single "contact".
+  if (digits && rawName) return `pn:${digits}|${rawName}`;
   if (digits) return `p:${digits}`;
   if (rawName) return `n:${rawName}`;
-  return input.contactId ? `id:${input.contactId}` : "unknown";
+  return "unknown";
 }
 export function callContactKey(c: Call) {
   return normalizedContactKey({ client: c.client, phone: c.phone, contactId: c.contactId });
