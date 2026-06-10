@@ -1099,21 +1099,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
     }
     if (!attended && !scheduled && newAttemptsLocal < 2) {
-      // Trava o mesmo contato como próximo da fila até a 2ª tentativa
+      // Mantém o contato pendente para futura 2ª tentativa, sem furar a ordem da fila.
       setSuppressedCompletedUntil((entries) => {
         const next = { ...entries };
         delete next[contactKey];
         return next;
       });
-      setLocalRetryPinId(contactId);
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
     } else {
-      // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: libera a trava
+      // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: oculta temporariamente o contato concluído.
       setSuppressedCompletedUntil((entries) => ({
         ...entries,
         [contactKey]: Date.now() + 15000,
       }));
-      setLocalRetryPinId(null);
     }
 
     // 2a) Registra a tentativa em contact_attempts (paralelo, fire-and-forget)
@@ -1216,10 +1214,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       });
     }
     void dialerSession.updateSession({ current_contact_id: null, call_status: "idle", observation: "", call_started_at: null });
-
-
-
-    setLocalRetryPinId(null);
     setSuppressedCompletedUntil((entries) => ({
       ...entries,
       [key]: Date.now() + 15000,
@@ -1244,7 +1238,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     setCallStatus("idle");
     broadcastStatus("idle");
 
-    setLocalRetryPinId(null);
     void clearActiveCall();
     void refreshServerNext("callback");
     setSubmittingOutcome(false);
