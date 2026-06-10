@@ -617,6 +617,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const outcomeStartRef = useRef<number>(0);
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
   const [serverNextId, setServerNextId] = useState<string | null | undefined>(undefined);
+  const [forcedCurrentContactId, setForcedCurrentContactId] = useState<string | null>(null);
   // Sincronização em background + indicador visual
   const [lastSyncedAt, setLastSyncedAt] = useState<number>(() => Date.now());
   const [outcomeError, setOutcomeError] = useState<null | { label: string; retry: () => void }>(null);
@@ -878,6 +879,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const prioritizedQueue = useMemo(() => {
     // Espelha o contato em ligação por qualquer dispositivo do mesmo corretor
     // Prioridade: ligação remota > próximo do servidor, mas nunca pulando contatos com menos tentativas.
+    const forcedPinned = forcedCurrentContactId
+      ? myQueue.find((c) => c.id === forcedCurrentContactId) ?? null
+      : null;
+    if (forcedPinned) {
+      return [forcedPinned, ...myQueue.filter((c) => c.id !== forcedPinned.id)];
+    }
     const hasServerHead = serverNextId !== undefined;
     const localHead = myQueue[0];
     const serverPinned = serverNextId ? myQueue.find((c) => c.id === serverNextId) : null;
@@ -890,7 +897,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
     return [pinned, ...myQueue.filter((c) => c.id !== pinId)];
-  }, [myQueue, remoteCall?.contact_id, serverNextId]);
+  }, [forcedCurrentContactId, myQueue, remoteCall?.contact_id, serverNextId]);
 
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
@@ -938,6 +945,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       void supabase.removeChannel(channel);
     };
   }, [brokerId, selectedList, refreshServerNext]);
+
+  useEffect(() => {
+    if (!forcedCurrentContactId) return;
+    if (!myQueue.some((contact) => contact.id === forcedCurrentContactId)) {
+      setForcedCurrentContactId(null);
+    }
+  }, [forcedCurrentContactId, myQueue]);
 
   // Monitora tempo entre clicar no outcome e aparecer o próximo cliente
   useEffect(() => {
