@@ -1272,57 +1272,78 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   const remoteIsOtherDevice = remoteCall && remoteCall.device_id !== deviceIdRef.current;
 
+  const brokerInitials = (brokerName || "—")
+    .split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "—";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
-
-      {/* Header: corretor + meta */}
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
-
-        <div className="flex flex-wrap items-end gap-4">
-          <Field label="Corretor" className="min-w-[220px]">
-            <div className="relative">
-              <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " pl-9 appearance-none text-base font-semibold"}>
-                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>)}
+      {/* Header bento: corretor + lista (8) | meta (4) */}
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 lg:col-span-8 rounded-2xl border border-[#c9a24c]/20 bg-[#1a1a1a]/95 backdrop-blur p-5 shadow-2xl flex flex-wrap items-center gap-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#c9a24c] to-[#f0d78c] font-bold text-[#0d0d0d] shadow-lg shadow-[#c9a24c]/20" style={fontDisplay}>
+              {brokerInitials}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500" style={fontDisplay}>Corretor</div>
+              <select
+                value={brokerId}
+                onChange={(e) => setBrokerId(e.target.value)}
+                className="bg-transparent border-0 p-0 -ml-0.5 text-[#f0d78c] text-lg font-bold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a24c] truncate max-w-[220px]"
+                style={fontDisplay}
+              >
+                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#1a1a1a]">{b.name}</option>)}
               </select>
             </div>
-          </Field>
-          <Field label="Lista para discar" className="min-w-[200px]">
+          </div>
+          <div className="hidden sm:block h-10 w-px bg-zinc-800" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500" style={fontDisplay}>Lista para discar</div>
             <select
               value={selectedList}
               onChange={(e) => setSelectedList(e.target.value)}
-              className={inputCls + " appearance-none"}
+              className="bg-transparent border-0 p-0 -ml-0.5 text-zinc-100 text-base font-semibold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a24c] truncate max-w-full"
+              style={fontDisplay}
             >
-              <option value="all" className="bg-[#171a23]">Todas as listas</option>
+              <option value="all" className="bg-[#1a1a1a]">Todas as listas</option>
               {discadorLists.map((l) => (
-                <option key={l} value={l} className="bg-[#171a23]">{l}</option>
+                <option key={l} value={l} className="bg-[#1a1a1a]">{l}</option>
               ))}
             </select>
-          </Field>
-          <div className="flex-1 min-w-[260px]">
-            <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]" style={fontDisplay}>
-              <span className="flex items-center gap-1.5 text-zinc-500">
-                <Target className="h-3.5 w-3.5" /> Meta diária — {meta} ligações
-              </span>
-              <span className={`tabular-nums ${reached ? "text-emerald-400" : "text-zinc-300"}`}>
-                {k.total} / {meta} {reached && "✓"}
-              </span>
-            </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${pct}%`, backgroundColor: reached ? "#22c55e" : "#c9a24c" }}
-              />
-            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 lg:col-span-4 rounded-2xl border border-[#c9a24c]/20 bg-[#1a1a1a]/95 backdrop-blur p-5 flex flex-col justify-center gap-2">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+              <Target className="h-3.5 w-3.5" /> Meta diária
+            </span>
+            <span className={`text-sm font-bold tabular-nums ${reached ? "text-emerald-400" : "text-[#f0d78c]"}`} style={fontDisplay}>
+              {k.total}/{meta}{reached && " ✓"}
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-[#0d0d0d] border border-[#c9a24c]/10 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${pct}%`,
+                background: reached
+                  ? "linear-gradient(to right, #22c55e, #6ee7b7)"
+                  : "linear-gradient(to right, #c9a24c, #f0d78c)",
+              }}
+            />
           </div>
         </div>
       </div>
 
       {current ? (
-        <div className="rounded-xl border-2 border-[#c9a24c]/40 bg-gradient-to-b from-[#171a23] to-[#0f1117] p-6 shadow-[0_0_60px_-20px_#c9a24c]">
+        <div className="rounded-3xl border border-[#c9a24c]/30 bg-[#1a1a1a]/95 backdrop-blur p-6 sm:p-7 shadow-2xl relative overflow-hidden">
+          {/* glow accent */}
+          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-[#c9a24c]/10 blur-3xl" />
 
-          <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+          {/* status bar */}
+          <div className="relative z-10 mb-5 flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
             <span className="flex items-center gap-2">
               <span>Próximo da fila — {brokerName}</span>
               <SyncBadge ts={lastSyncedAt} />
@@ -1337,33 +1358,37 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             </span>
           </div>
 
-          {/* Layout 2 colunas no desktop: identidade à esquerda, ações à direita */}
-          <div key={current.id} className="animate-slide-in-x lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10">
+          <div key={current.id} className="animate-slide-in-x relative z-10 grid grid-cols-12 gap-5">
 
-            {/* Coluna esquerda — identidade do contato */}
-            <div className="lg:border-r lg:border-zinc-800/70 lg:pr-8">
-              <div className="my-4 lg:mt-2">
-                <div className="text-[40px] sm:text-[52px] lg:text-[56px] leading-[1.02] tracking-[-0.02em] font-semibold text-zinc-50" style={fontDisplay}>
-                  {current.name}
-                </div>
-                <div className="mt-3 text-2xl sm:text-3xl tracking-tight text-[#c9a24c] break-all" style={fontNumeric}>
-                  {current.phone || "(sem telefone)"}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {current.attempts > 0 && (
-                    <div className="inline-flex items-center gap-2 rounded bg-amber-500/20 border border-amber-400/40 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-200 animate-pulse" style={fontDisplay}>
-                      ⚠ 2ª Tentativa obrigatória
-                    </div>
-                  )}
-                  {current.brokerId === null && (
-                    <div className="inline-block text-[10px] uppercase tracking-widest text-zinc-400 bg-zinc-800 px-2 py-1 rounded">Fila geral</div>
-                  )}
-                </div>
+            {/* ESQUERDA — identidade + CTA principal */}
+            <div className="col-span-12 lg:col-span-7 flex flex-col">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {current.attempts > 0 ? (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300 animate-pulse" style={fontDisplay}>
+                    ⚠ 2ª Tentativa obrigatória
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full border border-[#c9a24c]/30 bg-[#c9a24c]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#f0d78c]" style={fontDisplay}>
+                    Lead na fila
+                  </span>
+                )}
+                {current.brokerId === null && (
+                  <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800/60 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400" style={fontDisplay}>
+                    Fila geral
+                  </span>
+                )}
               </div>
 
-              {/* Preview do próximo contato — embaixo da identidade no desktop */}
-              <div className="mt-6 hidden lg:flex items-center gap-3 rounded-md border border-dashed border-zinc-800 bg-[#0f1117]/60 px-4 py-3">
-                <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
+              <h1 className="text-[34px] sm:text-[44px] lg:text-[48px] leading-[1.02] tracking-[-0.02em] font-bold text-white break-words" style={fontDisplay}>
+                {current.name}
+              </h1>
+              <div className="mt-2 text-xl sm:text-2xl tracking-tight text-zinc-400 font-medium break-all" style={fontNumeric}>
+                {current.phone || "(sem telefone)"}
+              </div>
+
+              {/* Próximo da fila — preview */}
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-[#0d0d0d]/60 px-4 py-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
                 {next ? (
                   <>
                     <span className="flex-1 truncate text-sm font-semibold text-zinc-300">{next.name}</span>
@@ -1373,153 +1398,151 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                   <span className="flex-1 truncate text-sm text-zinc-500">Sem próximos na fila</span>
                 )}
               </div>
-            </div>
 
-            {/* Coluna direita — ações */}
-            <div className="lg:pl-2">
-
-              {/* Ligar / Encerrar — botão circular */}
-              {callStatus === "calling" || callStatus === "answered" ? (
-                <div className="flex flex-col items-center gap-3 py-4">
+              {/* CTA Principal — LIGAR / ENCERRAR */}
+              <div className="mt-auto pt-5">
+                {callStatus === "calling" || callStatus === "answered" ? (
                   <button
                     type="button"
                     onClick={endCall}
                     aria-label="Encerrar ligação"
-                    className="group relative flex h-28 w-28 items-center justify-center rounded-full bg-emerald-400 text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 hover:bg-emerald-300"
+                    className="w-full bg-gradient-to-r from-emerald-400 to-emerald-300 py-5 rounded-2xl text-black font-extrabold text-lg sm:text-xl shadow-[0_0_40px_-8px_rgba(110,231,183,0.7)] hover:scale-[1.01] active:scale-[0.99] transition-transform flex items-center justify-center gap-3 uppercase tracking-[0.18em]"
+                    style={fontDisplay}
                   >
-                    <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping" aria-hidden />
                     <span className="relative flex items-center gap-1" aria-hidden>
                       <span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" />
                     </span>
-                  </button>
-                  <div className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-300" style={fontDisplay}>
                     Encerrar
-                  </div>
-                  <CallTimer startedAt={calledAt ?? Date.now()} />
-                  {remoteIsOtherDevice && <span className="text-[10px] uppercase opacity-70">via {remoteCall!.device_label}</span>}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-3 py-4">
+                    <CallTimer startedAt={calledAt ?? Date.now()} />
+                  </button>
+                ) : (
                   <a
                     href={telHref(current.phone)}
                     onClick={startCall}
                     aria-label="Ligar agora"
-                    className={`relative flex h-28 w-28 items-center justify-center rounded-full text-black shadow-[0_0_60px_-8px_rgba(110,231,183,0.7)] transition active:scale-95 ${submittingOutcome ? "pointer-events-none bg-emerald-500/50 opacity-60" : "bg-emerald-400 hover:bg-emerald-300"}`}
+                    className={`w-full bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] py-5 rounded-2xl text-[#0d0d0d] font-extrabold text-lg sm:text-xl shadow-[0_8px_40px_-8px_rgba(201,162,76,0.5)] hover:scale-[1.01] active:scale-[0.99] transition-transform flex items-center justify-center gap-3 uppercase tracking-[0.18em] ${submittingOutcome ? "pointer-events-none opacity-50" : ""}`}
+                    style={fontDisplay}
                   >
-                    <Phone className="h-12 w-12" strokeWidth={2} />
+                    <Phone className="h-6 w-6" strokeWidth={2.5} />
+                    Ligar agora
                   </a>
-                  <div className="text-xs font-bold uppercase tracking-[0.35em] text-zinc-400" style={fontDisplay}>
-                    Ligar
+                )}
+                {remoteIsOtherDevice && (
+                  <div className="mt-2 text-center text-[10px] uppercase tracking-widest text-zinc-500" style={fontDisplay}>
+                    via {remoteCall!.device_label}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* DIREITA — ações secundárias e desfechos */}
+            <div className="col-span-12 lg:col-span-5 flex flex-col gap-3">
+              {/* WhatsApp */}
+              <div className="flex gap-2">
+                <a
+                  href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300 transition"
+                  style={fontDisplay}
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setWaEditing((v) => !v)}
+                  className="rounded-xl border border-zinc-700 bg-[#0d0d0d] px-3 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a24c]"
+                  style={fontDisplay}
+                  title="Editar mensagem"
+                >
+                  {waEditing ? "Fechar" : "Editar msg"}
+                </button>
+              </div>
+
+              {waEditing && (
+                <div className="rounded-xl border border-zinc-800 bg-[#0d0d0d] p-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                      Mensagem · use <span className="text-[#c9a24c]">{"{nome}"}</span>
+                    </label>
+                    <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                  </div>
+                  <textarea
+                    value={waMsg}
+                    onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
+                    rows={3}
+                    className={inputCls + " resize-none py-2 text-sm"}
+                    placeholder={DEFAULT_WA_TEMPLATE}
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={saveWaTemplate}
+                      className="rounded-md bg-[#c9a24c] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-black hover:bg-[#f0d78c]"
+                      style={fontDisplay}
+                    >
+                      Salvar padrão
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWaMsg(DEFAULT_WA_TEMPLATE)}
+                      className="rounded-md border border-zinc-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                      style={fontDisplay}
+                    >
+                      Restaurar
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* WhatsApp — mensagem editável por corretor / por ligação */}
-              <div className="mt-3 space-y-2">
-                <div className="flex gap-2">
-                  <a
-                    href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-1 items-center justify-center gap-2 rounded-md border border-emerald-600/60 bg-emerald-600/10 py-3 text-sm font-bold uppercase tracking-[0.18em] text-emerald-300 transition hover:bg-emerald-600/20"
-                    style={fontDisplay}
-                  >
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
-                  </a>
+              {/* Observação */}
+              <textarea
+                value={note}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setNote(v);
+                  if (noteIncomingRef.current) return;
+                  if (noteBroadcastTimerRef.current) clearTimeout(noteBroadcastTimerRef.current);
+                  noteBroadcastTimerRef.current = setTimeout(() => {
+                    broadcastRef.current?.send({ type: "broadcast", event: "note", payload: { note: v, deviceId: deviceIdRef.current } });
+                  }, 250);
+                }}
+                rows={2}
+                placeholder="Observação (opcional)"
+                className={inputCls + " resize-none py-2 text-sm rounded-xl"}
+              />
+
+              {/* Chips de motivo rápido */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Não atendeu", hover: "hover:border-red-500/40 hover:text-red-300" },
+                  { label: "Caixa postal", hover: "hover:border-amber-500/40 hover:text-amber-300" },
+                  { label: "Número errado", hover: "hover:border-zinc-400 hover:text-white" },
+                  { label: "Sem interesse", hover: "hover:border-orange-500/40 hover:text-orange-300" },
+                ].map((chip) => (
                   <button
+                    key={chip.label}
                     type="button"
-                    onClick={() => setWaEditing((v) => !v)}
-                    className="rounded-md border border-zinc-700 px-3 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                    onClick={() => setNote(chip.label)}
+                    className={`rounded-xl border border-zinc-800 bg-[#0d0d0d] py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400 transition ${chip.hover}`}
                     style={fontDisplay}
-                    title="Editar mensagem"
                   >
-                    {waEditing ? "Fechar" : "Editar msg"}
+                    {chip.label}
                   </button>
-                </div>
-                {waEditing && (
-                  <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
-                    <div className="mb-1 flex items-center justify-between">
-                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                        Mensagem do WhatsApp · use <span className="text-[#c9a24c]">{"{nome}"}</span> pro primeiro nome
-                      </label>
-                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
-                    </div>
-                    <textarea
-                      value={waMsg}
-                      onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
-                      rows={3}
-                      className={inputCls + " resize-none py-2"}
-                      placeholder={DEFAULT_WA_TEMPLATE}
-                    />
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={saveWaTemplate}
-                        className="rounded-md bg-[#c9a24c] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
-                        style={fontDisplay}
-                      >
-                        Salvar como padrão
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setWaMsg(DEFAULT_WA_TEMPLATE)}
-                        className="rounded-md border border-zinc-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
-                        style={fontDisplay}
-                      >
-                        Restaurar padrão
-                      </button>
-                      <span className="ml-auto text-[10px] text-zinc-500">
-                        Pré-visualização: <span className="text-zinc-300">{renderWaMessage(waMsg, current.name)}</span>
-                      </span>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
 
-              {/* Tabulação */}
-              <div className="mt-4">
-                <textarea
-                  value={note}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setNote(v);
-                    if (noteIncomingRef.current) return;
-                    if (noteBroadcastTimerRef.current) clearTimeout(noteBroadcastTimerRef.current);
-                    noteBroadcastTimerRef.current = setTimeout(() => {
-                      broadcastRef.current?.send({ type: "broadcast", event: "note", payload: { note: v, deviceId: deviceIdRef.current } });
-                    }, 250);
-                  }}
-                  rows={2}
-                  placeholder="Observação (opcional)"
-                  className={inputCls + " resize-none py-2"}
-                />
-                {/* Chips de resposta rápida */}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {["Não atendeu", "Caixa postal", "Número errado", "Sem interesse"].map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => setNote(chip)}
-                      className="rounded-full border border-zinc-700 bg-[#0f1117] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-300 hover:border-[#c9a24c]/60 hover:text-[#c9a24c]"
-                      style={fontDisplay}
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Banner de erro com retry */}
+              {/* Desfechos principais */}
               {outcomeError && (
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                   <span className="truncate">⚠ {outcomeError.label}</span>
                   <button
                     type="button"
                     onClick={() => { const r = outcomeError.retry; setOutcomeError(null); r(); }}
-                    className="shrink-0 rounded-md border border-red-400/60 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-500/20"
+                    className="shrink-0 rounded-md border border-red-400/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-500/20"
                     style={fontDisplay}
                   >
-                    <RefreshCw className="inline h-3.5 w-3.5 mr-1" /> Tentar novamente
+                    <RefreshCw className="inline h-3 w-3 mr-0.5" /> Tentar
                   </button>
                 </div>
               )}
@@ -1528,69 +1551,75 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                 const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome;
                 const lockedHint = submittingOutcome ? "Registrando ligação..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined);
                 return (
-                  <div className="mt-5 flex items-start justify-center gap-6 sm:gap-10">
-                    <div className="flex flex-col items-center gap-2">
-                      <OutcomeBtn variant="danger" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(false, false)}>
-                        <X className="h-7 w-7" strokeWidth={3} />
-                      </OutcomeBtn>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-red-400" style={fontDisplay}>Não atendeu</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-2">
-                      <OutcomeBtn variant="success" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, false)}>
-                        <Check className="h-7 w-7" strokeWidth={3} />
-                      </OutcomeBtn>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400" style={fontDisplay}>Atendeu</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-2">
-                      <OutcomeBtn variant="gold" disabled={outcomesLocked} title={lockedHint} onClick={() => recordOutcome(true, true)}>
-                        <Calendar className="h-7 w-7" strokeWidth={3} />
-                      </OutcomeBtn>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400" style={fontDisplay}>Agendou</span>
-                    </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => recordOutcome(false, false)}
+                      disabled={outcomesLocked}
+                      title={lockedHint}
+                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-red-500/50 hover:bg-red-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-red-500/15 border border-red-500/30 text-red-400 group-hover:bg-red-500 group-hover:text-white transition">
+                        <X className="h-5 w-5" strokeWidth={3} />
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-400 group-hover:text-red-300" style={fontDisplay}>Não atend.</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => recordOutcome(true, false)}
+                      disabled={outcomesLocked}
+                      title={lockedHint}
+                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition">
+                        <Check className="h-5 w-5" strokeWidth={3} />
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-400 group-hover:text-emerald-300" style={fontDisplay}>Atendeu</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => recordOutcome(true, true)}
+                      disabled={outcomesLocked}
+                      title={lockedHint}
+                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-[#c9a24c]/30 bg-[#c9a24c]/5 py-3 hover:border-[#c9a24c] hover:bg-[#c9a24c]/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#c9a24c] to-[#f0d78c] text-[#0d0d0d] shadow-md shadow-[#c9a24c]/30">
+                        <Calendar className="h-5 w-5" strokeWidth={3} />
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#f0d78c]" style={fontDisplay}>Agendou</span>
+                    </button>
                   </div>
                 );
               })()}
 
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              {/* Bottom nav */}
+              <div className="grid grid-cols-2 gap-2 mt-1">
                 <button
                   onClick={callback}
-                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0d0d0d] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
                   style={fontDisplay}
                 >
-                  <Undo2 className="h-4 w-4" /> Retornar depois
+                  <Undo2 className="h-3.5 w-3.5" /> Retornar
                 </button>
                 <button
                   onClick={skip}
-                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0d0d0d] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
                   style={fontDisplay}
                 >
-                  <SkipForward className="h-4 w-4" /> Pular
+                  Pular <SkipForward className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
           </div>
-
-          {/* Preview do próximo — só no mobile (no desktop está na coluna esquerda) */}
-          <div className="mt-5 flex items-center gap-3 rounded-md border border-dashed border-zinc-800 bg-[#0f1117]/60 px-4 py-3 lg:hidden">
-            <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
-            {next ? (
-              <>
-                <span className="flex-1 truncate text-sm font-semibold text-zinc-300">{next.name}</span>
-                <span className="text-xs tabular-nums text-zinc-500">{next.phone}</span>
-              </>
-            ) : (
-              <span className="flex-1 truncate text-sm text-zinc-500">Sem próximos na fila</span>
-            )}
-          </div>
         </div>
       ) : (
-        <div className="rounded-xl border-2 border-dashed border-zinc-800 bg-[#171a23] p-10 text-center">
+        <div className="rounded-3xl border border-dashed border-zinc-800 bg-[#1a1a1a]/95 p-12 text-center">
           <PhoneCall className="mx-auto h-10 w-10 text-zinc-700" />
           <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-zinc-300" style={fontDisplay}>Fila vazia</h3>
           <p className="mt-1 text-sm text-zinc-500">Importe contatos do Excel/CRM pra começar a discar.</p>
           <button
             onClick={goFila}
-            className="mt-4 inline-flex items-center gap-2 rounded-md bg-[#c9a24c] px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform"
             style={fontDisplay}
           >
             <ListPlus className="h-4 w-4" /> Ir pra Fila
