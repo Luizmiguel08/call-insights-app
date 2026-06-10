@@ -1194,6 +1194,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           return next;
         });
         lastOutcomeRef.current = "";
+      } finally {
+        setSubmittingOutcome(false);
       }
     })();
   }
