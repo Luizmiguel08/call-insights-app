@@ -1544,8 +1544,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               )}
 
               {(() => {
-                const outcomesLocked = callStatus === "calling" || callStatus === "answered";
-                const lockedHint = outcomesLocked ? "Encerre a ligação para tabular" : undefined;
+                const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome;
+                const lockedHint = submittingOutcome ? "Registrando ligação..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined);
                 return (
                   <div className="mt-5 flex items-start justify-center gap-6 sm:gap-10">
                     <div className="flex flex-col items-center gap-2">
