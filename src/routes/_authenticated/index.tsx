@@ -79,6 +79,7 @@ function LigaCtrlApp() {
   const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "fila", label: "Fila", icon: ListPlus },
+    { id: "lembretes", label: "Lembretes", icon: Bell },
     { id: "rapido", label: "Rápido", icon: Zap },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -86,6 +87,8 @@ function LigaCtrlApp() {
     { id: "erros", label: "Erros", icon: AlertTriangle, admin: true },
   ];
   const tabs = allTabs.filter((t) => !t.admin || isAdmin);
+
+  useReminderNotifier(me, () => setTab("lembretes"));
 
   return (
     <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)] relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.92), rgba(11,13,19,0.96)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center top", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat" }}>
