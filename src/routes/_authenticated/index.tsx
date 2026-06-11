@@ -1436,34 +1436,27 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     <CallTimer startedAt={calledAt ?? Date.now()} />
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={submittingOutcome}
-                    onClick={() => {
-                      const href = telHref(current.phone);
-                      // Dispara discagem PRIMEIRO, ainda dentro do gesto do usuário
-                      // (iOS Safari bloqueia tel: se for assíncrono ou vier após setState).
-                      if (href && href !== "#") {
-                        try {
-                          // top-level navigation funciona mesmo em iframe/PWA com sandbox restrito
-                          if (window.top && window.top !== window.self) {
-                            (window.top as Window).location.href = href;
-                          } else {
-                            window.location.href = href;
-                          }
-                        } catch {
-                          window.location.href = href;
-                        }
+                  <a
+                    href={telHref(current.phone)}
+                    target="_top"
+                    rel="noopener"
+                    aria-label="Ligar agora"
+                    onClick={(e) => {
+                      if (submittingOutcome) {
+                        e.preventDefault();
+                        return;
                       }
+                      // NÃO prevenir default — deixar o navegador abrir o tel: nativamente
+                      // dentro do gesto do usuário (essencial no iOS Safari/PWA).
+                      // startCall apenas registra estado; pode rodar depois.
                       startCall();
                     }}
-                    aria-label="Ligar agora"
                     className={`w-full bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] py-5 rounded-2xl text-[#0d0d0d] font-extrabold text-lg sm:text-xl shadow-[0_8px_40px_-8px_rgba(201,162,76,0.5)] hover:scale-[1.01] active:scale-[0.99] transition-transform flex items-center justify-center gap-3 uppercase tracking-[0.18em] ${submittingOutcome ? "pointer-events-none opacity-50" : ""}`}
                     style={fontDisplay}
                   >
                     <Phone className="h-6 w-6" strokeWidth={2.5} />
                     Ligar agora
-                  </button>
+                  </a>
                 )}
                 {remoteIsOtherDevice && (
                   <div className="mt-2 text-center text-[10px] uppercase tracking-widest text-zinc-500" style={fontDisplay}>
