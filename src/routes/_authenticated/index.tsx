@@ -627,6 +627,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   // Sincronização em background + indicador visual
   const [lastSyncedAt, setLastSyncedAt] = useState<number>(() => Date.now());
   const [outcomeError, setOutcomeError] = useState<null | { label: string; retry: () => void }>(null);
+  const [showReminderForm, setShowReminderForm] = useState(false);
   // Para evitar loop no broadcast de notas
   const noteIncomingRef = useRef(false);
   const noteBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
