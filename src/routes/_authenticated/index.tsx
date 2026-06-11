@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw, Bell } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import wolfBg from "@/assets/wolf-wall-street.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
@@ -22,6 +22,8 @@ import {
 const HistoricoTab = lazy(() => import("@/components/dialer/HistoricoTab"));
 const DashboardTab = lazy(() => import("@/components/dialer/DashboardTab"));
 const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
+const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
+import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -77,6 +79,7 @@ function LigaCtrlApp() {
   const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "fila", label: "Fila", icon: ListPlus },
+    { id: "lembretes", label: "Lembretes", icon: Bell },
     { id: "rapido", label: "Rápido", icon: Zap },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -84,6 +87,8 @@ function LigaCtrlApp() {
     { id: "erros", label: "Erros", icon: AlertTriangle, admin: true },
   ];
   const tabs = allTabs.filter((t) => !t.admin || isAdmin);
+
+  useReminderNotifier(me, () => setTab("lembretes"));
 
   return (
     <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)] relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.92), rgba(11,13,19,0.96)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center top", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat" }}>
@@ -142,9 +147,10 @@ function LigaCtrlApp() {
       </header>
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
-        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} userId={me?.userId ?? null} dialerSession={dialerSession} />}
+        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} userId={me?.userId ?? null} dialerSession={dialerSession} me={me} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
+        {tab === "lembretes" && <LembretesTab me={me} isAdmin={isAdmin} />}
         {tab === "historico" && <HistoricoTab state={state} setState={setState} me={me} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardTab state={state} />}
         {tab === "corretores" && <CorretoresTab state={state} fullState={fullState} setState={setState} isAdmin={isAdmin} me={me} />}
@@ -602,7 +608,7 @@ function PendingRow({ broker, onRename, onApprove, onReject }: { broker: Broker;
 
 /* ---------------- DISCADOR ---------------- */
 
-function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSession }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void>; userId: string | null; dialerSession: ReturnType<typeof useDialerSession> }) {
+function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSession, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void>; userId: string | null; dialerSession: ReturnType<typeof useDialerSession>; me: Me | null }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [selectedList, setSelectedList] = useState<string>("all");
   const [note, setNote] = useState("");
@@ -621,6 +627,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   // Sincronização em background + indicador visual
   const [lastSyncedAt, setLastSyncedAt] = useState<number>(() => Date.now());
   const [outcomeError, setOutcomeError] = useState<null | { label: string; retry: () => void }>(null);
+  const [showReminderForm, setShowReminderForm] = useState(false);
   // Para evitar loop no broadcast de notas
   const noteIncomingRef = useRef(false);
   const noteBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1640,6 +1647,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                   Pular <SkipForward className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <button
+                onClick={() => setShowReminderForm(true)}
+                disabled={!me?.brokerId}
+                className="flex items-center justify-center gap-2 rounded-xl border border-[#c9a24c]/30 bg-[#c9a24c]/5 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#f0d78c] hover:bg-[#c9a24c]/10 hover:border-[#c9a24c]/60 transition disabled:opacity-40"
+                style={fontDisplay}
+                title="Agendar para retornar mais tarde"
+              >
+                <Bell className="h-3.5 w-3.5" /> Agendar lembrete
+              </button>
             </div>
           </div>
         </div>
@@ -1667,6 +1683,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           <StatPill label="Agendadas" value={k.scheduled} color="#eab308" />
         </div>
       </div>
+
+      {showReminderForm && me && current && (
+        <ReminderForm
+          me={me}
+          onClose={() => setShowReminderForm(false)}
+          onSaved={() => { setShowReminderForm(false); toast.success("Lembrete agendado"); }}
+          prefill={{ contact_id: current.id, contact_name: current.name, contact_phone: current.phone || "" }}
+        />
+      )}
     </div>
   );
 }
