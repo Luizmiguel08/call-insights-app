@@ -615,6 +615,14 @@ export type Database = {
           priority: number
         }[]
       }
+      get_idle_gaps: {
+        Args: { p_date: string; p_user_id: string }
+        Returns: {
+          gap_end: string
+          gap_minutes: number
+          gap_start: string
+        }[]
+      }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _uid: string }
         Returns: boolean
