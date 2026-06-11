@@ -1647,6 +1647,15 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                   Pular <SkipForward className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <button
+                onClick={() => setShowReminderForm(true)}
+                disabled={!me?.brokerId}
+                className="flex items-center justify-center gap-2 rounded-xl border border-[#c9a24c]/30 bg-[#c9a24c]/5 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#f0d78c] hover:bg-[#c9a24c]/10 hover:border-[#c9a24c]/60 transition disabled:opacity-40"
+                style={fontDisplay}
+                title="Agendar para retornar mais tarde"
+              >
+                <Bell className="h-3.5 w-3.5" /> Agendar lembrete
+              </button>
             </div>
           </div>
         </div>
