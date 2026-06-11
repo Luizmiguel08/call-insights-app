@@ -561,6 +561,19 @@ export type Database = {
           },
         ]
       }
+      hourly_call_stats: {
+        Row: {
+          answer_rate: number | null
+          answered_calls: number | null
+          broker_id: string | null
+          hour_bucket: string | null
+          no_answer_calls: number | null
+          scheduled_calls: number | null
+          total_calls: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_clear_contacts: {
