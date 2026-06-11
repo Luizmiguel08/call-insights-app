@@ -27,7 +27,7 @@ export type Contact = {
   listName: string;
 };
 export type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
-export type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros";
+export type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros" | "lembretes";
 
 /* ---------------- Utils ---------------- */
 
