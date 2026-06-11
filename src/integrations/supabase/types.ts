@@ -172,6 +172,59 @@ export type Database = {
         }
         Relationships: []
       }
+      call_reminders: {
+        Row: {
+          broker_id: string
+          contact_id: string | null
+          contact_name: string
+          contact_phone: string
+          created_at: string
+          id: string
+          note: string | null
+          notified_at: string | null
+          scheduled_for: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          broker_id: string
+          contact_id?: string | null
+          contact_name: string
+          contact_phone: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          notified_at?: string | null
+          scheduled_for: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          broker_id?: string
+          contact_id?: string | null
+          contact_name?: string
+          contact_phone?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          notified_at?: string | null
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_reminders_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calls: {
         Row: {
           attended: boolean
