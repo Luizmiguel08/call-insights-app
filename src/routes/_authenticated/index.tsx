@@ -1129,10 +1129,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       ),
     }));
     console.timeEnd('3_next_contact');
-    setNote("");
-    activeCallSourceRef.current = null;
-    setCalledAt(null);
-    void clearActiveCall();
+    advanceToNext();
 
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
