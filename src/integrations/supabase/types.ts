@@ -421,6 +421,7 @@ export type Database = {
           call_status: string
           created_at: string
           current_contact_id: string | null
+          device_id: string | null
           device_origin: string | null
           id: string
           observation: string
@@ -432,6 +433,7 @@ export type Database = {
           call_status?: string
           created_at?: string
           current_contact_id?: string | null
+          device_id?: string | null
           device_origin?: string | null
           id?: string
           observation?: string
@@ -443,6 +445,7 @@ export type Database = {
           call_status?: string
           created_at?: string
           current_contact_id?: string | null
+          device_id?: string | null
           device_origin?: string | null
           id?: string
           observation?: string

@@ -11,6 +11,7 @@ export type DialerSession = {
   call_started_at: string | null;
   observation: string;
   device_origin: "mobile" | "desktop" | null;
+  device_id: string | null;
   updated_at: string;
 };
 
@@ -20,6 +21,26 @@ const deviceOrigin: "mobile" | "desktop" =
   typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
     ? "mobile"
     : "desktop";
+
+const DEVICE_ID_KEY = "dialer:device_id";
+
+function getDeviceId(): string {
+  if (typeof window === "undefined") return "ssr";
+  try {
+    let id = window.localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      const generated: string =
+        (crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      window.localStorage.setItem(DEVICE_ID_KEY, generated);
+      id = generated;
+    }
+    return id;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+const deviceId = getDeviceId();
 
 /**
  * Single source of truth for the live dialer state.
@@ -36,8 +57,6 @@ export function useDialerSession(userId: string | null | undefined) {
   const sessionRef = useRef<DialerSession | null>(null);
   sessionRef.current = session;
 
-  // Tracks the latest updated_at we wrote ourselves, so we can ignore the echo.
-  const localEchoRef = useRef<string | null>(null);
 
   // ---- initial load / upsert ----
   useEffect(() => {
@@ -62,7 +81,7 @@ export function useDialerSession(userId: string | null | undefined) {
       // bootstrap row
       const { data: inserted, error: insErr } = await supabase
         .from("dialer_sessions" as any)
-        .insert({ user_id: userId, device_origin: deviceOrigin })
+        .insert({ user_id: userId, device_origin: deviceOrigin, device_id: deviceId })
         .select("*")
         .maybeSingle();
       if (cancelled) return;
@@ -91,9 +110,8 @@ export function useDialerSession(userId: string | null | undefined) {
         (payload: any) => {
           const next = payload.new as DialerSession | undefined;
           if (!next) return;
-          // ignore the echo of our own write
-          if (localEchoRef.current && next.updated_at === localEchoRef.current) {
-            localEchoRef.current = null;
+          // ignore the echo of our own write (this device)
+          if (next.device_id && next.device_id === deviceId) {
             setLastSyncAt(Date.now());
             return;
           }
@@ -135,13 +153,14 @@ export function useDialerSession(userId: string | null | undefined) {
         ...prev,
         ...patch,
         device_origin: deviceOrigin,
+        device_id: deviceId,
         updated_at: new Date().toISOString(),
       };
       setSession(optimistic);
 
       const { data, error } = await supabase
         .from("dialer_sessions" as any)
-        .update({ ...patch, device_origin: deviceOrigin })
+        .update({ ...patch, device_origin: deviceOrigin, device_id: deviceId })
         .eq("user_id", userId)
         .select("*")
         .maybeSingle();
@@ -152,7 +171,6 @@ export function useDialerSession(userId: string | null | undefined) {
         return;
       }
       if (data) {
-        localEchoRef.current = (data as any).updated_at;
         setSession(data as unknown as DialerSession);
         setLastSyncAt(Date.now());
       }
@@ -160,5 +178,5 @@ export function useDialerSession(userId: string | null | undefined) {
     [userId],
   );
 
-  return { session, updateSession, isConnected, lastSyncAt, deviceOrigin };
+  return { session, updateSession, isConnected, lastSyncAt, deviceOrigin, deviceId };
 }
