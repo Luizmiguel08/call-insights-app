@@ -83,7 +83,7 @@ export function useDialerSession(userId: string | null | undefined) {
       // bootstrap row
       const { data: inserted, error: insErr } = await supabase
         .from("dialer_sessions" as any)
-        .insert({ user_id: userId, device_origin: deviceOrigin })
+        .insert({ user_id: userId, device_origin: deviceOrigin, device_id: deviceId })
         .select("*")
         .maybeSingle();
       if (cancelled) return;
