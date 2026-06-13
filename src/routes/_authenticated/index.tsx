@@ -1257,7 +1257,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       ...entries,
       [key]: Date.now() + 15000,
     }));
-    void clearActiveCall();
     void refreshServerNext("skip");
     toast("Contato pulado");
   }
