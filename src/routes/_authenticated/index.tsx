@@ -1100,6 +1100,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const noteSnapshot = note.trim();
 
     // 1) Otimista IMEDIATO: avança cliente, limpa UI, libera próxima ligação.
+    console.time('3_next_contact');
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
@@ -1112,6 +1113,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           : c
       ),
     }));
+    console.timeEnd('3_next_contact');
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
