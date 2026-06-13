@@ -29,8 +29,10 @@ function getDeviceId(): string {
   try {
     let id = window.localStorage.getItem(DEVICE_ID_KEY);
     if (!id) {
-      id = (crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      window.localStorage.setItem(DEVICE_ID_KEY, id);
+      const generated: string =
+        (crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      window.localStorage.setItem(DEVICE_ID_KEY, generated);
+      id = generated;
     }
     return id;
   } catch {
