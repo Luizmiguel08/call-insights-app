@@ -1047,6 +1047,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    console.time('1_register_result');
     // Guarda anti-duplo-clique: enquanto outra tabulação está em voo, ignora.
     if (submittingOutcome) return;
     // Debounce 1200ms: bloqueia duplo clique acidental (mobile/desktop)
