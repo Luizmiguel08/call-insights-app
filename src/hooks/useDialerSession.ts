@@ -155,13 +155,14 @@ export function useDialerSession(userId: string | null | undefined) {
         ...prev,
         ...patch,
         device_origin: deviceOrigin,
+        device_id: deviceId,
         updated_at: new Date().toISOString(),
       };
       setSession(optimistic);
 
       const { data, error } = await supabase
         .from("dialer_sessions" as any)
-        .update({ ...patch, device_origin: deviceOrigin })
+        .update({ ...patch, device_origin: deviceOrigin, device_id: deviceId })
         .eq("user_id", userId)
         .select("*")
         .maybeSingle();
@@ -172,7 +173,6 @@ export function useDialerSession(userId: string | null | undefined) {
         return;
       }
       if (data) {
-        localEchoRef.current = (data as any).updated_at;
         setSession(data as unknown as DialerSession);
         setLastSyncAt(Date.now());
       }
@@ -180,5 +180,5 @@ export function useDialerSession(userId: string | null | undefined) {
     [userId],
   );
 
-  return { session, updateSession, isConnected, lastSyncAt, deviceOrigin };
+  return { session, updateSession, isConnected, lastSyncAt, deviceOrigin, deviceId };
 }
