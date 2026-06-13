@@ -11,6 +11,7 @@ export type DialerSession = {
   call_started_at: string | null;
   observation: string;
   device_origin: "mobile" | "desktop" | null;
+  device_id: string | null;
   updated_at: string;
 };
 
@@ -20,6 +21,24 @@ const deviceOrigin: "mobile" | "desktop" =
   typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
     ? "mobile"
     : "desktop";
+
+const DEVICE_ID_KEY = "dialer:device_id";
+
+function getDeviceId(): string {
+  if (typeof window === "undefined") return "ssr";
+  try {
+    let id = window.localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = (crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      window.localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+const deviceId = getDeviceId();
 
 /**
  * Single source of truth for the live dialer state.
