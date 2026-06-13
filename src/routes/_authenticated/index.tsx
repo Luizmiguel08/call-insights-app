@@ -1213,6 +1213,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
         setSubmittingOutcome(false);
       }
     })();
+    console.timeEnd('1_register_result');
   }
 
   function skip() {
