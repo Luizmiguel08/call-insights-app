@@ -1047,6 +1047,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
+    console.time('1_register_result');
     // Guarda anti-duplo-clique: enquanto outra tabulação está em voo, ignora.
     if (submittingOutcome) return;
     // Debounce 1200ms: bloqueia duplo clique acidental (mobile/desktop)
@@ -1099,6 +1100,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const noteSnapshot = note.trim();
 
     // 1) Otimista IMEDIATO: avança cliente, limpa UI, libera próxima ligação.
+    console.time('3_next_contact');
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
@@ -1111,6 +1113,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           : c
       ),
     }));
+    console.timeEnd('3_next_contact');
     setNote("");
     activeCallSourceRef.current = null;
     setCalledAt(null);
@@ -1155,6 +1158,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
     void (async () => {
       try {
+        console.time('2_db_insert');
         const { data, error } = await supabase.rpc("record_call_outcome", {
           _contact_id: contactId,
           _attended: attended,
@@ -1164,6 +1168,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           _ended_at: endedAtIso,
           _duration_seconds: duration,
         });
+        console.timeEnd('2_db_insert');
         if (error) throw error;
         // Backend é a fonte da verdade do próximo cliente.
         const nextFromServer = (data as any)?.next?.id ?? null;
@@ -1208,6 +1213,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
         setSubmittingOutcome(false);
       }
     })();
+    console.timeEnd('1_register_result');
   }
 
   function skip() {
