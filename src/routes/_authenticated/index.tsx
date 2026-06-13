@@ -789,6 +789,21 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     catch (e) { console.warn("clearActiveCall falhou", e); }
   }
 
+  /**
+   * Limpa o estado transitório da ligação atual (obs, status, timer, active_call).
+   * Chamado depois de tabular um resultado ou pular — NÃO mexe na fila de contatos,
+   * o avanço para o próximo contato continua sendo feito pelo setState otimista.
+   */
+  function advanceToNext() {
+    setNote("");
+    setCalledAt(null);
+    setCallStatus("idle");
+    activeCallSourceRef.current = null;
+    broadcastStatus("idle");
+    void clearActiveCall();
+  }
+
+
 
   // Carrega template salvo por corretor (localStorage)
   useEffect(() => {
@@ -1114,10 +1129,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       ),
     }));
     console.timeEnd('3_next_contact');
-    setNote("");
-    activeCallSourceRef.current = null;
-    setCalledAt(null);
-    void clearActiveCall();
+    advanceToNext();
 
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
@@ -1230,11 +1242,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           : c
       ),
     }));
-    setNote("");
-    activeCallSourceRef.current = null;
-    setCalledAt(null);
-    setCallStatus("idle");
-    broadcastStatus("idle");
+    advanceToNext();
     if (userId) {
       void recordContactAttempt({
         contactId: skippedId,
@@ -1249,7 +1257,6 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       ...entries,
       [key]: Date.now() + 15000,
     }));
-    void clearActiveCall();
     void refreshServerNext("skip");
     toast("Contato pulado");
   }
