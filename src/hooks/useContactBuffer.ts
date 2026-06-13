@@ -10,6 +10,8 @@ export type BufferedContact = {
   attempt_count: number;
   priority: number;
   created_at: string;
+  last_attempt_result: string | null;
+  last_attempt_at: string | null;
 };
 
 const BUFFER_SIZE = 10;

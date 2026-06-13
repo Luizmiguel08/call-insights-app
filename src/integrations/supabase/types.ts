@@ -609,6 +609,8 @@ export type Database = {
           broker_id: string
           created_at: string
           id: string
+          last_attempt_at: string
+          last_attempt_result: string
           list_name: string
           name: string
           phone: string
