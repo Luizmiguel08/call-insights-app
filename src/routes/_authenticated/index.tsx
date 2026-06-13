@@ -1242,11 +1242,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           : c
       ),
     }));
-    setNote("");
-    activeCallSourceRef.current = null;
-    setCalledAt(null);
-    setCallStatus("idle");
-    broadcastStatus("idle");
+    advanceToNext();
     if (userId) {
       void recordContactAttempt({
         contactId: skippedId,
