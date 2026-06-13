@@ -57,8 +57,6 @@ export function useDialerSession(userId: string | null | undefined) {
   const sessionRef = useRef<DialerSession | null>(null);
   sessionRef.current = session;
 
-  // Tracks the latest updated_at we wrote ourselves, so we can ignore the echo.
-  const localEchoRef = useRef<string | null>(null);
 
   // ---- initial load / upsert ----
   useEffect(() => {
