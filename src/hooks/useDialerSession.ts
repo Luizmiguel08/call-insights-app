@@ -112,9 +112,8 @@ export function useDialerSession(userId: string | null | undefined) {
         (payload: any) => {
           const next = payload.new as DialerSession | undefined;
           if (!next) return;
-          // ignore the echo of our own write
-          if (localEchoRef.current && next.updated_at === localEchoRef.current) {
-            localEchoRef.current = null;
+          // ignore the echo of our own write (this device)
+          if (next.device_id && next.device_id === deviceId) {
             setLastSyncAt(Date.now());
             return;
           }
