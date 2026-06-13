@@ -1158,6 +1158,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
     void (async () => {
       try {
+        console.time('2_db_insert');
         const { data, error } = await supabase.rpc("record_call_outcome", {
           _contact_id: contactId,
           _attended: attended,
@@ -1167,6 +1168,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           _ended_at: endedAtIso,
           _duration_seconds: duration,
         });
+        console.timeEnd('2_db_insert');
         if (error) throw error;
         // Backend é a fonte da verdade do próximo cliente.
         const nextFromServer = (data as any)?.next?.id ?? null;
