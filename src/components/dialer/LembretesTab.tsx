@@ -326,29 +326,57 @@ export function ReminderForm({ me, existing, onClose, onSaved, prefill }: {
 }
 
 /**
- * Polls for due reminders and shows a toast.
- * Use at the app root level so notifications fire regardless of which tab is active.
+ * Polls for due reminders and re-alerts every REPEAT_MINUTES while the
+ * reminder is still pending and overdue. `notified_at` is used as
+ * "last alerted at" (not a one-shot flag). Also fires a native browser
+ * notification (when permission granted) so it works with the tab in background.
  */
+const REPEAT_MINUTES = 5;
+
 export function useReminderNotifier(me: Me | null, onOpenTab: () => void) {
+  // Pede permissão de notificação nativa uma vez
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      try { void Notification.requestPermission(); } catch { /* noop */ }
+    }
+  }, []);
+
   useEffect(() => {
     if (!me) return;
     let alive = true;
+
+    function fireNative(title: string, body: string, onClick: () => void) {
+      if (typeof window === "undefined") return;
+      if (!("Notification" in window)) return;
+      if (Notification.permission !== "granted") return;
+      try {
+        const n = new Notification(title, { body, tag: "call-reminder", renotify: true } as NotificationOptions);
+        n.onclick = () => { window.focus(); onClick(); n.close(); };
+      } catch { /* noop */ }
+    }
+
     async function check() {
       if (!alive) return;
       const nowIso = new Date().toISOString();
+      const cutoffIso = new Date(Date.now() - REPEAT_MINUTES * 60000).toISOString();
       const r = await (supabase as any)
         .from("call_reminders")
         .select("*")
         .eq("status", "pending")
-        .is("notified_at", null)
-        .lte("scheduled_for", nowIso);
+        .lte("scheduled_for", nowIso)
+        .or(`notified_at.is.null,notified_at.lte.${cutoffIso}`);
       if (r.error || !r.data?.length) return;
       for (const rem of r.data as CallReminder[]) {
-        toast(`🔔 Lembrete: ligar para ${rem.contact_name}`, {
-          description: rem.note || rem.contact_phone,
+        const title = `🔔 Lembrete: ligar para ${rem.contact_name}`;
+        const desc = rem.note || rem.contact_phone;
+        toast(title, {
+          description: desc,
           duration: 15000,
           action: { label: "Ver", onClick: () => onOpenTab() },
         });
+        fireNative(title, desc, onOpenTab);
         await (supabase as any).from("call_reminders").update({ notified_at: new Date().toISOString() }).eq("id", rem.id);
       }
     }
