@@ -622,6 +622,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
   const outcomeStartRef = useRef<number>(0);
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
+  // Contatos sem resposta na 1ª tentativa: voltam pra fila ~3 posições adiante.
+  // Mapa contactKey -> quantas tabulações ainda faltam para reaparecer.
+  const [deferredRemainingByKey, setDeferredRemainingByKey] = useState<Record<string, number>>({});
   const [serverNextId, setServerNextId] = useState<string | null | undefined>(undefined);
   const [forcedCurrentContactId, setForcedCurrentContactId] = useState<string | null>(null);
   // Sincronização em background + indicador visual
