@@ -622,6 +622,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
   const outcomeStartRef = useRef<number>(0);
   const [suppressedCompletedUntil, setSuppressedCompletedUntil] = useState<Record<string, number>>({});
+  // Contatos sem resposta na 1ª tentativa: voltam pra fila ~3 posições adiante.
+  // Mapa contactKey -> quantas tabulações ainda faltam para reaparecer.
+  const [deferredRemainingByKey, setDeferredRemainingByKey] = useState<Record<string, number>>({});
   const [serverNextId, setServerNextId] = useState<string | null | undefined>(undefined);
   const [forcedCurrentContactId, setForcedCurrentContactId] = useState<string | null>(null);
   // Sincronização em background + indicador visual
@@ -863,6 +866,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           };
         })
         .filter((c) => !isContactSuppressed(sameContactKey(c)))
+        .filter((c) => (deferredRemainingByKey[sameContactKey(c)] ?? 0) <= 0)
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
         .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
         .sort((a, b) => {
@@ -884,7 +888,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       }
       return out;
     },
-    [state.contacts, brokerId, contactProgress, selectedList, suppressedCompletedUntil]
+    [state.contacts, brokerId, contactProgress, selectedList, suppressedCompletedUntil, deferredRemainingByKey]
   );
 
   const discadorLists = useMemo(() => {
@@ -1134,15 +1138,29 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     if (!reached && k.total + 1 === meta) {
       toast.success(`🎉 META BATIDA! ${meta} ligações hoje`, { duration: 5000 });
     }
+    // Decrementa contadores de contatos que estavam adiados (voltam à fila após N tabulações).
+    setDeferredRemainingByKey((prev) => {
+      const next: Record<string, number> = {};
+      let changed = false;
+      for (const [k, v] of Object.entries(prev)) {
+        const nv = v - 1;
+        if (nv > 0) next[k] = nv; else changed = true;
+        if (nv !== v) changed = true;
+      }
+      return changed ? next : prev;
+    });
+
     if (!attended && !scheduled && newAttemptsLocal < 2) {
-      // Mantém o contato pendente para futura 2ª tentativa, sem furar a ordem da fila.
-      setForcedCurrentContactId(contactId);
+      // Sem resposta na 1ª tentativa: não força a 2ª agora — empurra o contato
+      // ~3 posições adiante na fila local. Reaparece após 3 tabulações.
+      setForcedCurrentContactId(null);
+      setDeferredRemainingByKey((prev) => ({ ...prev, [contactKey]: 3 }));
       setSuppressedCompletedUntil((entries) => {
         const next = { ...entries };
         delete next[contactKey];
         return next;
       });
-      toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
+      toast(`Sem resposta — volta pra fila para 2ª tentativa`, { description: contactName });
     } else {
       // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: oculta temporariamente o contato concluído.
       setForcedCurrentContactId(null);
@@ -1403,13 +1421,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             {/* ESQUERDA — identidade + CTA principal */}
             <div className="col-span-12 lg:col-span-7 flex flex-col">
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                {current.attempts > 0 ? (
+                {current.attempts >= 1 ? (
                   <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300 animate-pulse" style={fontDisplay}>
-                    ⚠ 2ª Tentativa obrigatória
+                    ⚠ 2ª e última tentativa
                   </span>
                 ) : (
                   <span className="inline-flex items-center rounded-full border border-[#c9a24c]/30 bg-[#c9a24c]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#f0d78c]" style={fontDisplay}>
-                    Lead na fila
+                    1ª tentativa
                   </span>
                 )}
                 {current.brokerId === null && (
