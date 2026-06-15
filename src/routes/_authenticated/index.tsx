@@ -1189,16 +1189,21 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     });
 
     if (!attended && !scheduled && newAttemptsLocal < 2) {
-      // Sem resposta na 1ª tentativa: não força a 2ª agora — empurra o contato
-      // ~3 posições adiante na fila local. Reaparece após 3 tabulações.
-      setForcedCurrentContactId(null);
-      setDeferredRemainingByKey((prev) => ({ ...prev, [contactKey]: 3 }));
+      // Sem resposta na 1ª tentativa: MANTÉM o mesmo contato em foco para
+      // a 2ª tentativa imediata. Não defere, não vai para o próximo cliente.
+      setForcedCurrentContactId(contactId);
+      setDeferredRemainingByKey((prev) => {
+        if (!(contactKey in prev)) return prev;
+        const next = { ...prev };
+        delete next[contactKey];
+        return next;
+      });
       setSuppressedCompletedUntil((entries) => {
         const next = { ...entries };
         delete next[contactKey];
         return next;
       });
-      toast(`Sem resposta — volta pra fila para 2ª tentativa`, { description: contactName });
+      toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
     } else {
       // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: oculta temporariamente o contato concluído.
       setForcedCurrentContactId(null);
