@@ -617,6 +617,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
   const [waEditing, setWaEditing] = useState(false);
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const lastOutcomeRef = useRef<string>("");
   const lastOutcomeTimeRef = useRef<number>(0);
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
