@@ -1466,15 +1466,23 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             {/* ESQUERDA — identidade + CTA principal */}
             <div className="col-span-12 lg:col-span-7 flex flex-col">
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                {current.attempts >= 1 ? (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300 animate-pulse" style={fontDisplay}>
-                    ⚠ 2ª e última tentativa
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full border border-[#c9a24c]/30 bg-[#c9a24c]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#f0d78c]" style={fontDisplay}>
-                    1ª tentativa
-                  </span>
-                )}
+                {(() => {
+                  const label = attemptLabel(current.attempts);
+                  if (!label) return null;
+                  const isLast = current.attempts >= 1;
+                  return (
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${
+                        isLast
+                          ? "border-amber-400/40 bg-amber-500/10 text-amber-300 animate-pulse"
+                          : "border-[#c9a24c]/30 bg-[#c9a24c]/10 text-[#f0d78c]"
+                      }`}
+                      style={fontDisplay}
+                    >
+                      {isLast && <span>⚠</span>} {label}
+                    </span>
+                  );
+                })()}
                 {current.brokerId === null && (
                   <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800/60 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400" style={fontDisplay}>
                     Fila geral
