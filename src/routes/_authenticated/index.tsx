@@ -866,6 +866,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           };
         })
         .filter((c) => !isContactSuppressed(sameContactKey(c)))
+        .filter((c) => (deferredRemainingByKey[sameContactKey(c)] ?? 0) <= 0)
         .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
         .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
         .sort((a, b) => {
