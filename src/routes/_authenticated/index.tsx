@@ -1065,6 +1065,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     return (suppressedCompletedUntil[contactKey] ?? 0) > Date.now();
   }
 
+  function handleResultClick(attended: boolean, scheduled: boolean) {
+    if (isTransitioning || submittingOutcome) return;
+    setIsTransitioning(true);
+    window.setTimeout(() => {
+      try {
+        recordOutcome(attended, scheduled);
+      } finally {
+        // Libera o lock logo após o swap otimista; o novo card entra com animate-slide-in-x (key={current.id}).
+        window.setTimeout(() => setIsTransitioning(false), 200);
+      }
+    }, 160);
+  }
+
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
     console.time('1_register_result');
