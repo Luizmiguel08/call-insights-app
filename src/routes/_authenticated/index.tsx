@@ -617,6 +617,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
   const [waEditing, setWaEditing] = useState(false);
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const lastOutcomeRef = useRef<string>("");
   const lastOutcomeTimeRef = useRef<number>(0);
   const [lastSwitchMs, setLastSwitchMs] = useState<number | null>(null);
@@ -1064,6 +1065,19 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     return (suppressedCompletedUntil[contactKey] ?? 0) > Date.now();
   }
 
+  function handleResultClick(attended: boolean, scheduled: boolean) {
+    if (isTransitioning || submittingOutcome) return;
+    setIsTransitioning(true);
+    window.setTimeout(() => {
+      try {
+        recordOutcome(attended, scheduled);
+      } finally {
+        // Libera o lock logo após o swap otimista; o novo card entra com animate-slide-in-x (key={current.id}).
+        window.setTimeout(() => setIsTransitioning(false), 200);
+      }
+    }, 160);
+  }
+
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
     console.time('1_register_result');
@@ -1422,7 +1436,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             </span>
           </div>
 
-          <div key={current.id} className="animate-slide-in-x relative z-10 grid grid-cols-12 gap-5">
+          <div
+            key={current.id}
+            className={`relative z-10 grid grid-cols-12 gap-5 transition-all duration-150 ease-out ${
+              isTransitioning
+                ? "opacity-0 -translate-x-4 scale-[0.98] pointer-events-none"
+                : "animate-slide-in-x opacity-100 translate-x-0 scale-100"
+            }`}
+          >
 
             {/* ESQUERDA — identidade + CTA principal */}
             <div className="col-span-12 lg:col-span-7 flex flex-col">
@@ -1623,13 +1644,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               )}
 
               {(() => {
-                const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome;
-                const lockedHint = submittingOutcome ? "Registrando ligação..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined);
+                const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome || isTransitioning;
+                const lockedHint = submittingOutcome ? "Registrando ligação..." : (isTransitioning ? "Avançando..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined));
                 return (
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => recordOutcome(false, false)}
+                      onClick={() => handleResultClick(false, false)}
                       disabled={outcomesLocked}
                       title={lockedHint}
                       className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-red-500/50 hover:bg-red-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1641,7 +1662,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     </button>
                     <button
                       type="button"
-                      onClick={() => recordOutcome(true, false)}
+                      onClick={() => handleResultClick(true, false)}
                       disabled={outcomesLocked}
                       title={lockedHint}
                       className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1653,7 +1674,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     </button>
                     <button
                       type="button"
-                      onClick={() => recordOutcome(true, true)}
+                      onClick={() => handleResultClick(true, true)}
                       disabled={outcomesLocked}
                       title={lockedHint}
                       className="group flex flex-col items-center gap-1.5 rounded-2xl border border-[#c9a24c]/30 bg-[#c9a24c]/5 py-3 hover:border-[#c9a24c] hover:bg-[#c9a24c]/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
