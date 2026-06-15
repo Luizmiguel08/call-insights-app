@@ -888,7 +888,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       }
       return out;
     },
-    [state.contacts, brokerId, contactProgress, selectedList, suppressedCompletedUntil]
+    [state.contacts, brokerId, contactProgress, selectedList, suppressedCompletedUntil, deferredRemainingByKey]
   );
 
   const discadorLists = useMemo(() => {
