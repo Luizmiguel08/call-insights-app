@@ -1,85 +1,65 @@
-# Refatoração do Discador — Estado Único + Realtime + Espelhamento
+## Objetivo
+Introduzir multi-tenancy (`organizations`) e fluxo de convites por token, reaproveitando `/auth` e adicionando `/convite/$token`.
 
-Esta é uma reescrita arquitetural significativa do discador. Vou trabalhar em duas fases: **banco primeiro** (migração precisa de aprovação antes do código), depois **frontend completo**.
+## Fase 1 — Schema base (migration 1)
 
----
+**Novas tabelas**
+- `organizations` — nome, `created_by`, timestamps
+- `organization_members` — `organization_id`, `user_id`, `role` (`owner`/`admin`/`agent`), `joined_at`, unique(`org_id`,`user_id`)
+- `organization_invites` — `organization_id`, `email` (opcional), `token` (uuid único), `role`, `status` (`pending`/`accepted`/`revoked`), `expires_at`, `created_by`, `accepted_by`, `accepted_at`
 
-## Fase 1 — Banco de dados (migração)
+**Helpers (SECURITY DEFINER)**
+- `current_org_id()` — retorna a org do `auth.uid()` (primeira membership, se houver várias)
+- `is_org_member(_org uuid)` — bool
+- `is_org_admin(_org uuid)` — bool (`owner` ou `admin`)
+- `accept_organization_invite(_token uuid)` — valida token, cria `organization_members`, marca convite como `accepted`, retorna `organization_id`. Faz tudo numa transação, dedupe por unique constraint.
 
-### Tabela `dialer_sessions`
-Estado vivo da sessão por usuário (1 linha por usuário, upsert).
-- `user_id` (unique) — única fonte de verdade da sessão
-- `current_contact_id`, `call_status` (idle|calling|answered|ended), `call_started_at`, `observation`, `device_origin` (mobile|desktop), `updated_at`
+**Grants + RLS** em todas as 3 tabelas (sem `anon`):
+- `organizations`: SELECT para membros; INSERT/UPDATE só admin da própria org
+- `organization_members`: SELECT só de orgs onde o user é membro; INSERT só via `accept_organization_invite` (deny direto); DELETE só admin
+- `organization_invites`: SELECT/INSERT/UPDATE só admin da org; **SELECT por token** liberado em RPC `get_invite_by_token(_token)` SECURITY DEFINER (não expor a tabela pra anon)
 
-RLS: usuário só lê/escreve sua própria linha. Realtime habilitado via `ALTER PUBLICATION supabase_realtime ADD TABLE dialer_sessions`.
+**Default org + backfill**
+- Cria uma organização "Fortal" e adiciona todos os usuários atuais de `brokers` como `organization_members` com role `agent`; o primeiro admin (`has_role('admin')`) vira `owner`.
 
-### Tabela `contact_attempts`
-Histórico imutável de tentativas.
-- `contact_id`, `user_id`, `result` (no_answer|answered|scheduled|skipped|return_later), `attempt_number`, `observation`, `called_at`
+## Fase 2 — Acoplar dados existentes (migration 2)
 
-RLS: usuário só lê/insere as próprias.
+Adicionar `organization_id uuid` (com FK e índice) nas tabelas operacionais:
+- `brokers`, `contacts_queue`, `calls`, `contact_attempts`, `dialer_sessions`, `broker_sessions`, `broker_pauses`, `call_reminders`, `active_calls`, `dialer_error_log`, `queue_reconciliation_log`
 
-### RPC `dialer_prefetch_queue(_limit int)`
-Retorna próximos N contatos pendentes do corretor JÁ com `attempt_count` agregado de `contact_attempts` — uma única round-trip para hidratar o buffer.
+**Backfill**: preencher tudo com o id da org default.
+Depois: `NOT NULL` + default via trigger (`current_org_id()` no INSERT).
 
-GRANTs explícitos em ambas tabelas para `authenticated` + `service_role` (não `anon`).
+**Atualizar RLS** de cada tabela: trocar regras atuais por `is_org_member(organization_id)` + manter regras por broker quando fizer sentido (ex.: corretor só vê seus contatos dentro da org).
 
----
+**Atualizar funções existentes** (`record_call_outcome`, `next_contact_for_broker`, `dialer_prefetch_queue`, `reconcile_contact_queue`, `admin_clear_contacts`, etc.) para filtrar por `current_org_id()`.
 
-## Fase 2 — Frontend
+> ⚠️ Risco: essa fase mexe em quase todas as policies. Vou rodar uma migration **idempotente e reversível** e pedir aprovação separadamente da Fase 1.
 
-### Novo hook `src/hooks/useDialerSession.ts`
-- Carrega a linha de `dialer_sessions` (upsert se não existir) uma vez ao montar.
-- Subscribe em canal Realtime único `dialer_session:{userId}` escutando `postgres_changes` UPDATE filtrado por `user_id`.
-- Retorna `{ session, updateSession, isConnected, lastSyncAt }`.
-- `updateSession(patch)` é **otimista**: aplica em `useState` local imediatamente, dispara UPDATE no Supabase em paralelo. Em erro: rollback + toast.
-- `isConnected` reflete status real do canal (`SUBSCRIBED` → verde, `CHANNEL_ERROR`/`TIMED_OUT` → âmbar, offline → vermelho).
-- Eco do próprio device é detectado via `device_origin` + `updated_at` para evitar flicker.
+## Fase 3 — Frontend
 
-### Novo hook `src/hooks/useContactBuffer.ts`
-- Buffer local: `useRef<Contact[]>` com até 10 contatos.
-- Carga inicial via RPC `dialer_prefetch_queue(10)`.
-- Quando `buffer.length <= 3`, faz refill silencioso em background (fire-and-forget).
-- Expõe: `current`, `peekNext(n)`, `advance()` (shift), `registerAttempt(contactId, result)` (incrementa attempt_count local + insert em background).
-- Estado de erro com retry quando buffer vazio + falha de rede.
+**`src/routes/convite.$token.tsx`** (público)
+1. `supabase.rpc('get_invite_by_token', { _token })` — se inválido/expirado, mostra `InviteErrorPage` (`invalid_or_expired`).
+2. Se `!user` → guarda token em `sessionStorage('pending_invite')` e `navigate({ to: '/auth', search: { invite: token } })`.
+3. Se logado → `supabase.rpc('accept_organization_invite', { _token })`. Erro → `InviteErrorPage` (`failed_to_join`). Sucesso → `navigate({ to: '/', replace: true })`.
 
-### Refator de `src/routes/_authenticated/index.tsx`
-Substitui a lógica atual de estado por:
-- `useDialerSession(userId)` para sessão/realtime.
-- `useContactBuffer()` para fila.
-- Handlers de outcome: (1) inicia slide-out via classe CSS, (2) **em paralelo**: `INSERT contact_attempts` + `updateSession({ current_contact_id: next.id, call_status: 'idle', observation: '' })` + `buffer.advance()`, (3) slide-in do próximo. Tudo sem await sequencial.
-- Botão "Pular" segue mesmo fluxo com `result: 'skipped'`.
-- Debounce 300ms já existente nos botões mantido.
-- Card mostra "Xª tentativa" lendo `attempt_count` do buffer (já vem do RPC).
-- Header: bolinha de conexão (verde/âmbar/vermelho) + timestamp última sync.
-- Sem `setTimeout` para race conditions, sem `invalidateQueries` na fila, sem reload.
+**`src/routes/auth.tsx`**
+- Lê `?invite=` (ou `sessionStorage`).
+- Após signup/login bem-sucedido, se houver token pendente, redireciona para `/convite/$token` em vez de `/`.
 
-### Arquivos
-- `src/hooks/useDialerSession.ts` (novo)
-- `src/hooks/useContactBuffer.ts` (novo)
-- `src/components/dialer/ConnectionIndicator.tsx` (novo)
-- `src/routes/_authenticated/index.tsx` (refator do bloco do discador)
-- `src/styles.css` (keyframes slide-in/out já existem, reaproveitar)
+**`InviteErrorPage`** — componente compartilhado com as duas mensagens do snippet.
 
-### Fora de escopo
-- Não mexer em layout visual aprovado anteriormente (duas colunas desktop, botões circulares, etc.).
-- Não tocar em outras rotas/abas (Histórico, Dashboard, Corretores, Erros).
-- Não mexer em `record_call_outcome` / `next_contact_for_broker` existentes — `contact_attempts` é registro complementar para a UI; o RPC legado continua sendo chamado em paralelo para manter `calls`/`contacts_queue` em sincronia com o resto do app (Histórico, Dashboard).
+**`AppErrorBoundary`** — classe React em `src/components/AppErrorBoundary.tsx`, envolvendo `<Outlet/>` em `src/routes/__root.tsx` (dentro do `QueryClientProvider`).
 
----
+## Fora de escopo (confirmar se quer depois)
+- UI para **criar/listar/revogar convites** (admin)
+- Suporte a usuário pertencer a **múltiplas orgs** + seletor de org ativa
+- Envio de e-mail do convite (por enquanto o admin copia o link `/convite/$token`)
 
-## Diagrama do fluxo de clique em "Não Atendeu"
+## Ordem de execução
+1. Migration Fase 1 (aprovação) → tipos regenerados
+2. Migration Fase 2 (aprovação separada) → tipos regenerados
+3. Código frontend (rota, auth, ErrorBoundary, InviteErrorPage)
+4. Smoke test no preview com um convite manual via `psql`
 
-```text
-clique
-  ├─ 0ms: classe slide-out no card (CSS puro, 150ms)
-  ├─ paralelo:
-  │   ├─ buffer.advance() → próximo já em memória
-  │   ├─ updateSession({ current_contact_id: next.id, ... }) → otimista + UPDATE Supabase
-  │   ├─ INSERT contact_attempts (result: 'no_answer', attempt_number: n+1)
-  │   └─ RPC record_call_outcome (mantém legado em dia)
-  ├─ 150ms: slide-in do próximo
-  └─ se buffer.length <= 3: refill silencioso
-```
-
-Outros devices recebem o UPDATE de `dialer_sessions` via Realtime em <200ms e fazem a mesma transição visual.
+Confirma esse plano (ou ajusta o que estiver fora) que eu começo pela migration da Fase 1.
