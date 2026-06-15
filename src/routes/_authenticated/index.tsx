@@ -13,7 +13,7 @@ import {
   type Broker, type Call, type Contact, type State, type Tab,
   todayISO, normalizedContactKey, callContactKey, uniqueContactCount, uniqueContactCountWhere,
   normalizePhone, telHref, DEFAULT_WA_TEMPLATE, renderWaMessage, waHrefFromMessage, logDialerError,
-  fontDisplay, fontNumeric, inputCls,
+  fontDisplay, fontNumeric, inputCls, attemptLabel,
   Field, YesNo, Kpi, Badge, Th, Td,
 } from "@/lib/dialer-shared";
 
