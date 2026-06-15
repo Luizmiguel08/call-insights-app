@@ -1421,13 +1421,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             {/* ESQUERDA — identidade + CTA principal */}
             <div className="col-span-12 lg:col-span-7 flex flex-col">
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                {current.attempts > 0 ? (
+                {current.attempts >= 1 ? (
                   <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300 animate-pulse" style={fontDisplay}>
-                    ⚠ 2ª Tentativa obrigatória
+                    ⚠ 2ª e última tentativa
                   </span>
                 ) : (
                   <span className="inline-flex items-center rounded-full border border-[#c9a24c]/30 bg-[#c9a24c]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#f0d78c]" style={fontDisplay}>
-                    Lead na fila
+                    1ª tentativa
                   </span>
                 )}
                 {current.brokerId === null && (
