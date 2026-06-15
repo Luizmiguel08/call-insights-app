@@ -1436,7 +1436,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             </span>
           </div>
 
-          <div key={current.id} className="animate-slide-in-x relative z-10 grid grid-cols-12 gap-5">
+          <div
+            key={current.id}
+            className={`relative z-10 grid grid-cols-12 gap-5 transition-all duration-150 ease-out ${
+              isTransitioning
+                ? "opacity-0 -translate-x-4 scale-[0.98] pointer-events-none"
+                : "animate-slide-in-x opacity-100 translate-x-0 scale-100"
+            }`}
+          >
 
             {/* ESQUERDA — identidade + CTA principal */}
             <div className="col-span-12 lg:col-span-7 flex flex-col">
