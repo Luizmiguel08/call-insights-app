@@ -1644,13 +1644,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               )}
 
               {(() => {
-                const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome;
-                const lockedHint = submittingOutcome ? "Registrando ligação..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined);
+                const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome || isTransitioning;
+                const lockedHint = submittingOutcome ? "Registrando ligação..." : (isTransitioning ? "Avançando..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined));
                 return (
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => recordOutcome(false, false)}
+                      onClick={() => handleResultClick(false, false)}
                       disabled={outcomesLocked}
                       title={lockedHint}
                       className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-red-500/50 hover:bg-red-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1662,7 +1662,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     </button>
                     <button
                       type="button"
-                      onClick={() => recordOutcome(true, false)}
+                      onClick={() => handleResultClick(true, false)}
                       disabled={outcomesLocked}
                       title={lockedHint}
                       className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1674,7 +1674,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     </button>
                     <button
                       type="button"
-                      onClick={() => recordOutcome(true, true)}
+                      onClick={() => handleResultClick(true, true)}
                       disabled={outcomesLocked}
                       title={lockedHint}
                       className="group flex flex-col items-center gap-1.5 rounded-2xl border border-[#c9a24c]/30 bg-[#c9a24c]/5 py-3 hover:border-[#c9a24c] hover:bg-[#c9a24c]/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
