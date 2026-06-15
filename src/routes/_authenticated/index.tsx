@@ -1132,8 +1132,26 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const newAttemptsLocal = Math.min(2, attemptsBefore + 1);
     const noteSnapshot = note.trim();
 
+    console.log('DEBUG tentativa:', {
+      contato: current.name,
+      attempts_used_atual: current.attempts,
+      currentAttempts: attemptsBefore,
+      newAttemptsUsed: newAttemptsLocal,
+    });
+
     // 1) Otimista IMEDIATO: avança cliente, limpa UI, libera próxima ligação.
     console.time('3_next_contact');
+    let requeue = false;
+    let nextStatus: string;
+    if (resolved) {
+      nextStatus = 'done';
+    } else if (newAttemptsLocal < 2) {
+      nextStatus = 'retry_pending';
+      requeue = true;
+    } else {
+      nextStatus = 'exhausted';
+    }
+    console.log('DEBUG decisão:', { nextStatus, requeue, resolved, newAttemptsLocal });
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
