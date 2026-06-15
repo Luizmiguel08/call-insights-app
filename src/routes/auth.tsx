@@ -28,11 +28,32 @@ function AuthPage() {
   const [forgotSent, setForgotSent] = useState(false);
 
   useEffect(() => {
+    function getPendingInvite(): string | null {
+      try {
+        const url = new URL(window.location.href);
+        const fromUrl = url.searchParams.get("invite");
+        if (fromUrl) {
+          try { sessionStorage.setItem("pending_invite_token", fromUrl); } catch { /* noop */ }
+          return fromUrl;
+        }
+        return sessionStorage.getItem("pending_invite_token");
+      } catch { return null; }
+    }
+
+    function redirectAfterAuth() {
+      const token = getPendingInvite();
+      if (token) {
+        navigate({ to: "/convite/$token", params: { token }, replace: true });
+      } else {
+        navigate({ to: "/", replace: true });
+      }
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) navigate({ to: "/", replace: true });
+      if (session?.user) redirectAfterAuth();
     });
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/", replace: true });
+      if (data.user) redirectAfterAuth();
     });
     return () => subscription.unsubscribe();
   }, [navigate]);

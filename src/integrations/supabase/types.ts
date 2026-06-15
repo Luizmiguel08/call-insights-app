@@ -454,6 +454,115 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          expires_at: string
+          id: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_member_role"]
+          status: Database["public"]["Enums"]["invite_status"]
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_member_role"]
+          status?: Database["public"]["Enums"]["invite_status"]
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_member_role"]
+          status?: Database["public"]["Enums"]["invite_status"]
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_invites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_members: {
+        Row: {
+          id: string
+          joined_at: string
+          organization_id: string
+          role: Database["public"]["Enums"]["org_member_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["org_member_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["org_member_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       queue_reconciliation_log: {
         Row: {
           auto_fixed: boolean
@@ -579,6 +688,7 @@ export type Database = {
       }
     }
     Functions: {
+      accept_organization_invite: { Args: { _token: string }; Returns: Json }
       admin_clear_contacts: {
         Args: {
           _broker_id?: string
@@ -605,6 +715,7 @@ export type Database = {
       }
       claim_corretor_role_if_eligible: { Args: never; Returns: Json }
       current_broker_id: { Args: never; Returns: string }
+      current_org_id: { Args: never; Returns: string }
       dialer_prefetch_queue: {
         Args: { _limit?: number; _list_name?: string }
         Returns: {
@@ -628,10 +739,24 @@ export type Database = {
           gap_start: string
         }[]
       }
+      get_invite_by_token: {
+        Args: { _token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          id: string
+          organization_id: string
+          organization_name: string
+          role: Database["public"]["Enums"]["org_member_role"]
+          status: Database["public"]["Enums"]["invite_status"]
+        }[]
+      }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"]; _uid: string }
         Returns: boolean
       }
+      is_org_admin: { Args: { _org: string }; Returns: boolean }
+      is_org_member: { Args: { _org: string }; Returns: boolean }
       log_dialer_error: {
         Args: {
           _action: string
@@ -741,6 +866,8 @@ export type Database = {
         | "callback"
         | "not_interested"
         | "scheduled"
+      invite_status: "pending" | "accepted" | "revoked"
+      org_member_role: "owner" | "admin" | "agent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -878,6 +1005,8 @@ export const Constants = {
         "not_interested",
         "scheduled",
       ],
+      invite_status: ["pending", "accepted", "revoked"],
+      org_member_role: ["owner", "admin", "agent"],
     },
   },
 } as const
