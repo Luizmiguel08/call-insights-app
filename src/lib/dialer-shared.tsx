@@ -29,6 +29,13 @@ export type Contact = {
 export type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
 export type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros" | "lembretes";
 
+export function attemptLabel(attempts: number | undefined | null) {
+  const used = attempts ?? 0;
+  if (used === 0) return "1ª tentativa";
+  if (used === 1) return "2ª e última tentativa";
+  return null;
+}
+
 /* ---------------- Utils ---------------- */
 
 export function todayISO() {
