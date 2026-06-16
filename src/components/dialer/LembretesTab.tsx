@@ -43,12 +43,15 @@ function fmtRelative(iso: string) {
   return future ? `em ${txt}` : `há ${txt}`;
 }
 
+type BrokerInfo = { id: string; name: string; color: string | null };
+
 export default function LembretesTab({ me, isAdmin }: Props) {
   const [items, setItems] = useState<CallReminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "done" | "all">("pending");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<CallReminder | null>(null);
+  const [brokers, setBrokers] = useState<Record<string, BrokerInfo>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +67,18 @@ export default function LembretesTab({ me, isAdmin }: Props) {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void (async () => {
+      const r = await (supabase as any).from("brokers").select("id,name,color");
+      if (!r.error && r.data) {
+        const map: Record<string, BrokerInfo> = {};
+        for (const b of r.data as BrokerInfo[]) map[b.id] = b;
+        setBrokers(map);
+      }
+    })();
+  }, [isAdmin]);
 
   useEffect(() => {
     const ch = (supabase as any)
@@ -155,6 +170,20 @@ export default function LembretesTab({ me, isAdmin }: Props) {
                       {r.status === "done" && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300" style={fontDisplay}>
                           <Check className="h-3 w-3" /> Feito
+                        </span>
+                      )}
+                      {isAdmin && brokers[r.broker_id] && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                          style={{
+                            ...fontDisplay,
+                            borderColor: (brokers[r.broker_id].color ?? "#c9a24c") + "66",
+                            backgroundColor: (brokers[r.broker_id].color ?? "#c9a24c") + "1f",
+                            color: brokers[r.broker_id].color ?? "#f0d78c",
+                          }}
+                          title="Corretor responsável"
+                        >
+                          {brokers[r.broker_id].name}
                         </span>
                       )}
                     </div>
@@ -365,6 +394,7 @@ export function useReminderNotifier(me: Me | null, onOpenTab: () => void) {
         .from("call_reminders")
         .select("*")
         .eq("status", "pending")
+        .eq("user_id", me!.userId)
         .lte("scheduled_for", nowIso)
         .or(`notified_at.is.null,notified_at.lte.${cutoffIso}`);
       if (r.error || !r.data?.length) return;
