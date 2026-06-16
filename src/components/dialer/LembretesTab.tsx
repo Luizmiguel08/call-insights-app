@@ -172,6 +172,20 @@ export default function LembretesTab({ me, isAdmin }: Props) {
                           <Check className="h-3 w-3" /> Feito
                         </span>
                       )}
+                      {isAdmin && brokers[r.broker_id] && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                          style={{
+                            ...fontDisplay,
+                            borderColor: (brokers[r.broker_id].color ?? "#c9a24c") + "66",
+                            backgroundColor: (brokers[r.broker_id].color ?? "#c9a24c") + "1f",
+                            color: brokers[r.broker_id].color ?? "#f0d78c",
+                          }}
+                          title="Corretor responsável"
+                        >
+                          {brokers[r.broker_id].name}
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-zinc-400 tabular-nums" style={fontNumeric}>{r.contact_phone}</div>
                     <div className="mt-1.5 flex items-center gap-2 text-xs">
