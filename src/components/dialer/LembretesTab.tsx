@@ -394,6 +394,7 @@ export function useReminderNotifier(me: Me | null, onOpenTab: () => void) {
         .from("call_reminders")
         .select("*")
         .eq("status", "pending")
+        .eq("user_id", me.userId)
         .lte("scheduled_for", nowIso)
         .or(`notified_at.is.null,notified_at.lte.${cutoffIso}`);
       if (r.error || !r.data?.length) return;
