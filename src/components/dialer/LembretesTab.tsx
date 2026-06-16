@@ -43,12 +43,15 @@ function fmtRelative(iso: string) {
   return future ? `em ${txt}` : `há ${txt}`;
 }
 
+type BrokerInfo = { id: string; name: string; color: string | null };
+
 export default function LembretesTab({ me, isAdmin }: Props) {
   const [items, setItems] = useState<CallReminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "done" | "all">("pending");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<CallReminder | null>(null);
+  const [brokers, setBrokers] = useState<Record<string, BrokerInfo>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +67,18 @@ export default function LembretesTab({ me, isAdmin }: Props) {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void (async () => {
+      const r = await (supabase as any).from("brokers").select("id,name,color");
+      if (!r.error && r.data) {
+        const map: Record<string, BrokerInfo> = {};
+        for (const b of r.data as BrokerInfo[]) map[b.id] = b;
+        setBrokers(map);
+      }
+    })();
+  }, [isAdmin]);
 
   useEffect(() => {
     const ch = (supabase as any)
