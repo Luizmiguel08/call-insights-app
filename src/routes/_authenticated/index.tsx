@@ -12,7 +12,7 @@ import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
   type Broker, type Call, type Contact, type State, type Tab,
   todayISO, normalizedContactKey, callContactKey, uniqueContactCount, uniqueContactCountWhere,
-  normalizePhone, telHref, DEFAULT_WA_TEMPLATE, renderWaMessage, waHrefFromMessage, logDialerError,
+  normalizePhone, telHref, DEFAULT_WA_TEMPLATE, DEFAULT_WA_TEMPLATE_2, renderWaMessage, waHrefFromMessage, logDialerError,
   fontDisplay, fontNumeric, inputCls, attemptLabel,
   Field, YesNo, Kpi, Badge, Th, Td,
 } from "@/lib/dialer-shared";
@@ -615,6 +615,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const [calledAt, setCalledAt] = useState<number | null>(null);
   const [callStatus, setCallStatus] = useState<"idle" | "calling" | "answered" | "ended">("idle");
   const [waMsg, setWaMsg] = useState<string>(DEFAULT_WA_TEMPLATE);
+  const [waMsg2, setWaMsg2] = useState<string>(DEFAULT_WA_TEMPLATE_2);
   const [waEditing, setWaEditing] = useState(false);
   const [submittingOutcome, setSubmittingOutcome] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -809,17 +810,20 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
 
 
-  // Carrega template salvo por corretor (localStorage)
+  // Carrega templates salvos por corretor (localStorage)
   useEffect(() => {
     if (!brokerId) return;
-    const saved = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template:${brokerId}`) : null;
-    setWaMsg(saved && saved.trim() ? saved : DEFAULT_WA_TEMPLATE);
+    const saved1 = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template:${brokerId}`) : null;
+    const saved2 = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template-2:${brokerId}`) : null;
+    setWaMsg(saved1 && saved1.trim() ? saved1 : DEFAULT_WA_TEMPLATE);
+    setWaMsg2(saved2 && saved2.trim() ? saved2 : DEFAULT_WA_TEMPLATE_2);
   }, [brokerId]);
 
   function saveWaTemplate() {
     if (!brokerId) return;
     window.localStorage.setItem(`wa-template:${brokerId}`, waMsg);
-    toast.success("Mensagem padrão salva pra este corretor");
+    window.localStorage.setItem(`wa-template-2:${brokerId}`, waMsg2);
+    toast.success("Mensagens padrão salvas pra este corretor");
   }
 
   const date = todayISO();
@@ -1570,36 +1574,64 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300 transition"
                   style={fontDisplay}
+                  title={renderWaMessage(waMsg, current.name)}
                 >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                  <MessageCircle className="h-4 w-4" /> WhatsApp 1
+                </a>
+                <a
+                  href={waHrefFromMessage(current.phone, renderWaMessage(waMsg2, current.name))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300 transition"
+                  style={fontDisplay}
+                  title={renderWaMessage(waMsg2, current.name)}
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp 2
                 </a>
                 <button
                   type="button"
                   onClick={() => setWaEditing((v) => !v)}
                   className="rounded-xl border border-zinc-700 bg-[#0d0d0d] px-3 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a24c]"
                   style={fontDisplay}
-                  title="Editar mensagem"
+                  title="Editar mensagens"
                 >
                   {waEditing ? "Fechar" : "Editar msg"}
                 </button>
               </div>
 
               {waEditing && (
-                <div className="rounded-xl border border-zinc-800 bg-[#0d0d0d] p-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                      Mensagem · use <span className="text-[#c9a24c]">{"{nome}"}</span>
-                    </label>
-                    <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                <div className="rounded-xl border border-zinc-800 bg-[#0d0d0d] p-3 space-y-3">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                        Mensagem 1 · use <span className="text-[#c9a24c]">{"{nome}"}</span>
+                      </label>
+                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                    </div>
+                    <textarea
+                      value={waMsg}
+                      onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
+                      rows={3}
+                      className={inputCls + " resize-none py-2 text-sm"}
+                      placeholder={DEFAULT_WA_TEMPLATE}
+                    />
                   </div>
-                  <textarea
-                    value={waMsg}
-                    onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
-                    rows={3}
-                    className={inputCls + " resize-none py-2 text-sm"}
-                    placeholder={DEFAULT_WA_TEMPLATE}
-                  />
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                        Mensagem 2 · use <span className="text-[#c9a24c]">{"{nome}"}</span>
+                      </label>
+                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg2.length}/1000</span>
+                    </div>
+                    <textarea
+                      value={waMsg2}
+                      onChange={(e) => setWaMsg2(e.target.value.slice(0, 1000))}
+                      rows={3}
+                      className={inputCls + " resize-none py-2 text-sm"}
+                      placeholder={DEFAULT_WA_TEMPLATE_2}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={saveWaTemplate}
@@ -1610,7 +1642,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     </button>
                     <button
                       type="button"
-                      onClick={() => setWaMsg(DEFAULT_WA_TEMPLATE)}
+                      onClick={() => { setWaMsg(DEFAULT_WA_TEMPLATE); setWaMsg2(DEFAULT_WA_TEMPLATE_2); }}
                       className="rounded-md border border-zinc-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
                       style={fontDisplay}
                     >

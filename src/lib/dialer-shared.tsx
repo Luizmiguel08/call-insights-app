@@ -96,6 +96,9 @@ export function telHref(phone: string) {
 export const DEFAULT_WA_TEMPLATE =
   "Olá, {nome}! Aqui é da FORTAL, acabei de te ligar — segue por aqui pra gente conversar.";
 
+export const DEFAULT_WA_TEMPLATE_2 =
+  "Olá, {nome}! Aqui é da FORTAL. Tentei contato por ligação — quando puder, me retorna por aqui que te passo todos os detalhes.";
+
 export function renderWaMessage(template: string, clientName?: string) {
   const firstName = (clientName ?? "").trim().split(/\s+/)[0] || "";
   return (template || DEFAULT_WA_TEMPLATE)
