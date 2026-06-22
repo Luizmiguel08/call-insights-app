@@ -506,7 +506,7 @@ export function useCloudState() {
     // Silencia ecos do realtime brevemente ao alterar estado local
     // pra evitar piscadas, mas curto o suficiente pra não atrasar
     // a sincronização com ações do servidor (ex: triggers de RPC).
-    muteUntilRef.current = Date.now() + 250;
+    muteUntilRef.current = Date.now() + 120;
     if (pendingTimer.current) clearTimeout(pendingTimer.current);
     const prev = lastSyncedRef.current;
     pendingTimer.current = setTimeout(() => {
