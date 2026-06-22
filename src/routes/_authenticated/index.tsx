@@ -1574,36 +1574,64 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300 transition"
                   style={fontDisplay}
+                  title={renderWaMessage(waMsg, current.name)}
                 >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                  <MessageCircle className="h-4 w-4" /> WhatsApp 1
+                </a>
+                <a
+                  href={waHrefFromMessage(current.phone, renderWaMessage(waMsg2, current.name))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300 transition"
+                  style={fontDisplay}
+                  title={renderWaMessage(waMsg2, current.name)}
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp 2
                 </a>
                 <button
                   type="button"
                   onClick={() => setWaEditing((v) => !v)}
                   className="rounded-xl border border-zinc-700 bg-[#0d0d0d] px-3 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a24c]"
                   style={fontDisplay}
-                  title="Editar mensagem"
+                  title="Editar mensagens"
                 >
                   {waEditing ? "Fechar" : "Editar msg"}
                 </button>
               </div>
 
               {waEditing && (
-                <div className="rounded-xl border border-zinc-800 bg-[#0d0d0d] p-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                      Mensagem · use <span className="text-[#c9a24c]">{"{nome}"}</span>
-                    </label>
-                    <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                <div className="rounded-xl border border-zinc-800 bg-[#0d0d0d] p-3 space-y-3">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                        Mensagem 1 · use <span className="text-[#c9a24c]">{"{nome}"}</span>
+                      </label>
+                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                    </div>
+                    <textarea
+                      value={waMsg}
+                      onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
+                      rows={3}
+                      className={inputCls + " resize-none py-2 text-sm"}
+                      placeholder={DEFAULT_WA_TEMPLATE}
+                    />
                   </div>
-                  <textarea
-                    value={waMsg}
-                    onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
-                    rows={3}
-                    className={inputCls + " resize-none py-2 text-sm"}
-                    placeholder={DEFAULT_WA_TEMPLATE}
-                  />
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                        Mensagem 2 · use <span className="text-[#c9a24c]">{"{nome}"}</span>
+                      </label>
+                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg2.length}/1000</span>
+                    </div>
+                    <textarea
+                      value={waMsg2}
+                      onChange={(e) => setWaMsg2(e.target.value.slice(0, 1000))}
+                      rows={3}
+                      className={inputCls + " resize-none py-2 text-sm"}
+                      placeholder={DEFAULT_WA_TEMPLATE_2}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={saveWaTemplate}
@@ -1614,7 +1642,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     </button>
                     <button
                       type="button"
-                      onClick={() => setWaMsg(DEFAULT_WA_TEMPLATE)}
+                      onClick={() => { setWaMsg(DEFAULT_WA_TEMPLATE); setWaMsg2(DEFAULT_WA_TEMPLATE_2); }}
                       className="rounded-md border border-zinc-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
                       style={fontDisplay}
                     >
