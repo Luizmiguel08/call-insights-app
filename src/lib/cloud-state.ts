@@ -577,6 +577,9 @@ export function useCloudState() {
       }
       const row = payload.new;
       if (!row?.id) return;
+      // Avança cursor pra evitar refetch redundante deste row no próximo delta.
+      const u = row.updated_at ?? row.created_at;
+      if (u && (!contactsCursorRef.current || u > contactsCursorRef.current)) contactsCursorRef.current = u;
       const mapped = rowToContact(row);
       patchState((s) => {
         const idx = s.contacts.findIndex((c) => c.id === mapped.id);
