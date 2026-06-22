@@ -176,6 +176,64 @@ async function loadAll(): Promise<State> {
   return { brokers, calls, contacts, metaDaily: settingsR.data?.meta_daily ?? 50 };
 }
 
+/* ---------------- Incremental delta loaders ----------------
+ * Refetch incremental usando `updated_at` como cursor:
+ * em vez de baixar ~10k contatos + ~16k ligações a cada poll, buscamos
+ * apenas o que mudou desde a última sincronização (`updated_at > cursor`)
+ * e mesclamos no estado local por id. Reduz drasticamente o tráfego
+ * (e a latência percebida) tanto no celular quanto no desktop.
+ */
+async function loadDeltaContactsSince(sinceIso: string | null): Promise<any[]> {
+  const pageSize = 1000;
+  let from = 0;
+  const all: any[] = [];
+  while (from < 100000) {
+    let q: any = (supabase.from("contacts_queue") as any)
+      .select("*")
+      .order("updated_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (sinceIso) q = q.gt("updated_at", sinceIso);
+    const r = await q;
+    if (r.error) throw r.error;
+    const rows = (r.data ?? []) as any[];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+async function loadDeltaCallsSince(sinceIso: string | null): Promise<any[]> {
+  const pageSize = 1000;
+  let from = 0;
+  const all: any[] = [];
+  while (from < 100000) {
+    let q: any = (supabase.from("calls") as any)
+      .select("*")
+      .order("updated_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (sinceIso) q = q.gt("updated_at", sinceIso);
+    const r = await q;
+    if (r.error) throw r.error;
+    const rows = (r.data ?? []) as any[];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+function maxUpdatedAt(rows: any[]): string | null {
+  let m: string | null = null;
+  for (const r of rows) {
+    const u = r?.updated_at ?? r?.created_at;
+    if (u && (m === null || u > m)) m = u;
+  }
+  return m;
+}
+
 function diff<T extends { id: string }>(prev: T[], next: T[]) {
   const pMap = new Map(prev.map((x) => [x.id, x]));
   const nMap = new Map(next.map((x) => [x.id, x]));
