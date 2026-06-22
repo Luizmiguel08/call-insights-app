@@ -636,23 +636,12 @@ export function useCloudState() {
     subscribeRealtime();
 
     // Refetch imediato (ignora mute) usado em foco/visibilidade/online — mobile
-    // costuma perder o WebSocket quando a tela apaga; reentrar precisa de
-    // sincronia rápida sem esperar o backoff de 80ms.
+    // costuma perder o WebSocket quando a tela apaga; ao voltar fazemos um
+    // FULL sync pra também capturar deletes que tenham acontecido offline.
     async function forceRefetchNow() {
-      if (refetchInFlightRef.current) { queuedRefetchRef.current = true; return; }
-      if (pendingTimer.current || dirtyRef.current) return;
-      refetchInFlightRef.current = true;
-      try {
-        const s = await loadAll();
-        lastSyncedRef.current = s;
-        dirtyRef.current = false;
-        setStateRaw(s);
-      } catch (e) {
-        console.warn("forceRefetchNow falhou", e);
-      } finally {
-        refetchInFlightRef.current = false;
-        if (queuedRefetchRef.current) { queuedRefetchRef.current = false; void refetch(); }
-      }
+      // Liberar mute pra não bloquear o refetch que vem do wake.
+      muteUntilRef.current = 0;
+      await refetch({ full: true });
     }
 
     function resyncAfterWake() {
