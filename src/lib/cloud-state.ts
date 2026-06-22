@@ -506,7 +506,7 @@ export function useCloudState() {
     // Silencia ecos do realtime brevemente ao alterar estado local
     // pra evitar piscadas, mas curto o suficiente pra não atrasar
     // a sincronização com ações do servidor (ex: triggers de RPC).
-    muteUntilRef.current = Date.now() + 250;
+    muteUntilRef.current = Date.now() + 120;
     if (pendingTimer.current) clearTimeout(pendingTimer.current);
     const prev = lastSyncedRef.current;
     pendingTimer.current = setTimeout(() => {
@@ -516,7 +516,7 @@ export function useCloudState() {
       dirtyRef.current = false;
       pendingTimer.current = null;
       // Re-arma o mute pra cobrir a janela de gravação + eco do servidor.
-      muteUntilRef.current = Date.now() + 250;
+      muteUntilRef.current = Date.now() + 120;
       void syncTo(prev, next, meRef.current!)
         .then(() => {
           if (syncSeq !== syncSeqRef.current) return;
