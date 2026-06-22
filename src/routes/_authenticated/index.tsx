@@ -1569,35 +1569,35 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             {/* DIREITA — ações secundárias e desfechos */}
             <div className="col-span-12 lg:col-span-5 flex flex-col gap-3">
               {/* WhatsApp */}
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <a
                   href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300 transition"
+                  className="min-w-0 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 px-2 py-3 text-xs font-bold uppercase tracking-[0.12em] text-emerald-300 transition"
                   style={fontDisplay}
                   title={renderWaMessage(waMsg, current.name)}
                 >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp 1
+                  <MessageCircle className="h-4 w-4 shrink-0" /> <span className="truncate">WhatsApp 1</span>
                 </a>
                 <a
                   href={waHrefFromMessage(current.phone, renderWaMessage(waMsg2, current.name))}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300 transition"
+                  className="min-w-0 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 px-2 py-3 text-xs font-bold uppercase tracking-[0.12em] text-emerald-300 transition"
                   style={fontDisplay}
                   title={renderWaMessage(waMsg2, current.name)}
                 >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp 2
+                  <MessageCircle className="h-4 w-4 shrink-0" /> <span className="truncate">WhatsApp 2</span>
                 </a>
                 <button
                   type="button"
                   onClick={() => setWaEditing((v) => !v)}
-                  className="rounded-xl border border-zinc-700 bg-[#0d0d0d] px-3 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a24c]"
+                  className="col-span-2 rounded-xl border border-zinc-700 bg-[#0d0d0d] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a24c]"
                   style={fontDisplay}
                   title="Editar mensagens"
                 >
-                  {waEditing ? "Fechar" : "Editar msg"}
+                  {waEditing ? "Fechar editor de mensagens" : "Editar mensagens 1 e 2"}
                 </button>
               </div>
 
