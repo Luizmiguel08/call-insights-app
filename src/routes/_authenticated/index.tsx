@@ -810,17 +810,20 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
 
 
-  // Carrega template salvo por corretor (localStorage)
+  // Carrega templates salvos por corretor (localStorage)
   useEffect(() => {
     if (!brokerId) return;
-    const saved = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template:${brokerId}`) : null;
-    setWaMsg(saved && saved.trim() ? saved : DEFAULT_WA_TEMPLATE);
+    const saved1 = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template:${brokerId}`) : null;
+    const saved2 = typeof window !== "undefined" ? window.localStorage.getItem(`wa-template-2:${brokerId}`) : null;
+    setWaMsg(saved1 && saved1.trim() ? saved1 : DEFAULT_WA_TEMPLATE);
+    setWaMsg2(saved2 && saved2.trim() ? saved2 : DEFAULT_WA_TEMPLATE_2);
   }, [brokerId]);
 
   function saveWaTemplate() {
     if (!brokerId) return;
     window.localStorage.setItem(`wa-template:${brokerId}`, waMsg);
-    toast.success("Mensagem padrão salva pra este corretor");
+    window.localStorage.setItem(`wa-template-2:${brokerId}`, waMsg2);
+    toast.success("Mensagens padrão salvas pra este corretor");
   }
 
   const date = todayISO();
