@@ -357,11 +357,95 @@ export function useCloudState() {
       }
     })();
 
+    function rowToContact(c: any): Contact {
+      return {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        brokerId: c.broker_id ?? null,
+        status: statusDbToLocal[c.status] ?? "pendente",
+        createdAt: new Date(c.created_at).getTime(),
+        attempts: c.call_attempts ?? 0,
+        listName: c.list_name ?? "Geral",
+      };
+    }
+    function rowToCall(c: any): Call {
+      return {
+        id: c.id,
+        date: toLocalDate(c.created_at),
+        brokerId: c.broker_id,
+        client: c.client_name,
+        phone: c.phone ?? undefined,
+        attended: c.attended,
+        scheduled: c.scheduled,
+        note: c.notes ?? "",
+        createdAt: new Date(c.created_at).getTime(),
+        contactId: c.contact_id ?? undefined,
+      };
+    }
+    function patchState(updater: (s: State) => State) {
+      setStateRaw((prev) => {
+        const next = updater(prev);
+        if (next === prev) return prev;
+        lastSyncedRef.current = next;
+        return next;
+      });
+    }
+    function onContactChange(payload: any) {
+      if (Date.now() < muteUntilRef.current) { scheduleRefetch(); return; }
+      const evt = payload.eventType;
+      if (evt === "DELETE") {
+        const oldId = payload.old?.id;
+        if (!oldId) return;
+        patchState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.id !== oldId) }));
+        return;
+      }
+      const row = payload.new;
+      if (!row?.id) return;
+      const mapped = rowToContact(row);
+      patchState((s) => {
+        const idx = s.contacts.findIndex((c) => c.id === mapped.id);
+        if (idx === -1) return { ...s, contacts: [...s.contacts, mapped] };
+        const cur = s.contacts[idx];
+        if (
+          cur.status === mapped.status &&
+          cur.attempts === mapped.attempts &&
+          cur.brokerId === mapped.brokerId &&
+          cur.name === mapped.name &&
+          cur.phone === mapped.phone &&
+          cur.listName === mapped.listName
+        ) return s;
+        const arr = s.contacts.slice();
+        arr[idx] = { ...cur, ...mapped };
+        return { ...s, contacts: arr };
+      });
+    }
+    function onCallChange(payload: any) {
+      if (Date.now() < muteUntilRef.current) { scheduleRefetch(); return; }
+      const evt = payload.eventType;
+      if (evt === "DELETE") {
+        const oldId = payload.old?.id;
+        if (!oldId) return;
+        patchState((s) => ({ ...s, calls: s.calls.filter((c) => c.id !== oldId) }));
+        return;
+      }
+      const row = payload.new;
+      if (!row?.id) return;
+      const mapped = rowToCall(row);
+      patchState((s) => {
+        const idx = s.calls.findIndex((c) => c.id === mapped.id);
+        if (idx === -1) return { ...s, calls: [mapped, ...s.calls] };
+        const arr = s.calls.slice();
+        arr[idx] = { ...arr[idx], ...mapped };
+        return { ...s, calls: arr };
+      });
+    }
+
     const channel = supabase
       .channel(`ligactrl-sync-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "brokers" }, scheduleRefetch)
-      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, scheduleRefetch)
-      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, scheduleRefetch)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, onCallChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, onContactChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, scheduleRefetch)
       .subscribe();
 
