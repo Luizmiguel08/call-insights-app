@@ -514,6 +514,15 @@ export function useCloudState() {
         setMe(m);
         const s = await loadAll();
         if (!alive) return;
+        // Seed dos cursores incrementais com o max(updated_at) atual.
+        try {
+          const [cMax, kMax] = await Promise.all([
+            (supabase.from("contacts_queue") as any).select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+            (supabase.from("calls") as any).select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+          ]);
+          contactsCursorRef.current = (cMax?.data?.updated_at as string | undefined) ?? null;
+          callsCursorRef.current = (kMax?.data?.updated_at as string | undefined) ?? null;
+        } catch { /* tudo bem, primeiro refetch fará full */ }
         lastSyncedRef.current = s;
         setStateRaw(s);
         setHydrated(true);
