@@ -516,7 +516,7 @@ export function useCloudState() {
       dirtyRef.current = false;
       pendingTimer.current = null;
       // Re-arma o mute pra cobrir a janela de gravação + eco do servidor.
-      muteUntilRef.current = Date.now() + 250;
+      muteUntilRef.current = Date.now() + 120;
       void syncTo(prev, next, meRef.current!)
         .then(() => {
           if (syncSeq !== syncSeqRef.current) return;
