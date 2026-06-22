@@ -609,6 +609,8 @@ export function useCloudState() {
       }
       const row = payload.new;
       if (!row?.id) return;
+      const u = row.updated_at ?? row.created_at;
+      if (u && (!callsCursorRef.current || u > callsCursorRef.current)) callsCursorRef.current = u;
       const mapped = rowToCall(row);
       patchState((s) => {
         const idx = s.calls.findIndex((c) => c.id === mapped.id);
