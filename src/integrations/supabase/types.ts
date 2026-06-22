@@ -241,6 +241,7 @@ export type Database = {
           phone: string | null
           scheduled: boolean
           started_at: string | null
+          updated_at: string
         }
         Insert: {
           attended?: boolean
@@ -257,6 +258,7 @@ export type Database = {
           phone?: string | null
           scheduled?: boolean
           started_at?: string | null
+          updated_at?: string
         }
         Update: {
           attended?: boolean
@@ -273,6 +275,7 @@ export type Database = {
           phone?: string | null
           scheduled?: boolean
           started_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -331,6 +334,7 @@ export type Database = {
           phone: string
           priority: number
           status: string
+          updated_at: string
         }
         Insert: {
           broker_id?: string | null
@@ -345,6 +349,7 @@ export type Database = {
           phone: string
           priority?: number
           status?: string
+          updated_at?: string
         }
         Update: {
           broker_id?: string | null
@@ -359,6 +364,7 @@ export type Database = {
           phone?: string
           priority?: number
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -783,6 +789,7 @@ export type Database = {
           phone: string
           priority: number
           status: string
+          updated_at: string
         }
         SetofOptions: {
           from: "*"
