@@ -913,12 +913,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       return [forcedPinned, ...myQueue.filter((c) => c.id !== forcedPinned.id)];
     }
     const hasServerHead = serverNextId !== undefined;
-    const localHead = myQueue[0];
+    // Servidor é a fonte da verdade: se ele indicou um próximo, usamos esse —
+    // sincroniza o head entre todos os dispositivos do mesmo corretor.
     const serverPinned = serverNextId ? myQueue.find((c) => c.id === serverNextId) : null;
-    const canTrustServerHead = Boolean(
-      serverPinned && (!localHead || serverPinned.attempts <= localHead.attempts),
-    );
-    const pinId = remoteCall?.contact_id || (hasServerHead && canTrustServerHead ? serverNextId : null);
+    const pinId = remoteCall?.contact_id || (hasServerHead && serverPinned ? serverNextId : null);
     if (!remoteCall?.contact_id && hasServerHead && serverNextId === null) return [];
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
