@@ -355,6 +355,15 @@ export function useCloudState() {
   const dirtyRef = useRef(false);
   const refetchInFlightRef = useRef(false);
   const queuedRefetchRef = useRef(false);
+  // Cursores de sincronização incremental por tabela. Avançam tanto via
+  // refetch (delta SQL) quanto via Realtime (patches que chegam pelo WS).
+  const contactsCursorRef = useRef<string | null>(null);
+  const callsCursorRef = useRef<string | null>(null);
+  // A cada N refetches incrementais fazemos um full sync pra capturar
+  // DELETEs que tenham escapado do canal Realtime (deletes não atualizam
+  // updated_at, por isso não aparecem no delta).
+  const incrementalsSinceFullRef = useRef(0);
+  const FULL_SYNC_EVERY = 60; // a 5s/refetch = ~5min
 
   const setState = useCallback<React.Dispatch<React.SetStateAction<State>>>((value) => {
     dirtyRef.current = true;
