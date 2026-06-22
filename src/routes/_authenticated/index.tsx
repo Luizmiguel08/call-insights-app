@@ -12,7 +12,7 @@ import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
   type Broker, type Call, type Contact, type State, type Tab,
   todayISO, normalizedContactKey, callContactKey, uniqueContactCount, uniqueContactCountWhere,
-  normalizePhone, telHref, DEFAULT_WA_TEMPLATE, renderWaMessage, waHrefFromMessage, logDialerError,
+  normalizePhone, telHref, DEFAULT_WA_TEMPLATE, DEFAULT_WA_TEMPLATE_2, renderWaMessage, waHrefFromMessage, logDialerError,
   fontDisplay, fontNumeric, inputCls, attemptLabel,
   Field, YesNo, Kpi, Badge, Th, Td,
 } from "@/lib/dialer-shared";
