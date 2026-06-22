@@ -441,27 +441,62 @@ export function useCloudState() {
       });
     }
 
-    const channel = supabase
-      .channel(`ligactrl-sync-${crypto.randomUUID()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "brokers" }, scheduleRefetch)
-      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, onCallChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, onContactChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, scheduleRefetch)
-      .subscribe();
+    let currentChannel: ReturnType<typeof supabase.channel> | null = null;
+    function subscribeRealtime() {
+      const ch = supabase
+        .channel(`ligactrl-sync-${crypto.randomUUID()}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "brokers" }, scheduleRefetch)
+        .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, onCallChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, onContactChange)
+        .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, scheduleRefetch)
+        .subscribe();
+      currentChannel = ch;
+      return ch;
+    }
+    subscribeRealtime();
 
-    const onFocus = () => scheduleRefetch();
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") scheduleRefetch();
-    };
+    // Refetch imediato (ignora mute) usado em foco/visibilidade/online — mobile
+    // costuma perder o WebSocket quando a tela apaga; reentrar precisa de
+    // sincronia rápida sem esperar o backoff de 80ms.
+    async function forceRefetchNow() {
+      if (refetchInFlightRef.current) { queuedRefetchRef.current = true; return; }
+      if (pendingTimer.current || dirtyRef.current) return;
+      refetchInFlightRef.current = true;
+      try {
+        const s = await loadAll();
+        lastSyncedRef.current = s;
+        dirtyRef.current = false;
+        setStateRaw(s);
+      } catch (e) {
+        console.warn("forceRefetchNow falhou", e);
+      } finally {
+        refetchInFlightRef.current = false;
+        if (queuedRefetchRef.current) { queuedRefetchRef.current = false; void refetch(); }
+      }
+    }
+
+    function resyncAfterWake() {
+      // Recria o canal pra forçar reconexão do WebSocket após sleep do mobile.
+      if (currentChannel) { void supabase.removeChannel(currentChannel); currentChannel = null; }
+      subscribeRealtime();
+      void forceRefetchNow();
+    }
+
+    const onFocus = () => resyncAfterWake();
+    const onVisibility = () => { if (document.visibilityState === "visible") resyncAfterWake(); };
+    const onOnline = () => resyncAfterWake();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onOnline);
 
     return () => {
       alive = false;
       if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
-      void supabase.removeChannel(channel);
+      if (currentChannel) void supabase.removeChannel(currentChannel);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
+
     };
   }, [scheduleRefetch]);
 
