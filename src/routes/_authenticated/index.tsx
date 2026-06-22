@@ -720,12 +720,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     void refreshServerNext("broker-or-list-change");
   }, [refreshServerNext]);
 
-  // Sincronização em background a cada 60s — fila completa, sem bloquear UI
+  // Sincronização em background a cada 15s — fila completa, sem bloquear UI.
+  // Intervalo curto compensa quando o WebSocket Realtime cai (comum no mobile
+  // quando a tela apaga / app vai pra background).
   useEffect(() => {
     if (!brokerId) return;
     const id = window.setInterval(() => {
       void refetchCloud().then(() => setLastSyncedAt(Date.now())).catch(() => {});
-    }, 60_000);
+    }, 15_000);
     return () => window.clearInterval(id);
   }, [brokerId, refetchCloud]);
 
