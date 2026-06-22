@@ -370,9 +370,49 @@ export function useCloudState() {
     setStateRaw(value);
   }, []);
 
-  const refetch = useCallback(async () => {
-    // Ignora ecos do realtime logo após uma escrita local pra evitar "piscar"
-    // o estado antigo sobre a atualização otimista.
+  // Helpers de merge usados tanto pelo refetch incremental quanto pelo Realtime.
+  function mergeContactsRows(prev: Contact[], rows: any[]): Contact[] {
+    if (!rows.length) return prev;
+    const byId = new Map(prev.map((c) => [c.id, c]));
+    for (const r of rows) {
+      byId.set(r.id, {
+        id: r.id,
+        name: r.name,
+        phone: r.phone,
+        brokerId: r.broker_id ?? null,
+        status: statusDbToLocal[r.status] ?? "pendente",
+        createdAt: new Date(r.created_at).getTime(),
+        attempts: r.call_attempts ?? 0,
+        listName: r.list_name ?? "Geral",
+      });
+    }
+    return Array.from(byId.values());
+  }
+  function mergeCallsRows(prev: Call[], rows: any[]): Call[] {
+    if (!rows.length) return prev;
+    const byId = new Map(prev.map((c) => [c.id, c]));
+    for (const r of rows) {
+      byId.set(r.id, {
+        id: r.id,
+        date: toLocalDate(r.created_at),
+        brokerId: r.broker_id,
+        client: r.client_name,
+        phone: r.phone ?? undefined,
+        attended: r.attended,
+        scheduled: r.scheduled,
+        note: r.notes ?? "",
+        createdAt: new Date(r.created_at).getTime(),
+        contactId: r.contact_id ?? undefined,
+      });
+    }
+    // ordenado por createdAt desc (igual ao loadAll)
+    return Array.from(byId.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // Sincronização principal: full quando ainda não temos cursor (ou periódico
+  // pra capturar deletes), incremental no resto. Reduz cada poll de ~26k linhas
+  // pra tipicamente <10 linhas.
+  const refetch = useCallback(async (opts?: { full?: boolean }) => {
     if (Date.now() < muteUntilRef.current) return;
     if (pendingTimer.current) return;
     if (dirtyRef.current) return;
@@ -382,10 +422,69 @@ export function useCloudState() {
     }
     refetchInFlightRef.current = true;
     try {
-      const s = await loadAll();
-      lastSyncedRef.current = s;
-      dirtyRef.current = false;
-      setStateRaw(s);
+      const noCursor = contactsCursorRef.current === null || callsCursorRef.current === null;
+      const periodicFull = incrementalsSinceFullRef.current >= FULL_SYNC_EVERY;
+      const doFull = opts?.full || noCursor || periodicFull;
+
+      if (doFull) {
+        const s = await loadAll();
+        // Cursores derivam do maior updated_at visto após o full sync.
+        // Como loadAll() lê todas as linhas, fazemos uma segunda query barata
+        // só pra pegar o max(updated_at) — ou usamos o max do que já temos.
+        const cMax = await (supabase.from("contacts_queue") as any)
+          .select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        const kMax = await (supabase.from("calls") as any)
+          .select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        contactsCursorRef.current = (cMax?.data?.updated_at as string | undefined) ?? null;
+        callsCursorRef.current = (kMax?.data?.updated_at as string | undefined) ?? null;
+        incrementalsSinceFullRef.current = 0;
+        lastSyncedRef.current = s;
+        dirtyRef.current = false;
+        setStateRaw(s);
+      } else {
+        // Delta-only: contacts_queue + calls. brokers/settings são pequenos
+        // e mudam raramente — buscamos junto pra manter coerência.
+        const [deltaContacts, deltaCalls, brokersR, settingsR] = await Promise.all([
+          loadDeltaContactsSince(contactsCursorRef.current),
+          loadDeltaCallsSince(callsCursorRef.current),
+          supabase.from("brokers").select("*").order("created_at"),
+          supabase.from("app_settings").select("*").eq("id", "global").maybeSingle(),
+        ]);
+
+        const cMax = maxUpdatedAt(deltaContacts);
+        const kMax = maxUpdatedAt(deltaCalls);
+        if (cMax && (!contactsCursorRef.current || cMax > contactsCursorRef.current)) contactsCursorRef.current = cMax;
+        if (kMax && (!callsCursorRef.current || kMax > callsCursorRef.current)) callsCursorRef.current = kMax;
+        incrementalsSinceFullRef.current += 1;
+
+        const brokers: Broker[] = (brokersR.data ?? []).map((b: any) => ({
+          id: b.id, name: b.name, userId: b.user_id ?? null, approved: b.approved ?? true,
+        }));
+        const metaDaily = settingsR.data?.meta_daily ?? lastSyncedRef.current.metaDaily ?? 50;
+
+        setStateRaw((prev) => {
+          const next: State = {
+            brokers,
+            metaDaily,
+            contacts: mergeContactsRows(prev.contacts, deltaContacts),
+            calls: mergeCallsRows(prev.calls, deltaCalls),
+          };
+          lastSyncedRef.current = next;
+          return next;
+        });
+        dirtyRef.current = false;
+      }
+    } catch (e) {
+      console.warn("refetch incremental falhou — caindo pra full", e);
+      try {
+        const s = await loadAll();
+        lastSyncedRef.current = s;
+        setStateRaw(s);
+        contactsCursorRef.current = null;
+        callsCursorRef.current = null;
+      } catch (e2) {
+        console.error("refetch full também falhou", e2);
+      }
     } finally {
       refetchInFlightRef.current = false;
       if (queuedRefetchRef.current) {
