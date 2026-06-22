@@ -695,7 +695,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
         })
       .subscribe();
     // Fallback: re-sincroniza periodicamente caso algum evento se perca
-    const poll = window.setInterval(() => { void load(); }, 5000);
+    const poll = window.setInterval(() => { void load(); }, 2000);
     return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
   }, [brokerId]);
 
