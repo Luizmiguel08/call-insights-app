@@ -918,12 +918,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     if (forcedPinned) {
       return [forcedPinned, ...myQueue.filter((c) => c.id !== forcedPinned.id)];
     }
-    const hasServerHead = serverNextId !== undefined;
-    // Servidor é a fonte da verdade: se ele indicou um próximo, usamos esse —
-    // sincroniza o head entre todos os dispositivos do mesmo corretor.
+    // Servidor sugere o head pra alinhar múltiplos dispositivos do mesmo
+    // corretor. Mas NUNCA zeramos a fila local por causa do servidor: se ele
+    // devolver null (erro, latência, sessão sem broker), continuamos com o
+    // que temos localmente — senão qualquer hiccup momentâneo esvazia a tela
+    // pra todo mundo.
     const serverPinned = serverNextId ? myQueue.find((c) => c.id === serverNextId) : null;
-    const pinId = remoteCall?.contact_id || (hasServerHead && serverPinned ? serverNextId : null);
-    if (!remoteCall?.contact_id && hasServerHead && serverNextId === null) return [];
+    const pinId = remoteCall?.contact_id || (serverPinned ? serverNextId : null);
     if (!pinId) return myQueue;
     const pinned = myQueue.find((c) => c.id === pinId);
     if (!pinned) return myQueue;
