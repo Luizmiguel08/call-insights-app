@@ -1310,9 +1310,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
         setForcedCurrentContactId(contactId);
         lastOutcomeRef.current = "";
       } finally {
-        setSubmittingOutcome(false);
+        // no-op: submittingOutcome não é mais setado no fluxo otimista
       }
     })();
+
     console.timeEnd('1_register_result');
   }
 
