@@ -7,96 +7,105 @@ import {
 } from "@/lib/dialer-shared";
 import { supabase } from "@/integrations/supabase/client";
 
-type DurationRow = {
-  broker_id: string;
-  corretor_nome: string | null;
-  dia: string;
-  total_ligacoes: number;
-  ligacoes_fantasma: number;
-  ligacoes_curtas: number;
-  ligacoes_medias: number;
-  ligacoes_longas: number;
-  sem_registro: number;
-  pct_fantasma: number;
-  pct_curta: number;
-  pct_qualidade: number;
-  duracao_media_segundos: number;
-  duracao_maxima_segundos: number;
-  duracao_minima_segundos: number;
+type RawCallRow = {
+  broker_id: string | null;
+  contact_id: string | null;
+  client_name: string | null;
+  phone: string | null;
+  duration_seconds: number | null;
+  created_at: string;
 };
 
 
 export default function DashboardTab({ state }: { state: State }) {
   const [date, setDate] = useState(todayISO());
-  const [durationRows, setDurationRows] = useState<DurationRow[]>([]);
+  const [rawCalls, setRawCalls] = useState<RawCallRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let q = supabase.from("call_duration_stats" as any).select("*");
-      if (date) q = q.eq("dia", date);
-      const { data, error } = await q;
+      let q: any = supabase
+        .from("calls")
+        .select("broker_id,contact_id,client_name,phone,duration_seconds,created_at");
+      if (date) {
+        // date is São Paulo date; filter by that day in that TZ
+        const start = new Date(`${date}T00:00:00-03:00`).toISOString();
+        const end = new Date(`${date}T23:59:59.999-03:00`).toISOString();
+        q = q.gte("created_at", start).lte("created_at", end);
+      }
+      const { data, error } = await q.limit(50000);
       if (cancelled) return;
-      if (error) { setDurationRows([]); return; }
-      setDurationRows((data ?? []) as unknown as DurationRow[]);
+      if (error) { setRawCalls([]); return; }
+      setRawCalls((data ?? []) as RawCallRow[]);
     })();
     return () => { cancelled = true; };
   }, [date]);
 
+  // Group calls by (broker, unique contact), keeping the MAX duration among
+  // that contact's calls. Counts contatos únicos, matching the ranking table.
+  const perBrokerDuration = useMemo(() => {
+    // brokerId -> contactKey -> maxDuration
+    const grouped = new Map<string, Map<string, number>>();
+    for (const r of rawCalls) {
+      const bId = r.broker_id ?? "sem";
+      const key = normalizedContactKey({
+        client: r.client_name ?? undefined,
+        phone: r.phone ?? undefined,
+        contactId: r.contact_id ?? undefined,
+      });
+      let inner = grouped.get(bId);
+      if (!inner) { inner = new Map(); grouped.set(bId, inner); }
+      const cur = inner.get(key) ?? 0;
+      const d = r.duration_seconds ?? 0;
+      if (d > cur) inner.set(key, d);
+      else if (!inner.has(key)) inner.set(key, d);
+    }
+
+    const bucket = (s: number): "fantasma" | "curta" | "media" | "longa" | "semReg" => {
+      if (!s || s <= 0) return "semReg";
+      if (s < 4) return "fantasma";
+      if (s < 60) return "curta";
+      if (s < 180) return "media";
+      return "longa";
+    };
+
+    const rows = Array.from(grouped.entries()).map(([bId, contacts]) => {
+      const name = state.brokers.find((b) => b.id === bId)?.name || "Sem corretor";
+      let total = 0, fantasma = 0, curta = 0, media = 0, longa = 0, semReg = 0;
+      let totalSecs = 0, avgSum = 0, avgCount = 0, maxDur = 0;
+      for (const dur of contacts.values()) {
+        total += 1;
+        totalSecs += dur;
+        if (dur > 0) { avgSum += dur; avgCount += 1; }
+        if (dur > maxDur) maxDur = dur;
+        const b = bucket(dur);
+        if (b === "fantasma") fantasma += 1;
+        else if (b === "curta") curta += 1;
+        else if (b === "media") media += 1;
+        else if (b === "longa") longa += 1;
+        else semReg += 1;
+      }
+      return {
+        brokerId: bId, name, total, fantasma, curta, media, longa, semReg,
+        totalSecs, maxDur,
+        avg: avgCount ? Math.round(avgSum / avgCount) : 0,
+        pctQualidade: total ? Math.round(((media + longa) / total) * 100) : 0,
+      };
+    });
+    return rows.sort((a, b) => b.totalSecs - a.totalSecs);
+  }, [rawCalls, state.brokers]);
+
   const durationTotals = useMemo(() => {
     const t = { fantasma: 0, curta: 0, media: 0, longa: 0, semReg: 0, total: 0, avg: 0 };
     let avgSum = 0, avgCount = 0;
-    for (const r of durationRows) {
-      t.fantasma += r.ligacoes_fantasma ?? 0;
-      t.curta += r.ligacoes_curtas ?? 0;
-      t.media += r.ligacoes_medias ?? 0;
-      t.longa += r.ligacoes_longas ?? 0;
-      t.semReg += r.sem_registro ?? 0;
-      t.total += r.total_ligacoes ?? 0;
-      if (r.duracao_media_segundos) { avgSum += r.duracao_media_segundos * (r.total_ligacoes ?? 0); avgCount += (r.total_ligacoes ?? 0); }
+    for (const r of perBrokerDuration) {
+      t.fantasma += r.fantasma; t.curta += r.curta; t.media += r.media;
+      t.longa += r.longa; t.semReg += r.semReg; t.total += r.total;
+      if (r.avg) { avgSum += r.avg * (r.total - r.semReg); avgCount += (r.total - r.semReg); }
     }
     t.avg = avgCount ? Math.round(avgSum / avgCount) : 0;
     return t;
-  }, [durationRows]);
-
-  const perBrokerDuration = useMemo(() => {
-    const map = new Map<string, {
-      brokerId: string; name: string;
-      total: number; fantasma: number; curta: number; media: number; longa: number; semReg: number;
-      avgSum: number; avgCount: number; maxDur: number; totalSecs: number;
-    }>();
-    for (const r of durationRows) {
-      const key = r.broker_id ?? "sem";
-      const nome = r.corretor_nome
-        || state.brokers.find((b) => b.id === r.broker_id)?.name
-        || "Sem corretor";
-      let e = map.get(key);
-      if (!e) {
-        e = { brokerId: key, name: nome, total: 0, fantasma: 0, curta: 0, media: 0, longa: 0, semReg: 0, avgSum: 0, avgCount: 0, maxDur: 0, totalSecs: 0 };
-        map.set(key, e);
-      }
-      const t = r.total_ligacoes ?? 0;
-      e.total += t;
-      e.fantasma += r.ligacoes_fantasma ?? 0;
-      e.curta += r.ligacoes_curtas ?? 0;
-      e.media += r.ligacoes_medias ?? 0;
-      e.longa += r.ligacoes_longas ?? 0;
-      e.semReg += r.sem_registro ?? 0;
-      if (r.duracao_media_segundos) {
-        e.avgSum += (r.duracao_media_segundos ?? 0) * t;
-        e.avgCount += t;
-        e.totalSecs += (r.duracao_media_segundos ?? 0) * t;
-      }
-      if ((r.duracao_maxima_segundos ?? 0) > e.maxDur) e.maxDur = r.duracao_maxima_segundos ?? 0;
-    }
-    return Array.from(map.values())
-      .map((e) => ({
-        ...e,
-        avg: e.avgCount ? Math.round(e.avgSum / e.avgCount) : 0,
-        pctQualidade: e.total ? Math.round(((e.media + e.longa) / e.total) * 100) : 0,
-      }))
-      .sort((a, b) => b.totalSecs - a.totalSecs);
-  }, [durationRows, state.brokers]);
+  }, [perBrokerDuration]);
 
   const fmtDur = (s: number) => {
     if (!s) return "0s";
