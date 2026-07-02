@@ -732,7 +732,7 @@ export function useCloudState() {
       window.removeEventListener("online", onOnline);
 
     };
-  }, [scheduleRefetch]);
+  }, [scheduleRefetch, refetch]);
 
   useEffect(() => {
     if (!hydrated || !meRef.current) return;
