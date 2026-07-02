@@ -38,6 +38,35 @@ function defaultState(): State {
   return { brokers: [], calls: [], contacts: [], metaDaily: 50 };
 }
 
+// -------- Cache local (localStorage) por usuário --------
+// Guarda um snapshot do estado + cursores de sincronização para que na
+// próxima abertura o app apareça INSTANTANEAMENTE e só puxe o delta.
+const CACHE_VERSION = 1;
+function cacheKey(userId: string) { return `ligactrl_cache_v${CACHE_VERSION}_${userId}`; }
+type CachePayload = {
+  version: number;
+  state: State;
+  contactsCursor: string | null;
+  callsCursor: string | null;
+  savedAt: number;
+};
+function loadCache(userId: string): CachePayload | null {
+  try {
+    const raw = localStorage.getItem(cacheKey(userId));
+    if (!raw) return null;
+    const p = JSON.parse(raw) as CachePayload;
+    if (p?.version !== CACHE_VERSION) return null;
+    return p;
+  } catch { return null; }
+}
+function persistCache(me: Me | null, state: State, contactsCursor: string | null, callsCursor: string | null) {
+  if (!me) return;
+  try {
+    const payload: CachePayload = { version: CACHE_VERSION, state, contactsCursor, callsCursor, savedAt: Date.now() };
+    localStorage.setItem(cacheKey(me.userId), JSON.stringify(payload));
+  } catch { /* quota ou modo privado — ignora */ }
+}
+
 const statusLocalToDb = { pendente: "pending", feito: "done", pulado: "skipped" } as const;
 const statusDbToLocal: Record<string, Contact["status"]> = { pending: "pendente", done: "feito", skipped: "pulado" };
 
