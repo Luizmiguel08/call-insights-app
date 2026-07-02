@@ -444,15 +444,13 @@ export function useCloudState() {
     }
     refetchInFlightRef.current = true;
     try {
+      const me = meRef.current;
       const noCursor = contactsCursorRef.current === null || callsCursorRef.current === null;
       const periodicFull = incrementalsSinceFullRef.current >= FULL_SYNC_EVERY;
       const doFull = opts?.full || noCursor || periodicFull;
 
       if (doFull) {
-        const s = await loadAll();
-        // Cursores derivam do maior updated_at visto após o full sync.
-        // Como loadAll() lê todas as linhas, fazemos uma segunda query barata
-        // só pra pegar o max(updated_at) — ou usamos o max do que já temos.
+        const s = await loadAll(me);
         const cMax = await (supabase.from("contacts_queue") as any)
           .select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle();
         const kMax = await (supabase.from("calls") as any)
@@ -463,12 +461,11 @@ export function useCloudState() {
         lastSyncedRef.current = s;
         dirtyRef.current = false;
         setStateRaw(s);
+        persistCache(me, s, contactsCursorRef.current, callsCursorRef.current);
       } else {
-        // Delta-only: contacts_queue + calls. brokers/settings são pequenos
-        // e mudam raramente — buscamos junto pra manter coerência.
         const [deltaContacts, deltaCalls, brokersR, settingsR] = await Promise.all([
-          loadDeltaContactsSince(contactsCursorRef.current),
-          loadDeltaCallsSince(callsCursorRef.current),
+          loadDeltaContactsSince(contactsCursorRef.current, me),
+          loadDeltaCallsSince(callsCursorRef.current, me),
           supabase.from("brokers").select("*").order("created_at"),
           supabase.from("app_settings").select("*").eq("id", "global").maybeSingle(),
         ]);
@@ -492,6 +489,7 @@ export function useCloudState() {
             calls: mergeCallsRows(prev.calls, deltaCalls),
           };
           lastSyncedRef.current = next;
+          persistCache(me, next, contactsCursorRef.current, callsCursorRef.current);
           return next;
         });
         dirtyRef.current = false;
@@ -499,7 +497,7 @@ export function useCloudState() {
     } catch (e) {
       console.warn("refetch incremental falhou — caindo pra full", e);
       try {
-        const s = await loadAll();
+        const s = await loadAll(meRef.current);
         lastSyncedRef.current = s;
         setStateRaw(s);
         contactsCursorRef.current = null;
