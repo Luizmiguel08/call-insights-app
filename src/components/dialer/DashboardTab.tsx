@@ -1,10 +1,30 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type State,
   Field, Kpi, Th, Td,
   fontDisplay, fontNumeric, inputCls,
   todayISO, uniqueContactCount, uniqueContactCountWhere,
 } from "@/lib/dialer-shared";
+import { supabase } from "@/integrations/supabase/client";
+
+type DurationRow = {
+  broker_id: string;
+  corretor_nome: string | null;
+  dia: string;
+  total_ligacoes: number;
+  ligacoes_fantasma: number;
+  ligacoes_curtas: number;
+  ligacoes_medias: number;
+  ligacoes_longas: number;
+  sem_registro: number;
+  pct_fantasma: number;
+  pct_curta: number;
+  pct_qualidade: number;
+  duracao_media_segundos: number;
+  duracao_maxima_segundos: number;
+  duracao_minima_segundos: number;
+};
+
 
 export default function DashboardTab({ state }: { state: State }) {
   const [date, setDate] = useState(todayISO());
