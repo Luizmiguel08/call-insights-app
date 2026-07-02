@@ -28,6 +28,40 @@ type DurationRow = {
 
 export default function DashboardTab({ state }: { state: State }) {
   const [date, setDate] = useState(todayISO());
+  const [durationRows, setDurationRows] = useState<DurationRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let q = supabase.from("call_duration_stats" as any).select("*");
+      if (date) q = q.eq("dia", date);
+      const { data, error } = await q;
+      if (cancelled) return;
+      if (error) { setDurationRows([]); return; }
+      setDurationRows((data ?? []) as unknown as DurationRow[]);
+    })();
+    return () => { cancelled = true; };
+  }, [date]);
+
+  const durationTotals = useMemo(() => {
+    const t = { fantasma: 0, curta: 0, media: 0, longa: 0, semReg: 0, total: 0, avg: 0 };
+    let avgSum = 0, avgCount = 0;
+    for (const r of durationRows) {
+      t.fantasma += r.ligacoes_fantasma ?? 0;
+      t.curta += r.ligacoes_curtas ?? 0;
+      t.media += r.ligacoes_medias ?? 0;
+      t.longa += r.ligacoes_longas ?? 0;
+      t.semReg += r.sem_registro ?? 0;
+      t.total += r.total_ligacoes ?? 0;
+      if (r.duracao_media_segundos) { avgSum += r.duracao_media_segundos * (r.total_ligacoes ?? 0); avgCount += (r.total_ligacoes ?? 0); }
+    }
+    t.avg = avgCount ? Math.round(avgSum / avgCount) : 0;
+    return t;
+  }, [durationRows]);
+
+  const pctQualidade = durationTotals.total ? Math.round(((durationTotals.media + durationTotals.longa) / durationTotals.total) * 100) : 0;
+  const pctFantasma = durationTotals.total ? Math.round((durationTotals.fantasma / durationTotals.total) * 100) : 0;
+
 
   const calls = useMemo(() => state.calls.filter((c) => (date ? c.date === date : true)), [state.calls, date]);
 
