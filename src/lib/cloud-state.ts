@@ -414,7 +414,7 @@ export function useCloudState() {
   // DELETEs que tenham escapado do canal Realtime (deletes não atualizam
   // updated_at, por isso não aparecem no delta).
   const incrementalsSinceFullRef = useRef(0);
-  const FULL_SYNC_EVERY = 60; // a 5s/refetch = ~5min
+  const FULL_SYNC_EVERY = 720; // reconciliação de deletes ~1x/hora (5s/refetch)
 
   const setState = useCallback<React.Dispatch<React.SetStateAction<State>>>((value) => {
     dirtyRef.current = true;
