@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_contacts_queue_created_id ON public.contacts_queue USING btree (created_at ASC, id ASC);
