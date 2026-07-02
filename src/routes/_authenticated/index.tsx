@@ -608,7 +608,7 @@ function PendingRow({ broker, onRename, onApprove, onReject }: { broker: Broker;
 
 /* ---------------- DISCADOR ---------------- */
 
-function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSession, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void>; userId: string | null; dialerSession: ReturnType<typeof useDialerSession>; me: Me | null }) {
+function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSession, me, hydrated }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void>; userId: string | null; dialerSession: ReturnType<typeof useDialerSession>; me: Me | null; hydrated: boolean }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [selectedList, setSelectedList] = useState<string>("all");
   const [note, setNote] = useState("");
