@@ -38,6 +38,35 @@ function defaultState(): State {
   return { brokers: [], calls: [], contacts: [], metaDaily: 50 };
 }
 
+// -------- Cache local (localStorage) por usuário --------
+// Guarda um snapshot do estado + cursores de sincronização para que na
+// próxima abertura o app apareça INSTANTANEAMENTE e só puxe o delta.
+const CACHE_VERSION = 1;
+function cacheKey(userId: string) { return `ligactrl_cache_v${CACHE_VERSION}_${userId}`; }
+type CachePayload = {
+  version: number;
+  state: State;
+  contactsCursor: string | null;
+  callsCursor: string | null;
+  savedAt: number;
+};
+function loadCache(userId: string): CachePayload | null {
+  try {
+    const raw = localStorage.getItem(cacheKey(userId));
+    if (!raw) return null;
+    const p = JSON.parse(raw) as CachePayload;
+    if (p?.version !== CACHE_VERSION) return null;
+    return p;
+  } catch { return null; }
+}
+function persistCache(me: Me | null, state: State, contactsCursor: string | null, callsCursor: string | null) {
+  if (!me) return;
+  try {
+    const payload: CachePayload = { version: CACHE_VERSION, state, contactsCursor, callsCursor, savedAt: Date.now() };
+    localStorage.setItem(cacheKey(me.userId), JSON.stringify(payload));
+  } catch { /* quota ou modo privado — ignora */ }
+}
+
 const statusLocalToDb = { pendente: "pending", feito: "done", pulado: "skipped" } as const;
 const statusDbToLocal: Record<string, Contact["status"]> = { pending: "pendente", done: "feito", skipped: "pulado" };
 
@@ -91,7 +120,21 @@ async function loadMe(): Promise<Me | null> {
   };
 }
 
-async function loadAll(): Promise<State> {
+// Escopo do payload: corretor (ou admin escopado) só carrega a própria fila
+// e as próprias ligações. Admins normais continuam vendo tudo.
+const SCOPED_ADMIN_USER_IDS_LOAD = new Set<string>([
+  "b83e1206-282b-4317-9c88-f1c9cf891408", // Alyson Inacio
+  "f27737e1-eeb9-465f-beb7-2e0fee7f9bf8", // Nickolas
+]);
+function scopeBrokerId(me: Me | null): string | null {
+  if (!me) return null;
+  if (me.isAdmin && !SCOPED_ADMIN_USER_IDS_LOAD.has(me.userId)) return null; // admin geral: sem filtro
+  return me.brokerId ?? null;
+}
+
+async function loadAll(me: Me | null): Promise<State> {
+  const scoped = scopeBrokerId(me);
+
   // Paginate contacts_queue to load ALL contacts (Supabase caps at 1000/req by default).
   async function loadAllContacts() {
     const pageSize = 1000;
@@ -99,12 +142,14 @@ async function loadAll(): Promise<State> {
     const all: any[] = [];
     // hard safety cap to avoid infinite loops
     while (from < 100000) {
-      const r = await supabase
+      let q: any = supabase
         .from("contacts_queue")
         .select("*")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
+      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+      const r = await q;
       if (r.error) throw r.error;
       const rows = r.data ?? [];
       all.push(...rows);
@@ -119,11 +164,13 @@ async function loadAll(): Promise<State> {
     let from = 0;
     const all: any[] = [];
     while (from < 100000) {
-      const r = await supabase
+      let q: any = supabase
         .from("calls")
         .select("*")
         .order("created_at", { ascending: false })
         .range(from, from + pageSize - 1);
+      if (scoped) q = q.eq("broker_id", scoped);
+      const r = await q;
       if (r.error) throw r.error;
       const rows = r.data ?? [];
       all.push(...rows);
@@ -183,7 +230,8 @@ async function loadAll(): Promise<State> {
  * e mesclamos no estado local por id. Reduz drasticamente o tráfego
  * (e a latência percebida) tanto no celular quanto no desktop.
  */
-async function loadDeltaContactsSince(sinceIso: string | null): Promise<any[]> {
+async function loadDeltaContactsSince(sinceIso: string | null, me: Me | null): Promise<any[]> {
+  const scoped = scopeBrokerId(me);
   const pageSize = 1000;
   let from = 0;
   const all: any[] = [];
@@ -194,6 +242,7 @@ async function loadDeltaContactsSince(sinceIso: string | null): Promise<any[]> {
       .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (sinceIso) q = q.gt("updated_at", sinceIso);
+    if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
     const r = await q;
     if (r.error) throw r.error;
     const rows = (r.data ?? []) as any[];
@@ -204,7 +253,8 @@ async function loadDeltaContactsSince(sinceIso: string | null): Promise<any[]> {
   return all;
 }
 
-async function loadDeltaCallsSince(sinceIso: string | null): Promise<any[]> {
+async function loadDeltaCallsSince(sinceIso: string | null, me: Me | null): Promise<any[]> {
+  const scoped = scopeBrokerId(me);
   const pageSize = 1000;
   let from = 0;
   const all: any[] = [];
@@ -215,6 +265,7 @@ async function loadDeltaCallsSince(sinceIso: string | null): Promise<any[]> {
       .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (sinceIso) q = q.gt("updated_at", sinceIso);
+    if (scoped) q = q.eq("broker_id", scoped);
     const r = await q;
     if (r.error) throw r.error;
     const rows = (r.data ?? []) as any[];
@@ -363,7 +414,7 @@ export function useCloudState() {
   // DELETEs que tenham escapado do canal Realtime (deletes não atualizam
   // updated_at, por isso não aparecem no delta).
   const incrementalsSinceFullRef = useRef(0);
-  const FULL_SYNC_EVERY = 60; // a 5s/refetch = ~5min
+  const FULL_SYNC_EVERY = 720; // reconciliação de deletes ~1x/hora (5s/refetch)
 
   const setState = useCallback<React.Dispatch<React.SetStateAction<State>>>((value) => {
     dirtyRef.current = true;
@@ -422,15 +473,13 @@ export function useCloudState() {
     }
     refetchInFlightRef.current = true;
     try {
+      const me = meRef.current;
       const noCursor = contactsCursorRef.current === null || callsCursorRef.current === null;
       const periodicFull = incrementalsSinceFullRef.current >= FULL_SYNC_EVERY;
       const doFull = opts?.full || noCursor || periodicFull;
 
       if (doFull) {
-        const s = await loadAll();
-        // Cursores derivam do maior updated_at visto após o full sync.
-        // Como loadAll() lê todas as linhas, fazemos uma segunda query barata
-        // só pra pegar o max(updated_at) — ou usamos o max do que já temos.
+        const s = await loadAll(me);
         const cMax = await (supabase.from("contacts_queue") as any)
           .select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle();
         const kMax = await (supabase.from("calls") as any)
@@ -441,12 +490,11 @@ export function useCloudState() {
         lastSyncedRef.current = s;
         dirtyRef.current = false;
         setStateRaw(s);
+        persistCache(me, s, contactsCursorRef.current, callsCursorRef.current);
       } else {
-        // Delta-only: contacts_queue + calls. brokers/settings são pequenos
-        // e mudam raramente — buscamos junto pra manter coerência.
         const [deltaContacts, deltaCalls, brokersR, settingsR] = await Promise.all([
-          loadDeltaContactsSince(contactsCursorRef.current),
-          loadDeltaCallsSince(callsCursorRef.current),
+          loadDeltaContactsSince(contactsCursorRef.current, me),
+          loadDeltaCallsSince(callsCursorRef.current, me),
           supabase.from("brokers").select("*").order("created_at"),
           supabase.from("app_settings").select("*").eq("id", "global").maybeSingle(),
         ]);
@@ -470,6 +518,7 @@ export function useCloudState() {
             calls: mergeCallsRows(prev.calls, deltaCalls),
           };
           lastSyncedRef.current = next;
+          persistCache(me, next, contactsCursorRef.current, callsCursorRef.current);
           return next;
         });
         dirtyRef.current = false;
@@ -477,7 +526,7 @@ export function useCloudState() {
     } catch (e) {
       console.warn("refetch incremental falhou — caindo pra full", e);
       try {
-        const s = await loadAll();
+        const s = await loadAll(meRef.current);
         lastSyncedRef.current = s;
         setStateRaw(s);
         contactsCursorRef.current = null;
@@ -512,20 +561,36 @@ export function useCloudState() {
         if (!alive) return;
         meRef.current = m;
         setMe(m);
-        const s = await loadAll();
-        if (!alive) return;
-        // Seed dos cursores incrementais com o max(updated_at) atual.
-        try {
-          const [cMax, kMax] = await Promise.all([
-            (supabase.from("contacts_queue") as any).select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
-            (supabase.from("calls") as any).select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
-          ]);
-          contactsCursorRef.current = (cMax?.data?.updated_at as string | undefined) ?? null;
-          callsCursorRef.current = (kMax?.data?.updated_at as string | undefined) ?? null;
-        } catch { /* tudo bem, primeiro refetch fará full */ }
-        lastSyncedRef.current = s;
-        setStateRaw(s);
-        setHydrated(true);
+
+        // 1) Hidrata do cache local pra render instantâneo (sem esperar rede)
+        const cached = m ? loadCache(m.userId) : null;
+        if (cached) {
+          contactsCursorRef.current = cached.contactsCursor;
+          callsCursorRef.current = cached.callsCursor;
+          lastSyncedRef.current = cached.state;
+          setStateRaw(cached.state);
+          setHydrated(true);
+        }
+
+        // 2) Delta a partir dos cursores (ou full na primeira vez / sem cache)
+        if (cached && cached.contactsCursor && cached.callsCursor) {
+          void refetch();
+        } else {
+          const s = await loadAll(m);
+          if (!alive) return;
+          try {
+            const [cMax, kMax] = await Promise.all([
+              (supabase.from("contacts_queue") as any).select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+              (supabase.from("calls") as any).select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+            ]);
+            contactsCursorRef.current = (cMax?.data?.updated_at as string | undefined) ?? null;
+            callsCursorRef.current = (kMax?.data?.updated_at as string | undefined) ?? null;
+          } catch { /* tudo bem, primeiro refetch fará full */ }
+          lastSyncedRef.current = s;
+          setStateRaw(s);
+          persistCache(m, s, contactsCursorRef.current, callsCursorRef.current);
+          setHydrated(true);
+        }
       } catch (e) {
         console.error("Falha ao carregar dados", e);
         setHydrated(true);
@@ -667,7 +732,7 @@ export function useCloudState() {
       window.removeEventListener("online", onOnline);
 
     };
-  }, [scheduleRefetch]);
+  }, [scheduleRefetch, refetch]);
 
   useEffect(() => {
     if (!hydrated || !meRef.current) return;
