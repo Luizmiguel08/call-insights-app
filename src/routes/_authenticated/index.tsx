@@ -171,22 +171,59 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   const [note, setNote] = useState("");
   const nameRef = useRef<HTMLInputElement | null>(null);
 
+  // Cronômetro da ligação (aba Rápido)
+  const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!callStartedAt) return;
+    setElapsed(Math.floor((Date.now() - callStartedAt) / 1000));
+    const t = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - callStartedAt) / 1000));
+    }, 500);
+    return () => window.clearInterval(t);
+  }, [callStartedAt]);
+
   useEffect(() => {
     if (!state.brokers.length) return;
     if (!brokerId || !state.brokers.some((b) => b.id === brokerId)) setBrokerId(state.brokers[0].id);
   }, [state.brokers, brokerId]);
   useEffect(() => { nameRef.current?.focus(); }, [brokerId, date]);
 
+  function fmtElapsed(sec: number) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }
+
+  function startCallTimer() {
+    if (!callStartedAt) setCallStartedAt(Date.now());
+  }
+
   function quickSave(attended: boolean, scheduled: boolean) {
     const name = client.trim();
     if (!name) { toast.error("Digite o nome do cliente"); nameRef.current?.focus(); return; }
     if (!brokerId) { toast.error("Selecione um corretor"); return; }
+    if (!callStartedAt) {
+      toast.error("Clique em Discar antes de marcar o desfecho", {
+        description: "O cronômetro registra a duração da ligação.",
+      });
+      return;
+    }
+    const endedAt = Date.now();
+    const duration = Math.max(0, Math.round((endedAt - callStartedAt) / 1000));
     const normalized = phone.trim() ? normalizePhone(phone) : undefined;
-    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended, scheduled, note: note.trim(), createdAt: Date.now() };
+    const call: Call = {
+      id: uid(), date, brokerId, client: name, phone: normalized,
+      attended, scheduled, note: note.trim(), createdAt: Date.now(),
+      startedAt: callStartedAt, endedAt, durationSeconds: duration,
+    };
     setState((s) => ({ ...s, calls: [call, ...s.calls] }));
+    if (duration < 4) toast.warning(`Ligação registrada (${duration}s — fantasma)`);
     setClient("");
     setPhone("");
     setNote("");
+    setCallStartedAt(null);
+    setElapsed(0);
     setTimeout(() => nameRef.current?.focus(), 0);
   }
 
@@ -195,12 +232,14 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
     if (!name) { toast.error("Digite o nome do cliente"); nameRef.current?.focus(); return; }
     if (!brokerId) { toast.error("Selecione um corretor"); return; }
     const normalized = phone.trim() ? normalizePhone(phone) : undefined;
-    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended: false, scheduled: false, note: note.trim(), createdAt: Date.now() };
+    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended: false, scheduled: false, note: note.trim(), createdAt: Date.now(), startedAt: null, endedAt: null, durationSeconds: 0 };
     setState((s) => ({ ...s, calls: [call, ...s.calls] }));
     toast.success("Adicionado ao histórico", { description: name });
     setClient("");
     setPhone("");
     setNote("");
+    setCallStartedAt(null);
+    setElapsed(0);
     setTimeout(() => nameRef.current?.focus(), 0);
   }
 
@@ -217,6 +256,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
   const dialHref = phone.trim() ? telHref(phone) : "#";
   const dialReady = phone.trim().length > 0;
+
 
   const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const attendedUnique = uniqueContactCountWhere(today, (c) => c.attended);
@@ -263,10 +303,18 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           <h2 className="text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
             <Zap className="inline h-5 w-5 text-[#c9a24c] mb-1" /> Ligação avulsa — {brokerName}
           </h2>
-          <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-            Sem precisar entrar na fila
-          </div>
+          {callStartedAt ? (
+            <div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-emerald-300" style={fontDisplay}>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              Em ligação · <span className="tabular-nums">{fmtElapsed(elapsed)}</span>
+            </div>
+          ) : (
+            <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+              Cronômetro inicia ao clicar em Discar
+            </div>
+          )}
         </div>
+
 
         <div className="grid gap-3 sm:grid-cols-[1fr_240px]">
           <Field label="Nome do cliente">
@@ -306,7 +354,10 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
         <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
           <a
             href={dialHref}
-            onClick={(e) => { if (!dialReady) e.preventDefault(); }}
+            onClick={(e) => {
+              if (!dialReady) { e.preventDefault(); return; }
+              startCallTimer();
+            }}
             className={`flex items-center justify-center gap-2 h-14 rounded-md text-base font-bold uppercase tracking-[0.18em] transition ${
               dialReady
                 ? "bg-[#c9a24c] text-black hover:bg-[#e6c878]"
@@ -317,6 +368,8 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
             <PhoneCall className="h-5 w-5" />
             {dialReady ? `Discar ${normalizePhone(phone)}` : "Digite um telefone para discar"}
           </a>
+
+
           <button
             type="button"
             onClick={addOnly}
