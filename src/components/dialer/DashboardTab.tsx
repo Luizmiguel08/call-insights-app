@@ -193,7 +193,45 @@ export default function DashboardTab({ state }: { state: State }) {
         )}
       </div>
 
-
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h3 className="text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Duração por Corretor</h3>
+            <p className="text-xs text-zinc-500">Tempo total e média de cada ligação {date ? `em ${date}` : "em todos os dias"}</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
+              <tr>
+                <Th>Corretor</Th>
+                <Th className="text-right">Ligações</Th>
+                <Th className="text-right">Tempo Total</Th>
+                <Th className="text-right">Média</Th>
+                <Th className="text-right">Máx</Th>
+                <Th className="text-right">Fantasmas</Th>
+                <Th className="text-right">Qualidade</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {perBrokerDuration.map((r) => (
+                <tr key={r.brokerId} className="border-t border-zinc-800/80">
+                  <Td className="font-semibold text-zinc-100">{r.name}</Td>
+                  <Td className="text-right tabular-nums" style={fontNumeric}>{r.total}</Td>
+                  <Td className="text-right tabular-nums font-semibold text-[#c9a24c]" style={fontNumeric}>{fmtDur(Math.round(r.totalSecs))}</Td>
+                  <Td className="text-right tabular-nums" style={fontNumeric}>{fmtDur(r.avg)}</Td>
+                  <Td className="text-right tabular-nums text-zinc-300" style={fontNumeric}>{fmtDur(r.maxDur)}</Td>
+                  <Td className="text-right tabular-nums text-red-400">{r.fantasma}</Td>
+                  <Td className="text-right tabular-nums font-semibold text-emerald-400">{r.pctQualidade}%</Td>
+                </tr>
+              ))}
+              {perBrokerDuration.length === 0 && (
+                <tr><td colSpan={7} className="py-10 text-center text-zinc-500">Sem ligações registradas no período.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
         <h3 className="mb-1 text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Horário de Pico por Corretor</h3>
