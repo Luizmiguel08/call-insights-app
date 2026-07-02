@@ -723,10 +723,29 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   // Sincronização em background a cada 5s — fila completa, sem bloquear UI.
   // Intervalo curto compensa quando o WebSocket Realtime cai (comum no mobile
   // quando a tela apaga / app vai pra background).
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const verifyNow = useCallback(async () => {
+    setIsVerifying(true);
+    try {
+      await refetchCloud();
+      await refreshServerNext("manual-verify");
+      setLastSyncedAt(Date.now());
+      setSyncError(null);
+    } catch (e: any) {
+      setSyncError(e?.message || "Falha ao sincronizar com o servidor");
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [refetchCloud, refreshServerNext]);
+
   useEffect(() => {
     if (!brokerId) return;
     const id = window.setInterval(() => {
-      void refetchCloud().then(() => setLastSyncedAt(Date.now())).catch(() => {});
+      void refetchCloud()
+        .then(() => { setLastSyncedAt(Date.now()); setSyncError(null); })
+        .catch((e: any) => setSyncError(e?.message || "Sem conexão com o servidor"));
     }, 5_000);
     return () => window.clearInterval(id);
   }, [brokerId, refetchCloud]);
