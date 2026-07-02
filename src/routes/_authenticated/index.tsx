@@ -369,7 +369,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
             {dialReady ? `Discar ${normalizePhone(phone)}` : "Digite um telefone para discar"}
           </a>
 
-          </a>
+
           <button
             type="button"
             onClick={addOnly}
