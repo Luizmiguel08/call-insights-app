@@ -59,6 +59,53 @@ export default function DashboardTab({ state }: { state: State }) {
     return t;
   }, [durationRows]);
 
+  const perBrokerDuration = useMemo(() => {
+    const map = new Map<string, {
+      brokerId: string; name: string;
+      total: number; fantasma: number; curta: number; media: number; longa: number; semReg: number;
+      avgSum: number; avgCount: number; maxDur: number; totalSecs: number;
+    }>();
+    for (const r of durationRows) {
+      const key = r.broker_id ?? "sem";
+      const nome = r.corretor_nome
+        || state.brokers.find((b) => b.id === r.broker_id)?.name
+        || "Sem corretor";
+      let e = map.get(key);
+      if (!e) {
+        e = { brokerId: key, name: nome, total: 0, fantasma: 0, curta: 0, media: 0, longa: 0, semReg: 0, avgSum: 0, avgCount: 0, maxDur: 0, totalSecs: 0 };
+        map.set(key, e);
+      }
+      const t = r.total_ligacoes ?? 0;
+      e.total += t;
+      e.fantasma += r.ligacoes_fantasma ?? 0;
+      e.curta += r.ligacoes_curtas ?? 0;
+      e.media += r.ligacoes_medias ?? 0;
+      e.longa += r.ligacoes_longas ?? 0;
+      e.semReg += r.sem_registro ?? 0;
+      if (r.duracao_media_segundos) {
+        e.avgSum += (r.duracao_media_segundos ?? 0) * t;
+        e.avgCount += t;
+        e.totalSecs += (r.duracao_media_segundos ?? 0) * t;
+      }
+      if ((r.duracao_maxima_segundos ?? 0) > e.maxDur) e.maxDur = r.duracao_maxima_segundos ?? 0;
+    }
+    return Array.from(map.values())
+      .map((e) => ({
+        ...e,
+        avg: e.avgCount ? Math.round(e.avgSum / e.avgCount) : 0,
+        pctQualidade: e.total ? Math.round(((e.media + e.longa) / e.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.totalSecs - a.totalSecs);
+  }, [durationRows, state.brokers]);
+
+  const fmtDur = (s: number) => {
+    if (!s) return "0s";
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${ss}s`;
+    return `${ss}s`;
+  };
+
   const pctQualidade = durationTotals.total ? Math.round(((durationTotals.media + durationTotals.longa) / durationTotals.total) * 100) : 0;
   const pctFantasma = durationTotals.total ? Math.round((durationTotals.fantasma / durationTotals.total) * 100) : 0;
 
@@ -146,7 +193,45 @@ export default function DashboardTab({ state }: { state: State }) {
         )}
       </div>
 
-
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h3 className="text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Duração por Corretor</h3>
+            <p className="text-xs text-zinc-500">Tempo total e média de cada ligação {date ? `em ${date}` : "em todos os dias"}</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
+              <tr>
+                <Th>Corretor</Th>
+                <Th className="text-right">Ligações</Th>
+                <Th className="text-right">Tempo Total</Th>
+                <Th className="text-right">Média</Th>
+                <Th className="text-right">Máx</Th>
+                <Th className="text-right">Fantasmas</Th>
+                <Th className="text-right">Qualidade</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {perBrokerDuration.map((r) => (
+                <tr key={r.brokerId} className="border-t border-zinc-800/80">
+                  <Td className="font-semibold text-zinc-100">{r.name}</Td>
+                  <Td className="text-right tabular-nums" style={fontNumeric}>{r.total}</Td>
+                  <Td className="text-right tabular-nums font-semibold text-[#c9a24c]" style={fontNumeric}>{fmtDur(Math.round(r.totalSecs))}</Td>
+                  <Td className="text-right tabular-nums" style={fontNumeric}>{fmtDur(r.avg)}</Td>
+                  <Td className="text-right tabular-nums text-zinc-300" style={fontNumeric}>{fmtDur(r.maxDur)}</Td>
+                  <Td className="text-right tabular-nums text-red-400">{r.fantasma}</Td>
+                  <Td className="text-right tabular-nums font-semibold text-emerald-400">{r.pctQualidade}%</Td>
+                </tr>
+              ))}
+              {perBrokerDuration.length === 0 && (
+                <tr><td colSpan={7} className="py-10 text-center text-zinc-500">Sem ligações registradas no período.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
         <h3 className="mb-1 text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Horário de Pico por Corretor</h3>
