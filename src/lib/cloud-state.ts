@@ -91,7 +91,21 @@ async function loadMe(): Promise<Me | null> {
   };
 }
 
-async function loadAll(): Promise<State> {
+// Escopo do payload: corretor (ou admin escopado) só carrega a própria fila
+// e as próprias ligações. Admins normais continuam vendo tudo.
+const SCOPED_ADMIN_USER_IDS_LOAD = new Set<string>([
+  "b83e1206-282b-4317-9c88-f1c9cf891408", // Alyson Inacio
+  "f27737e1-eeb9-465f-beb7-2e0fee7f9bf8", // Nickolas
+]);
+function scopeBrokerId(me: Me | null): string | null {
+  if (!me) return null;
+  if (me.isAdmin && !SCOPED_ADMIN_USER_IDS_LOAD.has(me.userId)) return null; // admin geral: sem filtro
+  return me.brokerId ?? null;
+}
+
+async function loadAll(me: Me | null): Promise<State> {
+  const scoped = scopeBrokerId(me);
+
   // Paginate contacts_queue to load ALL contacts (Supabase caps at 1000/req by default).
   async function loadAllContacts() {
     const pageSize = 1000;
@@ -99,12 +113,14 @@ async function loadAll(): Promise<State> {
     const all: any[] = [];
     // hard safety cap to avoid infinite loops
     while (from < 100000) {
-      const r = await supabase
+      let q: any = supabase
         .from("contacts_queue")
         .select("*")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
+      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+      const r = await q;
       if (r.error) throw r.error;
       const rows = r.data ?? [];
       all.push(...rows);
@@ -119,11 +135,13 @@ async function loadAll(): Promise<State> {
     let from = 0;
     const all: any[] = [];
     while (from < 100000) {
-      const r = await supabase
+      let q: any = supabase
         .from("calls")
         .select("*")
         .order("created_at", { ascending: false })
         .range(from, from + pageSize - 1);
+      if (scoped) q = q.eq("broker_id", scoped);
+      const r = await q;
       if (r.error) throw r.error;
       const rows = r.data ?? [];
       all.push(...rows);
