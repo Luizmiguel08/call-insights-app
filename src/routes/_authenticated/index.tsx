@@ -1092,15 +1092,16 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   function handleResultClick(attended: boolean, scheduled: boolean) {
     if (isTransitioning || submittingOutcome) return;
     setIsTransitioning(true);
-    window.setTimeout(() => {
-      try {
-        recordOutcome(attended, scheduled);
-      } finally {
-        // Libera o lock logo após o swap otimista; o novo card entra com animate-slide-in-x (key={current.id}).
-        window.setTimeout(() => setIsTransitioning(false), 200);
-      }
-    }, 160);
+    // Avanço otimista IMEDIATO: atualiza estado agora, sem esperar animação nem banco.
+    // A animação de entrada roda no próximo card via key={current.id} + animate-slide-in-x.
+    try {
+      recordOutcome(attended, scheduled);
+    } finally {
+      // Libera o lock rapidamente — banco roda em paralelo (dentro de recordOutcome).
+      window.setTimeout(() => setIsTransitioning(false), 180);
+    }
   }
+
 
   function recordOutcome(attended: boolean, scheduled: boolean) {
     if (!current) return;
