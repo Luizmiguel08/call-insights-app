@@ -171,22 +171,59 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   const [note, setNote] = useState("");
   const nameRef = useRef<HTMLInputElement | null>(null);
 
+  // Cronômetro da ligação (aba Rápido)
+  const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!callStartedAt) return;
+    setElapsed(Math.floor((Date.now() - callStartedAt) / 1000));
+    const t = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - callStartedAt) / 1000));
+    }, 500);
+    return () => window.clearInterval(t);
+  }, [callStartedAt]);
+
   useEffect(() => {
     if (!state.brokers.length) return;
     if (!brokerId || !state.brokers.some((b) => b.id === brokerId)) setBrokerId(state.brokers[0].id);
   }, [state.brokers, brokerId]);
   useEffect(() => { nameRef.current?.focus(); }, [brokerId, date]);
 
+  function fmtElapsed(sec: number) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }
+
+  function startCallTimer() {
+    if (!callStartedAt) setCallStartedAt(Date.now());
+  }
+
   function quickSave(attended: boolean, scheduled: boolean) {
     const name = client.trim();
     if (!name) { toast.error("Digite o nome do cliente"); nameRef.current?.focus(); return; }
     if (!brokerId) { toast.error("Selecione um corretor"); return; }
+    if (!callStartedAt) {
+      toast.error("Clique em Discar antes de marcar o desfecho", {
+        description: "O cronômetro registra a duração da ligação.",
+      });
+      return;
+    }
+    const endedAt = Date.now();
+    const duration = Math.max(0, Math.round((endedAt - callStartedAt) / 1000));
     const normalized = phone.trim() ? normalizePhone(phone) : undefined;
-    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended, scheduled, note: note.trim(), createdAt: Date.now() };
+    const call: Call = {
+      id: uid(), date, brokerId, client: name, phone: normalized,
+      attended, scheduled, note: note.trim(), createdAt: Date.now(),
+      startedAt: callStartedAt, endedAt, durationSeconds: duration,
+    };
     setState((s) => ({ ...s, calls: [call, ...s.calls] }));
+    if (duration < 4) toast.warning(`Ligação registrada (${duration}s — fantasma)`);
     setClient("");
     setPhone("");
     setNote("");
+    setCallStartedAt(null);
+    setElapsed(0);
     setTimeout(() => nameRef.current?.focus(), 0);
   }
 
@@ -195,12 +232,14 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
     if (!name) { toast.error("Digite o nome do cliente"); nameRef.current?.focus(); return; }
     if (!brokerId) { toast.error("Selecione um corretor"); return; }
     const normalized = phone.trim() ? normalizePhone(phone) : undefined;
-    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended: false, scheduled: false, note: note.trim(), createdAt: Date.now() };
+    const call: Call = { id: uid(), date, brokerId, client: name, phone: normalized, attended: false, scheduled: false, note: note.trim(), createdAt: Date.now(), startedAt: null, endedAt: null, durationSeconds: 0 };
     setState((s) => ({ ...s, calls: [call, ...s.calls] }));
     toast.success("Adicionado ao histórico", { description: name });
     setClient("");
     setPhone("");
     setNote("");
+    setCallStartedAt(null);
+    setElapsed(0);
     setTimeout(() => nameRef.current?.focus(), 0);
   }
 
@@ -217,6 +256,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
   const dialHref = phone.trim() ? telHref(phone) : "#";
   const dialReady = phone.trim().length > 0;
+
 
   const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const attendedUnique = uniqueContactCountWhere(today, (c) => c.attended);
