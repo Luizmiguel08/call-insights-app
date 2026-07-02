@@ -303,10 +303,18 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           <h2 className="text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
             <Zap className="inline h-5 w-5 text-[#c9a24c] mb-1" /> Ligação avulsa — {brokerName}
           </h2>
-          <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-            Sem precisar entrar na fila
-          </div>
+          {callStartedAt ? (
+            <div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-emerald-300" style={fontDisplay}>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              Em ligação · <span className="tabular-nums">{fmtElapsed(elapsed)}</span>
+            </div>
+          ) : (
+            <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+              Cronômetro inicia ao clicar em Discar
+            </div>
+          )}
         </div>
+
 
         <div className="grid gap-3 sm:grid-cols-[1fr_240px]">
           <Field label="Nome do cliente">
