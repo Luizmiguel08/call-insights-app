@@ -1,65 +1,73 @@
-## Objetivo
-Introduzir multi-tenancy (`organizations`) e fluxo de convites por token, reaproveitando `/auth` e adicionando `/convite/$token`.
 
-## Fase 1 — Schema base (migration 1)
+## Diagnóstico (o que descobri)
 
-**Novas tabelas**
-- `organizations` — nome, `created_by`, timestamps
-- `organization_members` — `organization_id`, `user_id`, `role` (`owner`/`admin`/`agent`), `joined_at`, unique(`org_id`,`user_id`)
-- `organization_invites` — `organization_id`, `email` (opcional), `token` (uuid único), `role`, `status` (`pending`/`accepted`/`revoked`), `expires_at`, `created_by`, `accepted_by`, `accepted_at`
+Rodei análise de queries lentas no banco. **Uma única causa** responde por praticamente toda a lentidão, travamento e "carregamento infinito" que você sente — especialmente no celular:
 
-**Helpers (SECURITY DEFINER)**
-- `current_org_id()` — retorna a org do `auth.uid()` (primeira membership, se houver várias)
-- `is_org_member(_org uuid)` — bool
-- `is_org_admin(_org uuid)` — bool (`owner` ou `admin`)
-- `accept_organization_invite(_token uuid)` — valida token, cria `organization_members`, marca convite como `accepted`, retorna `organization_id`. Faz tudo numa transação, dedupe por unique constraint.
+Todo cliente que abre o app (cada corretor, cada aba, cada refresh) está baixando **a tabela `calls` inteira (25.958 linhas) + a tabela `contacts_queue` inteira (20.626 linhas)** — quase 46 mil linhas — em páginas de 1000. Isso acontece em `src/lib/cloud-state.ts` nas funções `loadAllCalls` / `loadAllContacts`, e continua acontecendo em delta polls.
 
-**Grants + RLS** em todas as 3 tabelas (sem `anon`):
-- `organizations`: SELECT para membros; INSERT/UPDATE só admin da própria org
-- `organization_members`: SELECT só de orgs onde o user é membro; INSERT só via `accept_organization_invite` (deny direto); DELETE só admin
-- `organization_invites`: SELECT/INSERT/UPDATE só admin da org; **SELECT por token** liberado em RPC `get_invite_by_token(_token)` SECURITY DEFINER (não expor a tabela pra anon)
+Números reais do banco (última janela):
+- `SELECT * FROM contacts_queue` sem filtro: **217 mil execuções**, média **896ms**, total 194 segundos de banco
+- `SELECT * FROM calls` sem filtro: **243 mil execuções**, média **736ms**, total 179 segundos de banco
+- No 3G/4G isso vira 30–60 segundos de "tela branca" no celular, além de estourar memória do navegador
 
-**Default org + backfill**
-- Cria uma organização "Fortal" e adiciona todos os usuários atuais de `brokers` como `organization_members` com role `agent`; o primeiro admin (`has_role('admin')`) vira `owner`.
+Isso também explica os "números diferentes": cada aba está calculando métricas de um snapshot local de 46k linhas que pode estar parcialmente sincronizado.
 
-## Fase 2 — Acoplar dados existentes (migration 2)
+## O plano
 
-Adicionar `organization_id uuid` (com FK e índice) nas tabelas operacionais:
-- `brokers`, `contacts_queue`, `calls`, `contact_attempts`, `dialer_sessions`, `broker_sessions`, `broker_pauses`, `call_reminders`, `active_calls`, `dialer_error_log`, `queue_reconciliation_log`
+Trocar o modelo "baixa tudo, calcula no cliente" por "servidor calcula, cliente pede só o que precisa". Sem mudar visual nem features — só a fonte dos dados.
 
-**Backfill**: preencher tudo com o id da org default.
-Depois: `NOT NULL` + default via trigger (`current_org_id()` no INSERT).
+### 1. Dashboard vira servidor-agregado (grande ganho)
 
-**Atualizar RLS** de cada tabela: trocar regras atuais por `is_org_member(organization_id)` + manter regras por broker quando fizer sentido (ex.: corretor só vê seus contatos dentro da org).
+Criar RPCs no banco que retornam **já agregado**:
+- `dashboard_daily_summary(_date)` → total ligações, atendidas, agendadas, únicas, por corretor no dia
+- `dashboard_broker_duration(_date)` → duração por corretor (fantasma/curta/média/longa), já contando contatos únicos
+- `dashboard_ranking(_date)` → ranking do dia
 
-**Atualizar funções existentes** (`record_call_outcome`, `next_contact_for_broker`, `dialer_prefetch_queue`, `reconcile_contact_queue`, `admin_clear_contacts`, etc.) para filtrar por `current_org_id()`.
+Cada RPC retorna ~10-30 linhas em vez de 25 mil. `DashboardTab` passa a chamar essas RPCs.
 
-> ⚠️ Risco: essa fase mexe em quase todas as policies. Vou rodar uma migration **idempotente e reversível** e pedir aprovação separadamente da Fase 1.
+### 2. Discador só usa o buffer (já existe)
 
-## Fase 3 — Frontend
+`dialer_prefetch_queue` já traz 10 contatos por vez. Remover qualquer leitura da lista completa de `contacts_queue` do fluxo do discador. O `RapidoTab` idem.
 
-**`src/routes/convite.$token.tsx`** (público)
-1. `supabase.rpc('get_invite_by_token', { _token })` — se inválido/expirado, mostra `InviteErrorPage` (`invalid_or_expired`).
-2. Se `!user` → guarda token em `sessionStorage('pending_invite')` e `navigate({ to: '/auth', search: { invite: token } })`.
-3. Se logado → `supabase.rpc('accept_organization_invite', { _token })`. Erro → `InviteErrorPage` (`failed_to_join`). Sucesso → `navigate({ to: '/', replace: true })`.
+### 3. Histórico paginado sob demanda
 
-**`src/routes/auth.tsx`**
-- Lê `?invite=` (ou `sessionStorage`).
-- Após signup/login bem-sucedido, se houver token pendente, redireciona para `/convite/$token` em vez de `/`.
+Aba Histórico passa a buscar com filtro (`.gte('created_at', hoje).eq('broker_id', X).limit(200)`) em vez de usar o cache global de 25k calls.
 
-**`InviteErrorPage`** — componente compartilhado com as duas mensagens do snippet.
+### 4. Cortar o `cloud-state` global para dados leves
 
-**`AppErrorBoundary`** — classe React em `src/components/AppErrorBoundary.tsx`, envolvendo `<Outlet/>` em `src/routes/__root.tsx` (dentro do `QueryClientProvider`).
+Manter só `brokers`, `app_settings`, e talvez os últimos 500 registros de calls/contacts do próprio corretor para telas que dependem de estado local. Zerar os loops de "baixa tudo".
 
-## Fora de escopo (confirmar se quer depois)
-- UI para **criar/listar/revogar convites** (admin)
-- Suporte a usuário pertencer a **múltiplas orgs** + seletor de org ativa
-- Envio de e-mail do convite (por enquanto o admin copia o link `/convite/$token`)
+### 5. Índices que faltam para as novas RPCs
 
-## Ordem de execução
-1. Migration Fase 1 (aprovação) → tipos regenerados
-2. Migration Fase 2 (aprovação separada) → tipos regenerados
-3. Código frontend (rota, auth, ErrorBoundary, InviteErrorPage)
-4. Smoke test no preview com um convite manual via `psql`
+```
+CREATE INDEX ON public.calls (broker_id, created_at DESC);
+CREATE INDEX ON public.calls (contact_id, created_at DESC);
+CREATE INDEX ON public.contacts_queue (broker_id, status) WHERE status = 'pending';
+```
 
-Confirma esse plano (ou ajusta o que estiver fora) que eu começo pela migration da Fase 1.
+### 6. Silenciar erros barulhentos
+
+O toast "Falha ao sincronizar" hoje dispara em qualquer timeout de rede móvel. Com o novo modelo (queries pequenas) isso praticamente some, mas também vou reduzir retries em cascata.
+
+## Impacto esperado
+
+- Tempo até dashboard usável: **~30s → ~1s** no celular
+- Trânsito por sessão: **~15 MB → ~50 KB**
+- Fim da tela branca no login em 3G/4G
+- Números do dashboard passam a bater sempre (fonte única = servidor)
+
+## Escopo desta entrega
+
+Faço em uma leva:
+1. Migration com as 3 RPCs + índices
+2. Refactor de `DashboardTab.tsx` para chamar as RPCs
+3. Cortar `loadAllCalls`/`loadAllContacts` em `cloud-state.ts`, deixando só o essencial
+4. `RapidoTab` e discador puxando só do buffer/queries filtradas
+
+Não mexo em: visual, autenticação, permissões, RLS, features novas.
+
+## Alternativa (se preferir mais rápido)
+
+Se quiser um alívio imediato **hoje**, posso só limitar `loadAllCalls`/`loadAllContacts` aos últimos 7 dias e ao próprio corretor — corta ~90% do problema em 1 edição, sem criar RPCs. Depois faço o refactor completo.
+
+Me diz se aprova o plano completo ou prefere o alívio imediato primeiro.
