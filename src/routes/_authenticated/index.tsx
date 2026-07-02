@@ -147,7 +147,7 @@ function LigaCtrlApp() {
       </header>
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
-        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} userId={me?.userId ?? null} dialerSession={dialerSession} me={me} />}
+        {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} userId={me?.userId ?? null} dialerSession={dialerSession} me={me} hydrated={hydrated} />}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "lembretes" && <LembretesTab me={me} isAdmin={isAdmin} />}
@@ -608,7 +608,7 @@ function PendingRow({ broker, onRename, onApprove, onReject }: { broker: Broker;
 
 /* ---------------- DISCADOR ---------------- */
 
-function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSession, me }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void>; userId: string | null; dialerSession: ReturnType<typeof useDialerSession>; me: Me | null }) {
+function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSession, me, hydrated }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; goFila: () => void; refetchCloud: () => Promise<void>; userId: string | null; dialerSession: ReturnType<typeof useDialerSession>; me: Me | null; hydrated: boolean }) {
   const [brokerId, setBrokerId] = useState(state.brokers[0]?.id ?? "");
   const [selectedList, setSelectedList] = useState<string>("all");
   const [note, setNote] = useState("");
@@ -723,10 +723,29 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   // Sincronização em background a cada 5s — fila completa, sem bloquear UI.
   // Intervalo curto compensa quando o WebSocket Realtime cai (comum no mobile
   // quando a tela apaga / app vai pra background).
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const verifyNow = useCallback(async () => {
+    setIsVerifying(true);
+    try {
+      await refetchCloud();
+      await refreshServerNext("manual-verify");
+      setLastSyncedAt(Date.now());
+      setSyncError(null);
+    } catch (e: any) {
+      setSyncError(e?.message || "Falha ao sincronizar com o servidor");
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [refetchCloud, refreshServerNext]);
+
   useEffect(() => {
     if (!brokerId) return;
     const id = window.setInterval(() => {
-      void refetchCloud().then(() => setLastSyncedAt(Date.now())).catch(() => {});
+      void refetchCloud()
+        .then(() => { setLastSyncedAt(Date.now()); setSyncError(null); })
+        .catch((e: any) => setSyncError(e?.message || "Sem conexão com o servidor"));
     }, 5_000);
     return () => window.clearInterval(id);
   }, [brokerId, refetchCloud]);
@@ -1781,18 +1800,59 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             </div>
           </div>
         </div>
+      ) : !hydrated ? (
+        <div className="rounded-3xl border border-zinc-800 bg-[#1a1a1a]/95 p-12 text-center">
+          <RefreshCw className="mx-auto h-10 w-10 text-[#c9a24c] animate-spin" />
+          <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-zinc-300" style={fontDisplay}>Carregando fila</h3>
+          <p className="mt-1 text-sm text-zinc-500">Buscando seus contatos no servidor...</p>
+          <div className="mt-6 mx-auto max-w-sm space-y-2">
+            <div className="h-3 rounded bg-zinc-800/70 animate-pulse" />
+            <div className="h-3 rounded bg-zinc-800/50 animate-pulse" />
+            <div className="h-3 rounded bg-zinc-800/40 animate-pulse w-3/4 mx-auto" />
+          </div>
+        </div>
+      ) : syncError ? (
+        <div className="rounded-3xl border border-red-500/40 bg-red-500/5 p-12 text-center">
+          <X className="mx-auto h-10 w-10 text-red-400" />
+          <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-red-200" style={fontDisplay}>Erro ao carregar</h3>
+          <p className="mt-1 text-sm text-red-300/80 break-words">{syncError}</p>
+          <button
+            onClick={() => void verifyNow()}
+            disabled={isVerifying}
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            style={fontDisplay}
+          >
+            <RefreshCw className={`h-4 w-4 ${isVerifying ? "animate-spin" : ""}`} /> {isVerifying ? "Verificando..." : "Verificar novamente"}
+          </button>
+        </div>
       ) : (
         <div className="rounded-3xl border border-dashed border-zinc-800 bg-[#1a1a1a]/95 p-12 text-center">
           <PhoneCall className="mx-auto h-10 w-10 text-zinc-700" />
-          <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-zinc-300" style={fontDisplay}>Fila vazia</h3>
-          <p className="mt-1 text-sm text-zinc-500">Importe contatos do Excel/CRM pra começar a discar.</p>
-          <button
-            onClick={goFila}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform"
-            style={fontDisplay}
-          >
-            <ListPlus className="h-4 w-4" /> Ir pra Fila
-          </button>
+          <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-zinc-300" style={fontDisplay}>
+            {myQueue.length === 0 ? "Fila vazia" : "Nenhum contato disponível agora"}
+          </h3>
+          <p className="mt-1 text-sm text-zinc-500">
+            {myQueue.length === 0
+              ? "Importe contatos do Excel/CRM pra começar a discar."
+              : "Todos os contatos da sua fila estão adiados ou em espera. Verifique novamente em alguns segundos."}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() => void verifyNow()}
+              disabled={isVerifying}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#c9a24c]/40 bg-[#c9a24c]/5 px-5 py-3 text-sm font-bold uppercase tracking-wider text-[#f0d78c] hover:bg-[#c9a24c]/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              style={fontDisplay}
+            >
+              <RefreshCw className={`h-4 w-4 ${isVerifying ? "animate-spin" : ""}`} /> {isVerifying ? "Verificando..." : "Verificar novamente"}
+            </button>
+            <button
+              onClick={goFila}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform"
+              style={fontDisplay}
+            >
+              <ListPlus className="h-4 w-4" /> Ir pra Fila
+            </button>
+          </div>
         </div>
       )}
 
