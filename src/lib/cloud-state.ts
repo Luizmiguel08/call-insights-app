@@ -138,27 +138,53 @@ function scopeBrokerId(me: Me | null): string | null {
 async function loadAll(me: Me | null): Promise<State> {
   const scoped = scopeBrokerId(me);
 
-  // Paginate contacts_queue to load ALL contacts (Supabase caps at 1000/req by default).
+  // JANELA DE HISTÓRICO: baixamos apenas os últimos N dias em vez das ~46k
+  // linhas totais. Reduz o payload inicial de ~15MB para <500KB e elimina
+  // a "tela branca" no celular em 3G/4G. Contatos pendentes (ativos na fila)
+  // continuam vindo integralmente porque o discador precisa deles.
+  const HISTORY_DAYS = 30;
+  const sinceIso = new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  // Contatos: pendentes sempre + resolvidos apenas dos últimos N dias.
   async function loadAllContacts() {
     const pageSize = 1000;
-    let from = 0;
     const all: any[] = [];
-    // hard safety cap to avoid infinite loops
-    while (from < 100000) {
+    async function pageAll(builder: () => any) {
+      let from = 0;
+      while (from < 100000) {
+        const q = builder().range(from, from + pageSize - 1);
+        const r = await q;
+        if (r.error) throw r.error;
+        const rows = r.data ?? [];
+        all.push(...rows);
+        if (rows.length < pageSize) break;
+        from += pageSize;
+      }
+    }
+    // pendentes (fila viva)
+    await pageAll(() => {
       let q: any = supabase
         .from("contacts_queue")
         .select("*")
+        .eq("status", "pending")
+        .order("priority", { ascending: false })
         .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, from + pageSize - 1);
+        .order("id", { ascending: true });
       if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
-      const r = await q;
-      if (r.error) throw r.error;
-      const rows = r.data ?? [];
-      all.push(...rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
+      return q;
+    });
+    // resolvidos recentes (para o histórico do dashboard)
+    await pageAll(() => {
+      let q: any = supabase
+        .from("contacts_queue")
+        .select("*")
+        .neq("status", "pending")
+        .gte("updated_at", sinceIso)
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: true });
+      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+      return q;
+    });
     return all;
   }
 
@@ -170,6 +196,7 @@ async function loadAll(me: Me | null): Promise<State> {
       let q: any = supabase
         .from("calls")
         .select("*")
+        .gte("created_at", sinceIso)
         .order("created_at", { ascending: false })
         .range(from, from + pageSize - 1);
       if (scoped) q = q.eq("broker_id", scoped);
@@ -201,7 +228,7 @@ async function loadAll(me: Me | null): Promise<State> {
     userId: b.user_id ?? null,
     approved: b.approved ?? true,
   }));
-  const calls: Call[] = (callsResult.data ?? []).map((c) => ({
+  const calls: Call[] = (callsResult.data ?? []).map((c: any) => ({
     id: c.id,
     date: toLocalDate(c.created_at),
     brokerId: c.broker_id,
@@ -212,6 +239,9 @@ async function loadAll(me: Me | null): Promise<State> {
     note: c.notes ?? "",
     createdAt: new Date(c.created_at).getTime(),
     contactId: c.contact_id ?? undefined,
+    startedAt: c.started_at ? new Date(c.started_at).getTime() : null,
+    endedAt: c.ended_at ? new Date(c.ended_at).getTime() : null,
+    durationSeconds: c.duration_seconds ?? null,
   }));
   const contacts: Contact[] = (contactsR.data ?? []).map((c: any) => ({
     id: c.id,
@@ -460,6 +490,9 @@ export function useCloudState() {
         note: r.notes ?? "",
         createdAt: new Date(r.created_at).getTime(),
         contactId: r.contact_id ?? undefined,
+        startedAt: r.started_at ? new Date(r.started_at).getTime() : null,
+        endedAt: r.ended_at ? new Date(r.ended_at).getTime() : null,
+        durationSeconds: r.duration_seconds ?? null,
       });
     }
     // ordenado por createdAt desc (igual ao loadAll)
@@ -627,6 +660,9 @@ export function useCloudState() {
         note: c.notes ?? "",
         createdAt: new Date(c.created_at).getTime(),
         contactId: c.contact_id ?? undefined,
+        startedAt: c.started_at ? new Date(c.started_at).getTime() : null,
+        endedAt: c.ended_at ? new Date(c.ended_at).getTime() : null,
+        durationSeconds: c.duration_seconds ?? null,
       };
     }
     function patchState(updater: (s: State) => State) {

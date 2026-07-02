@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   type State,
   Field, Kpi, Th, Td,
@@ -6,58 +6,34 @@ import {
   todayISO, uniqueContactCount, uniqueContactCountWhere,
   normalizedContactKey,
 } from "@/lib/dialer-shared";
-import { supabase } from "@/integrations/supabase/client";
-
-type RawCallRow = {
-  broker_id: string | null;
-  contact_id: string | null;
-  client_name: string | null;
-  phone: string | null;
-  duration_seconds: number | null;
-  created_at: string;
-};
 
 
 export default function DashboardTab({ state }: { state: State }) {
   const [date, setDate] = useState(todayISO());
-  const [rawCalls, setRawCalls] = useState<RawCallRow[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      let q: any = supabase
-        .from("calls")
-        .select("broker_id,contact_id,client_name,phone,duration_seconds,created_at");
-      if (date) {
-        // date is São Paulo date; filter by that day in that TZ
-        const start = new Date(`${date}T00:00:00-03:00`).toISOString();
-        const end = new Date(`${date}T23:59:59.999-03:00`).toISOString();
-        q = q.gte("created_at", start).lte("created_at", end);
-      }
-      const { data, error } = await q.limit(50000);
-      if (cancelled) return;
-      if (error) { setRawCalls([]); return; }
-      setRawCalls((data ?? []) as RawCallRow[]);
-    })();
-    return () => { cancelled = true; };
-  }, [date]);
+  // Usa state.calls (já carregado uma vez pelo cloud-state) em vez de
+  // refazer uma query de 50k linhas a cada abertura da aba. Duração vem
+  // do próprio state agora.
+  const filteredCalls = useMemo(
+    () => state.calls.filter((c) => (date ? c.date === date : true)),
+    [state.calls, date],
+  );
 
-  // Group calls by (broker, unique contact), keeping the MAX duration among
-  // that contact's calls. Counts contatos únicos, matching the ranking table.
+  // Agrupa por (corretor, contato único) mantendo a MAIOR duração — bate
+  // com a lógica do ranking (contatos únicos).
   const perBrokerDuration = useMemo(() => {
-    // brokerId -> contactKey -> maxDuration
     const grouped = new Map<string, Map<string, number>>();
-    for (const r of rawCalls) {
-      const bId = r.broker_id ?? "sem";
+    for (const r of filteredCalls) {
+      const bId = r.brokerId ?? "sem";
       const key = normalizedContactKey({
-        client: r.client_name ?? undefined,
-        phone: r.phone ?? undefined,
-        contactId: r.contact_id ?? undefined,
+        client: r.client,
+        phone: r.phone,
+        contactId: r.contactId,
       });
       let inner = grouped.get(bId);
       if (!inner) { inner = new Map(); grouped.set(bId, inner); }
       const cur = inner.get(key) ?? 0;
-      const d = r.duration_seconds ?? 0;
+      const d = r.durationSeconds ?? 0;
       if (d > cur) inner.set(key, d);
       else if (!inner.has(key)) inner.set(key, d);
     }
@@ -94,7 +70,7 @@ export default function DashboardTab({ state }: { state: State }) {
       };
     });
     return rows.sort((a, b) => b.totalSecs - a.totalSecs);
-  }, [rawCalls, state.brokers]);
+  }, [filteredCalls, state.brokers]);
 
   const durationTotals = useMemo(() => {
     const t = { fantasma: 0, curta: 0, media: 0, longa: 0, semReg: 0, total: 0, avg: 0 };
@@ -120,7 +96,8 @@ export default function DashboardTab({ state }: { state: State }) {
   const pctFantasma = durationTotals.total ? Math.round((durationTotals.fantasma / durationTotals.total) * 100) : 0;
 
 
-  const calls = useMemo(() => state.calls.filter((c) => (date ? c.date === date : true)), [state.calls, date]);
+
+  const calls = filteredCalls;
 
   const totalUnique = uniqueContactCount(calls);
   const attendedUnique = uniqueContactCountWhere(calls, (c) => c.attended);
