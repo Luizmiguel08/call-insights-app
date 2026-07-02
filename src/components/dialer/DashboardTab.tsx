@@ -1,13 +1,67 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type State,
   Field, Kpi, Th, Td,
   fontDisplay, fontNumeric, inputCls,
   todayISO, uniqueContactCount, uniqueContactCountWhere,
 } from "@/lib/dialer-shared";
+import { supabase } from "@/integrations/supabase/client";
+
+type DurationRow = {
+  broker_id: string;
+  corretor_nome: string | null;
+  dia: string;
+  total_ligacoes: number;
+  ligacoes_fantasma: number;
+  ligacoes_curtas: number;
+  ligacoes_medias: number;
+  ligacoes_longas: number;
+  sem_registro: number;
+  pct_fantasma: number;
+  pct_curta: number;
+  pct_qualidade: number;
+  duracao_media_segundos: number;
+  duracao_maxima_segundos: number;
+  duracao_minima_segundos: number;
+};
+
 
 export default function DashboardTab({ state }: { state: State }) {
   const [date, setDate] = useState(todayISO());
+  const [durationRows, setDurationRows] = useState<DurationRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let q = supabase.from("call_duration_stats" as any).select("*");
+      if (date) q = q.eq("dia", date);
+      const { data, error } = await q;
+      if (cancelled) return;
+      if (error) { setDurationRows([]); return; }
+      setDurationRows((data ?? []) as unknown as DurationRow[]);
+    })();
+    return () => { cancelled = true; };
+  }, [date]);
+
+  const durationTotals = useMemo(() => {
+    const t = { fantasma: 0, curta: 0, media: 0, longa: 0, semReg: 0, total: 0, avg: 0 };
+    let avgSum = 0, avgCount = 0;
+    for (const r of durationRows) {
+      t.fantasma += r.ligacoes_fantasma ?? 0;
+      t.curta += r.ligacoes_curtas ?? 0;
+      t.media += r.ligacoes_medias ?? 0;
+      t.longa += r.ligacoes_longas ?? 0;
+      t.semReg += r.sem_registro ?? 0;
+      t.total += r.total_ligacoes ?? 0;
+      if (r.duracao_media_segundos) { avgSum += r.duracao_media_segundos * (r.total_ligacoes ?? 0); avgCount += (r.total_ligacoes ?? 0); }
+    }
+    t.avg = avgCount ? Math.round(avgSum / avgCount) : 0;
+    return t;
+  }, [durationRows]);
+
+  const pctQualidade = durationTotals.total ? Math.round(((durationTotals.media + durationTotals.longa) / durationTotals.total) * 100) : 0;
+  const pctFantasma = durationTotals.total ? Math.round((durationTotals.fantasma / durationTotals.total) * 100) : 0;
+
 
   const calls = useMemo(() => state.calls.filter((c) => (date ? c.date === date : true)), [state.calls, date]);
 
@@ -64,6 +118,35 @@ export default function DashboardTab({ state }: { state: State }) {
         <Kpi label="Agendamentos" value={k.scheduled} color="#eab308" />
         <Kpi label="Taxa Agend." value={`${rate}%`} color="#c9a24c" />
       </div>
+
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h3 className="text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Duração das Ligações</h3>
+            <p className="text-xs text-zinc-500">Distribuição por qualidade da chamada {date ? `em ${date}` : "em todos os dias"}</p>
+          </div>
+          <div className="text-xs text-zinc-500">
+            Qualidade: <span className="font-semibold text-emerald-400">{pctQualidade}%</span>
+            <span className="mx-2 text-zinc-700">·</span>
+            Fantasmas: <span className="font-semibold text-red-400">{pctFantasma}%</span>
+            <span className="mx-2 text-zinc-700">·</span>
+            Média: <span className="font-semibold text-[#c9a24c]" style={fontNumeric}>{durationTotals.avg}s</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Kpi label="Fantasmas (<4s)" value={durationTotals.fantasma} color="#ef4444" />
+          <Kpi label="Curtas (<60s)" value={durationTotals.curta} color="#f59e0b" />
+          <Kpi label="Médias (<3min)" value={durationTotals.media} color="#22c55e" />
+          <Kpi label="Longas (≥3min)" value={durationTotals.longa} color="#c9a24c" />
+        </div>
+        {durationTotals.semReg > 0 && (
+          <p className="mt-3 text-[11px] text-zinc-500">
+            {durationTotals.semReg} ligação(ões) sem duração registrada no período.
+          </p>
+        )}
+      </div>
+
+
 
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
         <h3 className="mb-1 text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Horário de Pico por Corretor</h3>
