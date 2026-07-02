@@ -97,7 +97,7 @@ export default function DashboardTab({ state }: { state: State }) {
 
 
 
-  const calls = useMemo(() => state.calls.filter((c) => (date ? c.date === date : true)), [state.calls, date]);
+  const calls = filteredCalls;
 
   const totalUnique = uniqueContactCount(calls);
   const attendedUnique = uniqueContactCountWhere(calls, (c) => c.attended);
