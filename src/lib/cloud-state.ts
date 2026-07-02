@@ -201,7 +201,8 @@ async function loadAll(me: Me | null): Promise<State> {
  * e mesclamos no estado local por id. Reduz drasticamente o tráfego
  * (e a latência percebida) tanto no celular quanto no desktop.
  */
-async function loadDeltaContactsSince(sinceIso: string | null): Promise<any[]> {
+async function loadDeltaContactsSince(sinceIso: string | null, me: Me | null): Promise<any[]> {
+  const scoped = scopeBrokerId(me);
   const pageSize = 1000;
   let from = 0;
   const all: any[] = [];
@@ -212,6 +213,7 @@ async function loadDeltaContactsSince(sinceIso: string | null): Promise<any[]> {
       .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (sinceIso) q = q.gt("updated_at", sinceIso);
+    if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
     const r = await q;
     if (r.error) throw r.error;
     const rows = (r.data ?? []) as any[];
@@ -222,7 +224,8 @@ async function loadDeltaContactsSince(sinceIso: string | null): Promise<any[]> {
   return all;
 }
 
-async function loadDeltaCallsSince(sinceIso: string | null): Promise<any[]> {
+async function loadDeltaCallsSince(sinceIso: string | null, me: Me | null): Promise<any[]> {
+  const scoped = scopeBrokerId(me);
   const pageSize = 1000;
   let from = 0;
   const all: any[] = [];
@@ -233,6 +236,7 @@ async function loadDeltaCallsSince(sinceIso: string | null): Promise<any[]> {
       .order("id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (sinceIso) q = q.gt("updated_at", sinceIso);
+    if (scoped) q = q.eq("broker_id", scoped);
     const r = await q;
     if (r.error) throw r.error;
     const rows = (r.data ?? []) as any[];
