@@ -59,6 +59,53 @@ export default function DashboardTab({ state }: { state: State }) {
     return t;
   }, [durationRows]);
 
+  const perBrokerDuration = useMemo(() => {
+    const map = new Map<string, {
+      brokerId: string; name: string;
+      total: number; fantasma: number; curta: number; media: number; longa: number; semReg: number;
+      avgSum: number; avgCount: number; maxDur: number; totalSecs: number;
+    }>();
+    for (const r of durationRows) {
+      const key = r.broker_id ?? "sem";
+      const nome = r.corretor_nome
+        || state.brokers.find((b) => b.id === r.broker_id)?.name
+        || "Sem corretor";
+      let e = map.get(key);
+      if (!e) {
+        e = { brokerId: key, name: nome, total: 0, fantasma: 0, curta: 0, media: 0, longa: 0, semReg: 0, avgSum: 0, avgCount: 0, maxDur: 0, totalSecs: 0 };
+        map.set(key, e);
+      }
+      const t = r.total_ligacoes ?? 0;
+      e.total += t;
+      e.fantasma += r.ligacoes_fantasma ?? 0;
+      e.curta += r.ligacoes_curtas ?? 0;
+      e.media += r.ligacoes_medias ?? 0;
+      e.longa += r.ligacoes_longas ?? 0;
+      e.semReg += r.sem_registro ?? 0;
+      if (r.duracao_media_segundos) {
+        e.avgSum += (r.duracao_media_segundos ?? 0) * t;
+        e.avgCount += t;
+        e.totalSecs += (r.duracao_media_segundos ?? 0) * t;
+      }
+      if ((r.duracao_maxima_segundos ?? 0) > e.maxDur) e.maxDur = r.duracao_maxima_segundos ?? 0;
+    }
+    return Array.from(map.values())
+      .map((e) => ({
+        ...e,
+        avg: e.avgCount ? Math.round(e.avgSum / e.avgCount) : 0,
+        pctQualidade: e.total ? Math.round(((e.media + e.longa) / e.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.totalSecs - a.totalSecs);
+  }, [durationRows, state.brokers]);
+
+  const fmtDur = (s: number) => {
+    if (!s) return "0s";
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${ss}s`;
+    return `${ss}s`;
+  };
+
   const pctQualidade = durationTotals.total ? Math.round(((durationTotals.media + durationTotals.longa) / durationTotals.total) * 100) : 0;
   const pctFantasma = durationTotals.total ? Math.round((durationTotals.fantasma / durationTotals.total) * 100) : 0;
 
