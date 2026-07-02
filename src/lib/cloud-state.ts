@@ -370,6 +370,9 @@ async function syncTo(prev: State, next: State, me: Me) {
         scheduled: c.scheduled,
         notes: c.note || null,
         contact_id: c.contactId ?? null,
+        started_at: c.startedAt ? new Date(c.startedAt).toISOString() : null,
+        ended_at: c.endedAt ? new Date(c.endedAt).toISOString() : null,
+        duration_seconds: c.durationSeconds ?? 0,
       })),
     );
   }
