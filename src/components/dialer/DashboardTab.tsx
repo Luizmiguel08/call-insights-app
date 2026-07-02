@@ -120,6 +120,35 @@ export default function DashboardTab({ state }: { state: State }) {
       </div>
 
       <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h3 className="text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Duração das Ligações</h3>
+            <p className="text-xs text-zinc-500">Distribuição por qualidade da chamada {date ? `em ${date}` : "em todos os dias"}</p>
+          </div>
+          <div className="text-xs text-zinc-500">
+            Qualidade: <span className="font-semibold text-emerald-400">{pctQualidade}%</span>
+            <span className="mx-2 text-zinc-700">·</span>
+            Fantasmas: <span className="font-semibold text-red-400">{pctFantasma}%</span>
+            <span className="mx-2 text-zinc-700">·</span>
+            Média: <span className="font-semibold text-[#c9a24c]" style={fontNumeric}>{durationTotals.avg}s</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Kpi label="Fantasmas (<4s)" value={durationTotals.fantasma} color="#ef4444" />
+          <Kpi label="Curtas (<60s)" value={durationTotals.curta} color="#f59e0b" />
+          <Kpi label="Médias (<3min)" value={durationTotals.media} color="#22c55e" />
+          <Kpi label="Longas (≥3min)" value={durationTotals.longa} color="#c9a24c" />
+        </div>
+        {durationTotals.semReg > 0 && (
+          <p className="mt-3 text-[11px] text-zinc-500">
+            {durationTotals.semReg} ligação(ões) sem duração registrada no período.
+          </p>
+        )}
+      </div>
+
+
+
+      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
         <h3 className="mb-1 text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Horário de Pico por Corretor</h3>
         <p className="mb-5 text-xs text-zinc-500">Distribuição de ligações ao longo do dia (0h–23h)</p>
         {hourly.length === 0 ? (
