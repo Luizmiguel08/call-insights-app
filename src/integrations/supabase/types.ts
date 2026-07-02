@@ -233,6 +233,7 @@ export type Database = {
           contact_id: string | null
           created_at: string
           created_by: string | null
+          duration_category: string | null
           duration_seconds: number
           ended_at: string | null
           id: string
@@ -250,6 +251,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           created_by?: string | null
+          duration_category?: string | null
           duration_seconds?: number
           ended_at?: string | null
           id?: string
@@ -267,6 +269,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           created_by?: string | null
+          duration_category?: string | null
           duration_seconds?: number
           ended_at?: string | null
           id?: string
@@ -668,6 +671,34 @@ export type Database = {
           day: string | null
           scheduled: number | null
           total_seconds: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_duration_stats: {
+        Row: {
+          broker_id: string | null
+          corretor_nome: string | null
+          dia: string | null
+          duracao_maxima_segundos: number | null
+          duracao_media_segundos: number | null
+          duracao_minima_segundos: number | null
+          ligacoes_curtas: number | null
+          ligacoes_fantasma: number | null
+          ligacoes_longas: number | null
+          ligacoes_medias: number | null
+          pct_curta: number | null
+          pct_fantasma: number | null
+          pct_qualidade: number | null
+          sem_registro: number | null
+          total_ligacoes: number | null
         }
         Relationships: [
           {
