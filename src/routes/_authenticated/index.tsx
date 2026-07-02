@@ -354,7 +354,10 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
         <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
           <a
             href={dialHref}
-            onClick={(e) => { if (!dialReady) e.preventDefault(); }}
+            onClick={(e) => {
+              if (!dialReady) { e.preventDefault(); return; }
+              startCallTimer();
+            }}
             className={`flex items-center justify-center gap-2 h-14 rounded-md text-base font-bold uppercase tracking-[0.18em] transition ${
               dialReady
                 ? "bg-[#c9a24c] text-black hover:bg-[#e6c878]"
@@ -364,6 +367,8 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           >
             <PhoneCall className="h-5 w-5" />
             {dialReady ? `Discar ${normalizePhone(phone)}` : "Digite um telefone para discar"}
+          </a>
+
           </a>
           <button
             type="button"
