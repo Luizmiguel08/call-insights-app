@@ -13,6 +13,9 @@ export type Call = {
   note: string;
   createdAt: number;
   contactId?: string;
+  startedAt?: number | null;
+  endedAt?: number | null;
+  durationSeconds?: number | null;
 };
 export type Contact = {
   id: string;
