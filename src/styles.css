@@ -59,6 +59,22 @@
 }
 
 :root {
+  /* Dialer design tokens (Executive Noir) */
+  --gold: #c9a84c;
+  --gold-dim: #c9a84c22;
+  --gold-border: #c9a84c33;
+  --green: #4ade80;
+  --green-dim: #4ade8018;
+  --red: #f87171;
+  --red-dim: #3d1515;
+  --amber: #f59e0b;
+  --amber-dim: #f59e0b18;
+  --blue: #60a5fa;
+  --surface-0: #0c0e14;
+  --surface-1: #13151e;
+  --surface-2: #1a1d28;
+  --border-hover: #ffffff22;
+
   --radius: 0.75rem;
   --background: oklch(0.99 0.005 250);
   --foreground: oklch(0.18 0.03 260);
