@@ -150,24 +150,39 @@ function LigaCtrlApp() {
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = tab === t.id;
+            const badge = t.badge ?? 0;
             return (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${
+                className={`relative shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${
                   active
-                    ? "border-[#c9a84c] text-[#c9a84c]"
+                    ? "border-[var(--gold)] text-[var(--gold)]"
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
                 }`}
                 style={fontDisplay}
               >
                 <Icon className="h-4 w-4" />
-                {t.label}
+                {t.label.toUpperCase()}
+                {badge > 0 && (
+                  <span
+                    className="absolute flex items-center justify-center rounded-full text-white font-semibold"
+                    style={{
+                      top: 4, right: 0,
+                      width: 16, height: 16,
+                      background: "var(--red)",
+                      fontSize: 9,
+                    }}
+                  >
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
       </header>
+
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
         {tab === "discador" && <DiscadorTab state={state} setState={setState} goFila={() => setTab("fila")} refetchCloud={refetchCloud} userId={me?.userId ?? null} dialerSession={dialerSession} me={me} hydrated={hydrated} />}
