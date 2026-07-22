@@ -42,9 +42,39 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: "Inter", system-ui, sans-serif;
   --font-display: "Space Grotesk", system-ui, sans-serif;
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --color-gold-border: var(--gold-border);
+  --color-green: var(--green);
+  --color-green-dim: var(--green-dim);
+  --color-red: var(--red);
+  --color-red-dim: var(--red-dim);
+  --color-amber: var(--amber);
+  --color-amber-dim: var(--amber-dim);
+  --color-blue: var(--blue);
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-border-strong: var(--border-hover);
 }
 
 :root {
+  /* Dialer design tokens (Executive Noir) */
+  --gold: #c9a84c;
+  --gold-dim: #c9a84c22;
+  --gold-border: #c9a84c33;
+  --green: #4ade80;
+  --green-dim: #4ade8018;
+  --red: #f87171;
+  --red-dim: #3d1515;
+  --amber: #f59e0b;
+  --amber-dim: #f59e0b18;
+  --blue: #60a5fa;
+  --surface-0: #0c0e14;
+  --surface-1: #13151e;
+  --surface-2: #1a1d28;
+  --border-hover: #ffffff22;
+
   --radius: 0.75rem;
   --background: oklch(0.99 0.005 250);
   --foreground: oklch(0.18 0.03 260);

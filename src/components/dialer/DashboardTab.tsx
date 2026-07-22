@@ -132,7 +132,7 @@ export default function DashboardTab({ state }: { state: State }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-4 flex flex-wrap items-end gap-3">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-4 flex flex-wrap items-end gap-3">
         <Field label="Data" className="min-w-[180px]">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
         </Field>
@@ -146,14 +146,14 @@ export default function DashboardTab({ state }: { state: State }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Kpi label="Ligações" value={k.total} color="#c9a24c" />
+        <Kpi label="Ligações" value={k.total} color="#c9a84c" />
         <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
         <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
         <Kpi label="Agendamentos" value={k.scheduled} color="#eab308" />
-        <Kpi label="Taxa Agend." value={`${rate}%`} color="#c9a24c" />
+        <Kpi label="Taxa Agend." value={`${rate}%`} color="#c9a84c" />
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-6">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <h3 className="text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Duração das Ligações</h3>
@@ -164,14 +164,14 @@ export default function DashboardTab({ state }: { state: State }) {
             <span className="mx-2 text-zinc-700">·</span>
             Fantasmas: <span className="font-semibold text-red-400">{pctFantasma}%</span>
             <span className="mx-2 text-zinc-700">·</span>
-            Média: <span className="font-semibold text-[#c9a24c]" style={fontNumeric}>{durationTotals.avg}s</span>
+            Média: <span className="font-semibold text-[#c9a84c]" style={fontNumeric}>{durationTotals.avg}s</span>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Kpi label="Fantasmas (<4s)" value={durationTotals.fantasma} color="#ef4444" />
           <Kpi label="Curtas (<60s)" value={durationTotals.curta} color="#f59e0b" />
           <Kpi label="Médias (<3min)" value={durationTotals.media} color="#22c55e" />
-          <Kpi label="Longas (≥3min)" value={durationTotals.longa} color="#c9a24c" />
+          <Kpi label="Longas (≥3min)" value={durationTotals.longa} color="#c9a84c" />
         </div>
         {durationTotals.semReg > 0 && (
           <p className="mt-3 text-[11px] text-zinc-500">
@@ -180,7 +180,7 @@ export default function DashboardTab({ state }: { state: State }) {
         )}
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-6">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <h3 className="text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Duração por Corretor</h3>
@@ -205,7 +205,7 @@ export default function DashboardTab({ state }: { state: State }) {
                 <tr key={r.brokerId} className="border-t border-zinc-800/80">
                   <Td className="font-semibold text-zinc-100">{r.name}</Td>
                   <Td className="text-right tabular-nums" style={fontNumeric}>{r.total}</Td>
-                  <Td className="text-right tabular-nums font-semibold text-[#c9a24c]" style={fontNumeric}>{fmtDur(Math.round(r.totalSecs))}</Td>
+                  <Td className="text-right tabular-nums font-semibold text-[#c9a84c]" style={fontNumeric}>{fmtDur(Math.round(r.totalSecs))}</Td>
                   <Td className="text-right tabular-nums" style={fontNumeric}>{fmtDur(r.avg)}</Td>
                   <Td className="text-right tabular-nums text-zinc-300" style={fontNumeric}>{fmtDur(r.maxDur)}</Td>
                   <Td className="text-right tabular-nums text-red-400">{r.fantasma}</Td>
@@ -220,7 +220,7 @@ export default function DashboardTab({ state }: { state: State }) {
         </div>
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-6">
         <h3 className="mb-1 text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Horário de Pico por Corretor</h3>
         <p className="mb-5 text-xs text-zinc-500">Distribuição de ligações ao longo do dia (0h–23h)</p>
         {hourly.length === 0 ? (
@@ -257,15 +257,15 @@ export default function DashboardTab({ state }: { state: State }) {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold text-zinc-100">{row.broker.name}</span>
                     <span className="text-xs text-zinc-500">
-                      {row.total} ligação(ões) · pico às <b className="text-[#c9a24c]">{String(peakIdx).padStart(2, "0")}h</b>
+                      {row.total} ligação(ões) · pico às <b className="text-[#c9a84c]">{String(peakIdx).padStart(2, "0")}h</b>
                     </span>
                   </div>
                   <div className="rounded-md bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 p-2">
                     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-24 w-full">
                       <defs>
                         <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="#c9a24c" stopOpacity="0.55" />
-                          <stop offset="100%" stopColor="#c9a24c" stopOpacity="0" />
+                          <stop offset="0%" stopColor="#c9a84c" stopOpacity="0.55" />
+                          <stop offset="100%" stopColor="#c9a84c" stopOpacity="0" />
                         </linearGradient>
                       </defs>
                       {[0.25, 0.5, 0.75].map((f) => (
@@ -273,11 +273,11 @@ export default function DashboardTab({ state }: { state: State }) {
                           stroke="#3f3f46" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
                       ))}
                       <path d={area} fill={`url(#${gid})`} />
-                      <path d={path} fill="none" stroke="#c9a24c" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d={path} fill="none" stroke="#c9a84c" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                       {row.hours[peakIdx] > 0 && (
                         <>
-                          <line x1={peakX} x2={peakX} y1={peakY} y2={H - P} stroke="#c9a24c" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.6" />
-                          <circle cx={peakX} cy={peakY} r="3.5" fill="#0b0d12" stroke="#c9a24c" strokeWidth="1.6" />
+                          <line x1={peakX} x2={peakX} y1={peakY} y2={H - P} stroke="#c9a84c" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.6" />
+                          <circle cx={peakX} cy={peakY} r="3.5" fill="#0c0e14" stroke="#c9a84c" strokeWidth="1.6" />
                         </>
                       )}
                     </svg>
@@ -292,7 +292,7 @@ export default function DashboardTab({ state }: { state: State }) {
         )}
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-6">
         <h3 className="mb-4 text-xl font-bold uppercase tracking-wider" style={fontDisplay}>Ranking de Corretores</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -309,7 +309,7 @@ export default function DashboardTab({ state }: { state: State }) {
                   <Td>
                     <span
                       className={`inline-flex h-7 w-7 items-center justify-center rounded-md font-bold ${
-                        i === 0 ? "bg-[#c9a24c] text-black" : i === 1 ? "bg-zinc-700 text-zinc-100" : i === 2 ? "bg-zinc-800 text-zinc-300" : "bg-zinc-900 text-zinc-500"
+                        i === 0 ? "bg-[#c9a84c] text-black" : i === 1 ? "bg-zinc-700 text-zinc-100" : i === 2 ? "bg-zinc-800 text-zinc-300" : "bg-zinc-900 text-zinc-500"
                       }`}
                       style={fontDisplay}
                     >{i + 1}</span>
@@ -318,12 +318,12 @@ export default function DashboardTab({ state }: { state: State }) {
                   <Td className="text-right text-3xl tracking-tight" style={fontNumeric}>{r.total}</Td>
                   <Td>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                      <div className="h-full rounded-full bg-[#c9a24c] transition-all" style={{ width: `${(r.total / max) * 100}%` }} />
+                      <div className="h-full rounded-full bg-[#c9a84c] transition-all" style={{ width: `${(r.total / max) * 100}%` }} />
                     </div>
                   </Td>
                   <Td className="text-right tabular-nums text-emerald-400">{r.attended}</Td>
                   <Td className="text-right tabular-nums text-yellow-400">{r.scheduled}</Td>
-                  <Td className="text-right tabular-nums font-semibold text-[#c9a24c]">{r.rate}%</Td>
+                  <Td className="text-right tabular-nums font-semibold text-[#c9a84c]">{r.rate}%</Td>
                 </tr>
               ))}
               {ranking.length === 0 && (

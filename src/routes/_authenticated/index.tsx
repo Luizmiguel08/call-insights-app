@@ -59,12 +59,12 @@ function LigaCtrlApp() {
   // Aguardando aprovação do admin
   if (hydrated && me && !me.isAdmin && !me.approved) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-[#0f1117] text-zinc-100 px-4 relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.85), rgba(11,13,19,0.92)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}>
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#0c0e14] text-zinc-100 px-4 relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.85), rgba(11,13,19,0.92)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}>
         <div className="w-full max-w-md text-center">
           <img src={fortalLogo.url} alt="Fortal" width={96} height={96} className="mx-auto h-24 w-24 object-contain mb-6" />
-          <div className="text-2xl text-[#c9a24c] tracking-[0.28em] font-medium mb-2" style={fontDisplay}>FORTAL</div>
-          <div className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 mt-6">
-            <h1 className="text-xl font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>Aguardando aprovação</h1>
+          <div className="text-2xl text-[#c9a84c] tracking-[0.28em] font-medium mb-2" style={fontDisplay}>FORTAL</div>
+          <div className="rounded-2xl border border-zinc-800 bg-[#13151e] p-6 mt-6">
+            <h1 className="text-xl font-bold uppercase tracking-wider text-[#c9a84c]" style={fontDisplay}>Aguardando aprovação</h1>
             <p className="mt-3 text-sm text-zinc-400">Sua conta <strong className="text-zinc-200">{me.email}</strong> foi criada e está aguardando o Miguel aprovar e definir seu nome de corretor.</p>
             <button onClick={signOut} className="mt-6 w-full h-11 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800" style={fontDisplay}>
               <LogOut className="inline h-4 w-4 mr-2" /> Sair
@@ -91,8 +91,8 @@ function LigaCtrlApp() {
   useReminderNotifier(me, () => setTab("lembretes"));
 
   return (
-    <div className="min-h-[100dvh] bg-[#0f1117] text-zinc-100 pb-[env(safe-area-inset-bottom)] relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.92), rgba(11,13,19,0.96)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center top", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat" }}>
-      <header className="border-b border-zinc-800/80 bg-[#0b0d13]/90 backdrop-blur sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
+    <div className="min-h-[100dvh] bg-[#0c0e14] text-zinc-100 pb-[env(safe-area-inset-bottom)] relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.92), rgba(11,13,19,0.96)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center top", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat" }}>
+      <header className="border-b border-zinc-800/80 bg-[#0c0e14]/90 backdrop-blur sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center gap-2 sm:gap-3">
             <img
@@ -103,21 +103,21 @@ function LigaCtrlApp() {
               className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-[0_0_12px_rgba(201,162,76,0.35)]"
             />
             <div className="leading-none">
-              <div className="text-xl sm:text-2xl text-[#c9a24c] tracking-[0.24em] font-medium" style={fontDisplay}>FORTAL</div>
+              <div className="text-xl sm:text-2xl text-[#c9a84c] tracking-[0.24em] font-medium" style={fontDisplay}>FORTAL</div>
               <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.34em] text-zinc-500 mt-1.5 italic" style={fontDisplay}>Inteligência Imobiliária</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <ConnectionIndicator state={dialerSession.isConnected} lastSyncAt={dialerSession.lastSyncAt} />
             <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
-              <div className="hidden sm:flex items-center justify-end gap-1 text-[#c9a24c]"><Cloud className="h-3 w-3" /> {hydrated ? "sincronizado" : "carregando..."}</div>
+              <div className="hidden sm:flex items-center justify-end gap-1 text-[#c9a84c]"><Cloud className="h-3 w-3" /> {hydrated ? "sincronizado" : "carregando..."}</div>
               <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
             </div>
 
             <button
               onClick={signOut}
               title="Sair"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-400 hover:text-[#c9a24c] hover:border-[#c9a24c]/60"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-400 hover:text-[#c9a84c] hover:border-[#c9a84c]/60"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -133,7 +133,7 @@ function LigaCtrlApp() {
                 onClick={() => setTab(t.id)}
                 className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${
                   active
-                    ? "border-[#c9a24c] text-[#c9a24c]"
+                    ? "border-[#c9a84c] text-[#c9a84c]"
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
                 }`}
                 style={fontDisplay}
@@ -272,12 +272,12 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
   return (
     <div className="space-y-5">
       {/* Barra: corretor + data + desfazer */}
-      <div className="grid gap-3 sm:grid-cols-[1fr_220px_auto] items-end rounded-lg border border-zinc-800 bg-[#171a23] p-4">
+      <div className="grid gap-3 sm:grid-cols-[1fr_220px_auto] items-end rounded-lg border border-zinc-800 bg-[#13151e] p-4">
         <Field label="Corretor">
           <div className="relative">
             <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " pl-9 appearance-none text-base font-semibold"}>
-              {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>)}
+              {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#13151e]">{b.name}</option>)}
             </select>
           </div>
         </Field>
@@ -298,10 +298,10 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
       </div>
 
       {/* Número pontual: nome + telefone + discar */}
-      <div className="rounded-lg border-2 border-[#c9a24c]/40 bg-[#171a23] p-6 shadow-[0_0_40px_-12px_#c9a24c]">
+      <div className="rounded-lg border-2 border-[#c9a84c]/40 bg-[#13151e] p-6 shadow-[0_0_40px_-12px_#c9a84c]">
         <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
-            <Zap className="inline h-5 w-5 text-[#c9a24c] mb-1" /> Ligação avulsa — {brokerName}
+            <Zap className="inline h-5 w-5 text-[#c9a84c] mb-1" /> Ligação avulsa — {brokerName}
           </h2>
           {callStartedAt ? (
             <div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-emerald-300" style={fontDisplay}>
@@ -324,7 +324,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
               onChange={(e) => setClient(e.target.value)}
               onKeyDown={onNameKeyDown}
               placeholder="Ex.: João Silva"
-              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0c0e14] px-4 text-base font-semibold text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a84c] focus:ring-2 focus:ring-[#c9a84c]/30"
               autoFocus
             />
           </Field>
@@ -334,7 +334,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(11) 99999-8888"
               inputMode="tel"
-              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 text-base font-mono text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+              className="h-12 w-full rounded-md border border-zinc-700 bg-[#0c0e14] px-4 text-base font-mono text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a84c] focus:ring-2 focus:ring-[#c9a84c]/30"
             />
           </Field>
         </div>
@@ -346,7 +346,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
               onChange={(e) => setNote(e.target.value)}
               placeholder="Ex.: interesse em apto 2 quartos, retornar à tarde…"
               rows={2}
-              className="w-full rounded-md border border-zinc-700 bg-[#0f1117] px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30 resize-y"
+              className="w-full rounded-md border border-zinc-700 bg-[#0c0e14] px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a84c] focus:ring-2 focus:ring-[#c9a84c]/30 resize-y"
             />
           </Field>
         </div>
@@ -360,7 +360,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
             }}
             className={`flex items-center justify-center gap-2 h-14 rounded-md text-base font-bold uppercase tracking-[0.18em] transition ${
               dialReady
-                ? "bg-[#c9a24c] text-black hover:bg-[#e6c878]"
+                ? "bg-[#c9a84c] text-black hover:bg-[#d4b968]"
                 : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
             }`}
             style={fontDisplay}
@@ -373,7 +373,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
           <button
             type="button"
             onClick={addOnly}
-            className="flex items-center justify-center gap-2 h-14 rounded-md border-2 border-zinc-600 bg-[#0f1117] px-6 text-base font-bold uppercase tracking-[0.18em] text-zinc-200 hover:bg-zinc-800 hover:border-zinc-500 transition"
+            className="flex items-center justify-center gap-2 h-14 rounded-md border-2 border-zinc-600 bg-[#0c0e14] px-6 text-base font-bold uppercase tracking-[0.18em] text-zinc-200 hover:bg-zinc-800 hover:border-zinc-500 transition"
             style={fontDisplay}
             title="Salvar no histórico sem discar"
           >
@@ -399,7 +399,7 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Ligações hoje" value={k.total} color="#c9a24c" />
+        <Kpi label="Ligações hoje" value={k.total} color="#c9a84c" />
         <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
         <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
         <Kpi label="Agendadas" value={k.scheduled} color="#eab308" />
@@ -407,13 +407,13 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
       {/* Últimas registradas hoje */}
       {today.length > 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+        <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-5">
           <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-zinc-400" style={fontDisplay}>
             Últimas registradas — {brokerName}
           </h3>
           <div className="space-y-1.5 max-h-[280px] overflow-y-auto">
             {today.slice(0, 30).map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded border border-zinc-800 bg-[#0f1117] px-3 py-2">
+              <div key={c.id} className="flex items-center gap-3 rounded border border-zinc-800 bg-[#0c0e14] px-3 py-2">
                 <span className="flex-1 truncate text-sm font-medium text-zinc-100">
                   {c.client}
                   {c.phone && <span className="ml-2 font-mono text-xs text-zinc-500">{c.phone}</span>}
@@ -441,7 +441,7 @@ function BigKey({ kbd, color, onClick, children }: { kbd: string; color: "red" |
   const map = {
     red: "border-red-500/50 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500",
     green: "border-emerald-500/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500",
-    orange: "border-[#c9a24c]/60 bg-[#c9a24c]/15 text-[#c9a24c] hover:bg-[#c9a24c]/25 hover:border-[#c9a24c]",
+    orange: "border-[#c9a84c]/60 bg-[#c9a84c]/15 text-[#c9a84c] hover:bg-[#c9a84c]/25 hover:border-[#c9a84c]",
   } as const;
   return (
     <button
@@ -477,7 +477,7 @@ function OutcomeBtn({ variant, onClick, disabled, title, children }: { variant: 
 
 function StatPill({ label, value, color }: { label: string; value: number | string; color: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-md border border-zinc-800 bg-[#13161f] px-2 py-1.5">
+    <div className="flex flex-col items-center justify-center rounded-md border border-zinc-800 bg-[#1a1d28] px-2 py-1.5">
       <span className="text-[9px] font-semibold uppercase tracking-widest text-zinc-500" style={fontDisplay}>{label}</span>
       <span className="text-lg sm:text-xl font-semibold leading-none tabular-nums" style={{ ...fontNumeric, color }}>{value}</span>
     </div>
@@ -513,13 +513,13 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
     const sch = uniqueContactCountWhere(myCalls, (c) => c.scheduled);
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-6">
+        <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-6">
           <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Sua conta</div>
           <div className="mt-2 text-3xl font-bold text-zinc-100" style={fontDisplay}>{myBroker?.name ?? me?.email}</div>
           <div className="mt-1 text-sm text-zinc-500">{me?.email}</div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Kpi label="Total ligações" value={uniqueContactCount(myCalls)} color="#c9a24c" />
+          <Kpi label="Total ligações" value={uniqueContactCount(myCalls)} color="#c9a84c" />
           <Kpi label="Agendamentos" value={sch} color="#eab308" />
           <Kpi label="Meta diária" value={state.metaDaily} color="#22c55e" />
         </div>
@@ -567,20 +567,20 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
   return (
     <div className="space-y-4">
       {!myBrokerExists && (
-        <div className="rounded-lg border border-[#c9a24c]/40 bg-[#c9a24c]/10 p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="rounded-lg border border-[#c9a84c]/40 bg-[#c9a84c]/10 p-4 flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <div className="text-sm font-bold uppercase tracking-[0.2em] text-[#c9a24c]" style={fontDisplay}>Você ainda não é corretor</div>
+            <div className="text-sm font-bold uppercase tracking-[0.2em] text-[#c9a84c]" style={fontDisplay}>Você ainda não é corretor</div>
             <div className="text-xs text-zinc-400 mt-1">Adicione-se à equipe pra ter sua própria fila de contatos.</div>
           </div>
-          <button onClick={addMeAsBroker} className="h-10 rounded-md bg-[#c9a24c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]" style={fontDisplay}>
+          <button onClick={addMeAsBroker} className="h-10 rounded-md bg-[#c9a84c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#d4b968]" style={fontDisplay}>
             <Plus className="inline h-4 w-4 mr-1" strokeWidth={3} /> Me adicionar como corretor
           </button>
         </div>
       )}
 
       {pending.length > 0 && (
-        <div className="rounded-lg border border-[#c9a24c]/40 bg-[#c9a24c]/10 p-4">
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-[#c9a24c]" style={fontDisplay}>
+        <div className="rounded-lg border border-[#c9a84c]/40 bg-[#c9a84c]/10 p-4">
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-[#c9a84c]" style={fontDisplay}>
             Aguardando aprovação ({pending.length})
           </h3>
           <div className="space-y-2">
@@ -591,9 +591,9 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-[#171a23]">
+      <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-[#13151e]">
         <table className="w-full text-sm">
-          <thead className="bg-[#0f1117] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
+          <thead className="bg-[#0c0e14] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
             <tr>
               <Th>Corretor</Th>
               <Th className="text-right">Total Ligações</Th>
@@ -632,17 +632,17 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
 function PendingRow({ broker, onRename, onApprove, onReject }: { broker: Broker; onRename: (n: string) => void; onApprove: () => void; onReject: () => void }) {
   const [name, setName] = useState(broker.name);
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-800 bg-[#171a23] p-3">
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-800 bg-[#13151e] p-3">
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
         onBlur={() => name.trim() && name !== broker.name && onRename(name.trim())}
-        className="flex-1 min-w-[180px] h-9 rounded-md border border-zinc-700 bg-[#0f1117] px-3 text-sm text-zinc-100 outline-none focus:border-[#c9a24c]"
+        className="flex-1 min-w-[180px] h-9 rounded-md border border-zinc-700 bg-[#0c0e14] px-3 text-sm text-zinc-100 outline-none focus:border-[#c9a84c]"
         placeholder="Nome do corretor"
       />
       <button
         onClick={() => { if (name.trim() && name !== broker.name) onRename(name.trim()); onApprove(); }}
-        className="h-9 rounded-md bg-[#c9a24c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
+        className="h-9 rounded-md bg-[#c9a84c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#d4b968]"
         style={fontDisplay}
       >
         <Check className="inline h-3.5 w-3.5 mr-1" strokeWidth={3} /> Aprovar
@@ -1462,9 +1462,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
       {/* Header bento: corretor + lista (8) | meta (4) */}
       <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 lg:col-span-8 rounded-2xl border border-[#c9a24c]/20 bg-[#1a1a1a]/95 backdrop-blur p-5 shadow-2xl flex flex-wrap items-center gap-5">
+        <div className="col-span-12 lg:col-span-8 rounded-2xl border border-[#c9a84c]/20 bg-[#1a1d28]/95 backdrop-blur p-5 shadow-2xl flex flex-wrap items-center gap-5">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#c9a24c] to-[#f0d78c] font-bold text-[#0d0d0d] shadow-lg shadow-[#c9a24c]/20" style={fontDisplay}>
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#c9a84c] to-[#e6c878] font-bold text-[#0c0e14] shadow-lg shadow-[#c9a84c]/20" style={fontDisplay}>
               {brokerInitials}
             </div>
             <div className="min-w-0">
@@ -1472,10 +1472,10 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               <select
                 value={brokerId}
                 onChange={(e) => setBrokerId(e.target.value)}
-                className="bg-transparent border-0 p-0 -ml-0.5 text-[#f0d78c] text-lg font-bold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a24c] truncate max-w-[220px]"
+                className="bg-transparent border-0 p-0 -ml-0.5 text-[#e6c878] text-lg font-bold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a84c] truncate max-w-[220px]"
                 style={fontDisplay}
               >
-                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#1a1a1a]">{b.name}</option>)}
+                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#1a1d28]">{b.name}</option>)}
               </select>
             </div>
           </div>
@@ -1485,34 +1485,34 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             <select
               value={selectedList}
               onChange={(e) => setSelectedList(e.target.value)}
-              className="bg-transparent border-0 p-0 -ml-0.5 text-zinc-100 text-base font-semibold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a24c] truncate max-w-full"
+              className="bg-transparent border-0 p-0 -ml-0.5 text-zinc-100 text-base font-semibold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a84c] truncate max-w-full"
               style={fontDisplay}
             >
-              <option value="all" className="bg-[#1a1a1a]">Todas as listas</option>
+              <option value="all" className="bg-[#1a1d28]">Todas as listas</option>
               {discadorLists.map((l) => (
-                <option key={l} value={l} className="bg-[#1a1a1a]">{l}</option>
+                <option key={l} value={l} className="bg-[#1a1d28]">{l}</option>
               ))}
             </select>
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 rounded-2xl border border-[#c9a24c]/20 bg-[#1a1a1a]/95 backdrop-blur p-5 flex flex-col justify-center gap-2">
+        <div className="col-span-12 lg:col-span-4 rounded-2xl border border-[#c9a84c]/20 bg-[#1a1d28]/95 backdrop-blur p-5 flex flex-col justify-center gap-2">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
               <Target className="h-3.5 w-3.5" /> Meta diária
             </span>
-            <span className={`text-sm font-bold tabular-nums ${reached ? "text-emerald-400" : "text-[#f0d78c]"}`} style={fontDisplay}>
+            <span className={`text-sm font-bold tabular-nums ${reached ? "text-emerald-400" : "text-[#e6c878]"}`} style={fontDisplay}>
               {k.total}/{meta}{reached && " ✓"}
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-[#0d0d0d] border border-[#c9a24c]/10 overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-[#0c0e14] border border-[#c9a84c]/10 overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
                 width: `${pct}%`,
                 background: reached
                   ? "linear-gradient(to right, #22c55e, #6ee7b7)"
-                  : "linear-gradient(to right, #c9a24c, #f0d78c)",
+                  : "linear-gradient(to right, #c9a84c, #e6c878)",
               }}
             />
           </div>
@@ -1520,9 +1520,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       </div>
 
       {current ? (
-        <div className="rounded-3xl border border-[#c9a24c]/30 bg-[#1a1a1a]/95 backdrop-blur p-6 sm:p-7 shadow-2xl relative overflow-hidden">
+        <div className="rounded-3xl border border-[#c9a84c]/30 bg-[#1a1d28]/95 backdrop-blur p-6 sm:p-7 shadow-2xl relative overflow-hidden">
           {/* glow accent */}
-          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-[#c9a24c]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-[#c9a84c]/10 blur-3xl" />
 
           {/* status bar */}
           <div className="relative z-10 mb-5 flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
@@ -1561,7 +1561,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${
                         isLast
                           ? "border-amber-400/40 bg-amber-500/10 text-amber-300 animate-pulse"
-                          : "border-[#c9a24c]/30 bg-[#c9a24c]/10 text-[#f0d78c]"
+                          : "border-[#c9a84c]/30 bg-[#c9a84c]/10 text-[#e6c878]"
                       }`}
                       style={fontDisplay}
                     >
@@ -1584,7 +1584,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               </div>
 
               {/* Próximo da fila — preview */}
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-[#0d0d0d]/60 px-4 py-2.5">
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-[#0c0e14]/60 px-4 py-2.5">
                 <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
                 {next ? (
                   <>
@@ -1628,7 +1628,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                       // startCall apenas registra estado; pode rodar depois.
                       startCall();
                     }}
-                    className={`w-full bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] py-5 rounded-2xl text-[#0d0d0d] font-extrabold text-lg sm:text-xl shadow-[0_8px_40px_-8px_rgba(201,162,76,0.5)] hover:scale-[1.01] active:scale-[0.99] transition-transform flex items-center justify-center gap-3 uppercase tracking-[0.18em] ${submittingOutcome ? "pointer-events-none opacity-50" : ""}`}
+                    className={`w-full bg-gradient-to-r from-[#c9a84c] to-[#e6c878] py-5 rounded-2xl text-[#0c0e14] font-extrabold text-lg sm:text-xl shadow-[0_8px_40px_-8px_rgba(201,162,76,0.5)] hover:scale-[1.01] active:scale-[0.99] transition-transform flex items-center justify-center gap-3 uppercase tracking-[0.18em] ${submittingOutcome ? "pointer-events-none opacity-50" : ""}`}
                     style={fontDisplay}
                   >
                     <Phone className="h-6 w-6" strokeWidth={2.5} />
@@ -1670,7 +1670,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                 <button
                   type="button"
                   onClick={() => setWaEditing((v) => !v)}
-                  className="col-span-2 rounded-xl border border-zinc-700 bg-[#0d0d0d] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a24c]"
+                  className="col-span-2 rounded-xl border border-zinc-700 bg-[#0c0e14] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a84c]"
                   style={fontDisplay}
                   title="Editar mensagens"
                 >
@@ -1679,11 +1679,11 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               </div>
 
               {waEditing && (
-                <div className="rounded-xl border border-zinc-800 bg-[#0d0d0d] p-3 space-y-3">
+                <div className="rounded-xl border border-zinc-800 bg-[#0c0e14] p-3 space-y-3">
                   <div>
                     <div className="mb-1 flex items-center justify-between">
                       <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                        Mensagem 1 · use <span className="text-[#c9a24c]">{"{nome}"}</span>
+                        Mensagem 1 · use <span className="text-[#c9a84c]">{"{nome}"}</span>
                       </label>
                       <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
                     </div>
@@ -1698,7 +1698,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                   <div>
                     <div className="mb-1 flex items-center justify-between">
                       <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                        Mensagem 2 · use <span className="text-[#c9a24c]">{"{nome}"}</span>
+                        Mensagem 2 · use <span className="text-[#c9a84c]">{"{nome}"}</span>
                       </label>
                       <span className="text-[10px] tabular-nums text-zinc-600">{waMsg2.length}/1000</span>
                     </div>
@@ -1714,7 +1714,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     <button
                       type="button"
                       onClick={saveWaTemplate}
-                      className="rounded-md bg-[#c9a24c] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-black hover:bg-[#f0d78c]"
+                      className="rounded-md bg-[#c9a84c] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
                       style={fontDisplay}
                     >
                       Salvar padrão
@@ -1760,7 +1760,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                     key={chip.label}
                     type="button"
                     onClick={() => setNote(chip.label)}
-                    className={`rounded-xl border border-zinc-800 bg-[#0d0d0d] py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400 transition ${chip.hover}`}
+                    className={`rounded-xl border border-zinc-800 bg-[#0c0e14] py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400 transition ${chip.hover}`}
                     style={fontDisplay}
                   >
                     {chip.label}
@@ -1793,7 +1793,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                       onClick={() => handleResultClick(false, false)}
                       disabled={outcomesLocked}
                       title={lockedHint}
-                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-red-500/50 hover:bg-red-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0c0e14] py-3 hover:border-red-500/50 hover:bg-red-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <span className="grid h-9 w-9 place-items-center rounded-full bg-red-500/15 border border-red-500/30 text-red-400 group-hover:bg-red-500 group-hover:text-white transition">
                         <X className="h-5 w-5" strokeWidth={3} />
@@ -1805,7 +1805,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                       onClick={() => handleResultClick(true, false)}
                       disabled={outcomesLocked}
                       title={lockedHint}
-                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0d0d0d] py-3 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0c0e14] py-3 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition">
                         <Check className="h-5 w-5" strokeWidth={3} />
@@ -1817,12 +1817,12 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                       onClick={() => handleResultClick(true, true)}
                       disabled={outcomesLocked}
                       title={lockedHint}
-                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-[#c9a24c]/30 bg-[#c9a24c]/5 py-3 hover:border-[#c9a24c] hover:bg-[#c9a24c]/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-[#c9a84c]/30 bg-[#c9a84c]/5 py-3 hover:border-[#c9a84c] hover:bg-[#c9a84c]/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#c9a24c] to-[#f0d78c] text-[#0d0d0d] shadow-md shadow-[#c9a24c]/30">
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#c9a84c] to-[#e6c878] text-[#0c0e14] shadow-md shadow-[#c9a84c]/30">
                         <Calendar className="h-5 w-5" strokeWidth={3} />
                       </span>
-                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#f0d78c]" style={fontDisplay}>Agendou</span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#e6c878]" style={fontDisplay}>Agendou</span>
                     </button>
                   </div>
                 );
@@ -1832,14 +1832,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <button
                   onClick={callback}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0d0d0d] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0c0e14] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
                   style={fontDisplay}
                 >
                   <Undo2 className="h-3.5 w-3.5" /> Retornar
                 </button>
                 <button
                   onClick={skip}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0d0d0d] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0c0e14] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
                   style={fontDisplay}
                 >
                   Pular <SkipForward className="h-3.5 w-3.5" />
@@ -1848,7 +1848,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               <button
                 onClick={() => setShowReminderForm(true)}
                 disabled={!me?.brokerId}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[#c9a24c]/30 bg-[#c9a24c]/5 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#f0d78c] hover:bg-[#c9a24c]/10 hover:border-[#c9a24c]/60 transition disabled:opacity-40"
+                className="flex items-center justify-center gap-2 rounded-xl border border-[#c9a84c]/30 bg-[#c9a84c]/5 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#e6c878] hover:bg-[#c9a84c]/10 hover:border-[#c9a84c]/60 transition disabled:opacity-40"
                 style={fontDisplay}
                 title="Agendar para retornar mais tarde"
               >
@@ -1858,8 +1858,8 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           </div>
         </div>
       ) : !hydrated ? (
-        <div className="rounded-3xl border border-zinc-800 bg-[#1a1a1a]/95 p-12 text-center">
-          <RefreshCw className="mx-auto h-10 w-10 text-[#c9a24c] animate-spin" />
+        <div className="rounded-3xl border border-zinc-800 bg-[#1a1d28]/95 p-12 text-center">
+          <RefreshCw className="mx-auto h-10 w-10 text-[#c9a84c] animate-spin" />
           <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-zinc-300" style={fontDisplay}>Carregando fila</h3>
           <p className="mt-1 text-sm text-zinc-500">Buscando seus contatos no servidor...</p>
           <div className="mt-6 mx-auto max-w-sm space-y-2">
@@ -1876,14 +1876,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           <button
             onClick={() => void verifyNow()}
             disabled={isVerifying}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a84c] to-[#e6c878] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             style={fontDisplay}
           >
             <RefreshCw className={`h-4 w-4 ${isVerifying ? "animate-spin" : ""}`} /> {isVerifying ? "Verificando..." : "Verificar novamente"}
           </button>
         </div>
       ) : (
-        <div className="rounded-3xl border border-dashed border-zinc-800 bg-[#1a1a1a]/95 p-12 text-center">
+        <div className="rounded-3xl border border-dashed border-zinc-800 bg-[#1a1d28]/95 p-12 text-center">
           <PhoneCall className="mx-auto h-10 w-10 text-zinc-700" />
           <h3 className="mt-3 text-2xl font-bold uppercase tracking-wider text-zinc-300" style={fontDisplay}>
             {myQueue.length === 0 ? "Fila vazia" : "Nenhum contato disponível agora"}
@@ -1897,14 +1897,14 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             <button
               onClick={() => void verifyNow()}
               disabled={isVerifying}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#c9a24c]/40 bg-[#c9a24c]/5 px-5 py-3 text-sm font-bold uppercase tracking-wider text-[#f0d78c] hover:bg-[#c9a24c]/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#c9a84c]/40 bg-[#c9a84c]/5 px-5 py-3 text-sm font-bold uppercase tracking-wider text-[#e6c878] hover:bg-[#c9a84c]/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
               style={fontDisplay}
             >
               <RefreshCw className={`h-4 w-4 ${isVerifying ? "animate-spin" : ""}`} /> {isVerifying ? "Verificando..." : "Verificar novamente"}
             </button>
             <button
               onClick={goFila}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a24c] to-[#f0d78c] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#c9a84c] to-[#e6c878] px-6 py-3 text-sm font-bold uppercase tracking-wider text-black hover:scale-[1.02] transition-transform"
               style={fontDisplay}
             >
               <ListPlus className="h-4 w-4" /> Ir pra Fila
@@ -1914,9 +1914,9 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       )}
 
       {/* Barra de stats — sticky no rodapé */}
-      <div className="sticky bottom-0 -mx-3 sm:-mx-6 mt-4 border-t border-zinc-800 bg-[#0b0d13]/95 backdrop-blur px-3 sm:px-6 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] z-20">
+      <div className="sticky bottom-0 -mx-3 sm:-mx-6 mt-4 border-t border-zinc-800 bg-[#0c0e14]/95 backdrop-blur px-3 sm:px-6 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] z-20">
         <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
-          <StatPill label="Ligações" value={k.total} color="#c9a24c" />
+          <StatPill label="Ligações" value={k.total} color="#c9a84c" />
           <StatPill label="Atendidas" value={k.attended} color="#22c55e" />
           <StatPill label="Não atend." value={k.notAttended} color="#ef4444" />
           <StatPill label="Agendadas" value={k.scheduled} color="#eab308" />
@@ -2105,7 +2105,7 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
   return (
     <div className="space-y-5">
       {/* Config meta */}
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5 flex flex-wrap items-end gap-4">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-5 flex flex-wrap items-end gap-4">
         <Field label="Meta diária por corretor" className="w-[200px]">
           <div className="flex gap-2">
             <input
@@ -2117,26 +2117,26 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
             />
             <button
               onClick={saveMeta}
-              className="h-10 rounded-md bg-[#c9a24c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
+              className="h-10 rounded-md bg-[#c9a84c] px-4 text-xs font-bold uppercase tracking-wider text-black hover:bg-[#d4b968]"
               style={fontDisplay}
             >Salvar</button>
           </div>
         </Field>
         <div className="flex flex-1 gap-3 justify-end">
-          <Kpi label="Pendentes" value={pending} color="#c9a24c" />
+          <Kpi label="Pendentes" value={pending} color="#c9a84c" />
           <Kpi label="Feitos" value={done} color="#22c55e" />
           <Kpi label="Pulados" value={skipped} color="#71717a" />
         </div>
       </div>
 
       {/* Importar */}
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-5">
         <h2 className="mb-4 text-2xl font-bold uppercase tracking-wider" style={fontDisplay}>
-          <Upload className="inline h-5 w-5 text-[#c9a24c] mb-1 mr-2" />
+          <Upload className="inline h-5 w-5 text-[#c9a84c] mb-1 mr-2" />
           Importar contatos do Excel
         </h2>
         <p className="mb-3 text-xs text-zinc-400">
-          Cole 1 contato por linha. Formatos aceitos: <code className="text-[#c9a24c]">Nome, Telefone</code> · <code className="text-[#c9a24c]">Nome; Telefone</code> · <code className="text-[#c9a24c]">Nome \t Telefone</code> (cópia direta do Excel).
+          Cole 1 contato por linha. Formatos aceitos: <code className="text-[#c9a84c]">Nome, Telefone</code> · <code className="text-[#c9a84c]">Nome; Telefone</code> · <code className="text-[#c9a84c]">Nome \t Telefone</code> (cópia direta do Excel).
         </p>
 
         <div className="grid gap-3 sm:grid-cols-[1fr_280px]">
@@ -2168,29 +2168,29 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
                   onChange={(e) => setAssignTo(e.target.value)}
                   className={inputCls + " appearance-none"}
                 >
-                  <option value="" className="bg-[#171a23]">Fila geral (qualquer corretor)</option>
+                  <option value="" className="bg-[#13151e]">Fila geral (qualquer corretor)</option>
                   {state.brokers.map((b) => (
-                    <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                    <option key={b.id} value={b.id} className="bg-[#13151e]">{b.name}</option>
                   ))}
                 </select>
               </Field>
             ) : (
-              <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
+              <div className="rounded-md border border-zinc-800 bg-[#0c0e14] p-3">
                 <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Atribuído a</div>
                 <div className="mt-1 text-sm font-semibold text-zinc-100">{me?.brokerName ?? "—"}</div>
                 <div className="text-xs text-zinc-500">Contatos importados ficam só com você.</div>
               </div>
             )}
-            <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3">
+            <div className="rounded-md border border-zinc-800 bg-[#0c0e14] p-3">
               <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>Pré-visualização</div>
-              <div className="mt-1 text-4xl tracking-tight text-[#c9a24c]" style={fontNumeric}>
+              <div className="mt-1 text-4xl tracking-tight text-[#c9a84c]" style={fontNumeric}>
                 {preview.length}
               </div>
               <div className="text-xs text-zinc-500">contato(s) válido(s)</div>
             </div>
             <button
               onClick={importContacts}
-              className="h-12 w-full rounded-md bg-[#c9a24c] text-sm font-bold uppercase tracking-[0.2em] text-black hover:bg-[#e6c878]"
+              className="h-12 w-full rounded-md bg-[#c9a84c] text-sm font-bold uppercase tracking-[0.2em] text-black hover:bg-[#d4b968]"
               style={fontDisplay}
             >
               Importar {preview.length > 0 ? `${preview.length} contato(s)` : ""}
@@ -2200,22 +2200,22 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
       </div>
 
       {/* Lista de contatos */}
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23]">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e]">
         <div className="flex flex-wrap items-center gap-3 p-4 border-b border-zinc-800">
           <Field label="Filtrar por corretor" className="min-w-[200px]">
             <select value={filterBroker} onChange={(e) => setFilterBroker(e.target.value)} className={inputCls + " appearance-none"}>
-              <option value="all" className="bg-[#171a23]">Todos</option>
-              <option value="geral" className="bg-[#171a23]">Fila geral</option>
+              <option value="all" className="bg-[#13151e]">Todos</option>
+              <option value="geral" className="bg-[#13151e]">Fila geral</option>
               {state.brokers.map((b) => (
-                <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                <option key={b.id} value={b.id} className="bg-[#13151e]">{b.name}</option>
               ))}
             </select>
           </Field>
           <Field label="Filtrar por lista" className="min-w-[200px]">
             <select value={filterList} onChange={(e) => setFilterList(e.target.value)} className={inputCls + " appearance-none"}>
-              <option value="all" className="bg-[#171a23]">Todas</option>
+              <option value="all" className="bg-[#13151e]">Todas</option>
               {availableLists.map((l) => (
-                <option key={l} value={l} className="bg-[#171a23]">{l}</option>
+                <option key={l} value={l} className="bg-[#13151e]">{l}</option>
               ))}
             </select>
           </Field>
@@ -2235,7 +2235,7 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[#0f1117] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
+            <thead className="bg-[#0c0e14] text-[11px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
               <tr>
                 <Th>Status</Th><Th>Nome</Th><Th>Telefone</Th><Th>Lista</Th><Th>Atribuído</Th><Th className="text-right">Tentativas</Th><Th className="w-10"></Th>
               </tr>
@@ -2270,11 +2270,11 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
                       <select
                         value={c.brokerId ?? ""}
                         onChange={(e) => reassign(c.id, e.target.value || null)}
-                        className="h-8 rounded border border-zinc-700 bg-[#0f1117] px-2 text-xs text-zinc-200 outline-none focus:border-[#c9a24c]"
+                        className="h-8 rounded border border-zinc-700 bg-[#0c0e14] px-2 text-xs text-zinc-200 outline-none focus:border-[#c9a84c]"
                       >
-                        <option value="" className="bg-[#171a23]">Geral</option>
+                        <option value="" className="bg-[#13151e]">Geral</option>
                         {state.brokers.map((b) => (
-                          <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                          <option key={b.id} value={b.id} className="bg-[#13151e]">{b.name}</option>
                         ))}
                       </select>
                     ) : (
@@ -2324,14 +2324,14 @@ function EditableCell({
       }}
       inputMode={inputMode}
       placeholder={placeholder}
-      className="w-full bg-transparent px-1 py-0.5 outline-none rounded hover:bg-zinc-800/40 focus:bg-zinc-800/60 focus:ring-1 focus:ring-[#c9a24c]/50"
+      className="w-full bg-transparent px-1 py-0.5 outline-none rounded hover:bg-zinc-800/40 focus:bg-zinc-800/60 focus:ring-1 focus:ring-[#c9a84c]/50"
     />
   );
 }
 
 function StatusDot({ status }: { status: Contact["status"] }) {
   const map = {
-    pendente: { color: "#c9a24c", label: "Pendente" },
+    pendente: { color: "#c9a84c", label: "Pendente" },
     feito: { color: "#22c55e", label: "Feito" },
     pulado: { color: "#71717a", label: "Pulado" },
   } as const;
