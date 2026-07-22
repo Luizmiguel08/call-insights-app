@@ -145,13 +145,178 @@ export default function DashboardTab({ state }: { state: State }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Kpi label="Ligações" value={k.total} color="#c9a84c" />
-        <Kpi label="Atendidas" value={k.attended} color="#22c55e" />
-        <Kpi label="Não atend." value={k.notAttended} color="#ef4444" />
-        <Kpi label="Agendamentos" value={k.scheduled} color="#eab308" />
-        <Kpi label="Taxa Agend." value={`${rate}%`} color="#c9a84c" />
-      </div>
+      {(() => {
+        // KPIs + Team + Alerts (novo bloco Noir)
+        const meta = state.metaDaily || 50;
+        const answerRate = k.total ? Math.round((k.attended / k.total) * 100) : 0;
+
+        // Comparação vs. dia anterior
+        const prevDate = (() => {
+          if (!date) return "";
+          const d = new Date(date + "T12:00:00");
+          d.setDate(d.getDate() - 1);
+          return d.toISOString().slice(0, 10);
+        })();
+        const prevCalls = prevDate ? state.calls.filter((c) => c.date === prevDate) : [];
+        const prevTotal = uniqueContactCount(prevCalls);
+        const pctVsYesterday = prevTotal > 0
+          ? Math.round(((k.total - prevTotal) / prevTotal) * 100)
+          : (k.total > 0 ? 100 : 0);
+
+        const palette = ["#c9a84c", "#60a5fa", "#4ade80", "#f59e0b", "#f472b6", "#a78bfa", "#fb7185", "#34d399"];
+        const now = Date.now();
+
+        const team = state.brokers.map((b, i) => {
+          const own = calls.filter((c) => c.brokerId === b.id);
+          const totBroker = uniqueContactCount(own);
+          const attBroker = uniqueContactCountWhere(own, (c) => c.attended);
+          const lastCallAt = own.reduce((m, c) => Math.max(m, c.createdAt || 0), 0);
+          const idleMinutes = lastCallAt ? Math.floor((now - lastCallAt) / 60000) : Infinity;
+          const isTodayView = !date || date === todayISO();
+          const status: "online" | "idle" | "offline" =
+            !isTodayView || !lastCallAt
+              ? "offline"
+              : idleMinutes <= 5
+              ? "online"
+              : idleMinutes <= 30
+              ? "idle"
+              : "offline";
+          return {
+            id: b.id, name: b.name || "Sem nome",
+            color: palette[i % palette.length],
+            calls: totBroker, answered: attBroker, meta,
+            idleMinutes: Number.isFinite(idleMinutes) ? idleMinutes : 0,
+            status,
+          };
+        }).sort((a, b) => b.calls - a.calls);
+
+        const idleCount = team.filter((c) => c.status === "idle").length;
+
+        const alerts: { level: "red" | "amber" | "gold"; text: string }[] = [];
+        for (const c of team) {
+          if (c.status === "idle") alerts.push({ level: "amber", text: `${c.name} parado há ${c.idleMinutes} min` });
+          if (c.status === "online" && c.calls === 0) alerts.push({ level: "gold", text: `${c.name} online sem ligações` });
+          if (c.calls >= meta) alerts.push({ level: "gold", text: `${c.name} bateu a meta (${c.calls}/${meta})` });
+        }
+        if (answerRate > 0 && answerRate < 20 && k.total >= 5) {
+          alerts.push({ level: "red", text: `Taxa de atendimento baixa: ${answerRate}%` });
+        }
+
+        const kpis = [
+          { label: "LIGAÇÕES HOJE", value: k.total, color: "var(--green)", sub: `${pctVsYesterday >= 0 ? "↑" : "↓"} ${Math.abs(pctVsYesterday)}% vs ontem` },
+          { label: "TAXA ATEND.", value: `${answerRate}%`, color: "var(--gold)", sub: `${k.attended} atendidas` },
+          { label: "AGENDAMENTOS", value: k.scheduled, color: "var(--blue)", sub: `${rate}% conversão` },
+          { label: "SEM LIGAR", value: idleCount, color: "var(--red)", sub: "+5 min parados" },
+        ];
+
+        return (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+              {kpis.map((kpi) => (
+                <div key={kpi.label} style={{ background: "var(--surface-1)", borderRadius: "var(--radius-md)", padding: 12, border: "1px solid var(--border)" }}>
+                  <div style={{ ...fontDisplay, fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", marginBottom: 4 }}>
+                    {kpi.label}
+                  </div>
+                  <div style={{ ...fontNumeric, fontSize: 20, fontWeight: 600, color: kpi.color }}>{kpi.value}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>{kpi.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ ...fontDisplay, fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", marginBottom: 8 }}>
+                CORRETORES EM TEMPO REAL
+              </div>
+              {team.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--text-muted)", padding: 12, background: "var(--surface-1)", borderRadius: "var(--radius-md)" }}>
+                  Nenhum corretor cadastrado.
+                </div>
+              )}
+              {team.map((c) => {
+                const pct = Math.min(100, Math.round((c.calls / Math.max(c.meta, 1)) * 100));
+                const answerPct = Math.round((c.answered / Math.max(c.calls, 1)) * 100);
+                const statusStyle =
+                  c.status === "online"
+                    ? { background: "var(--green-dim)", color: "var(--green)", border: "0.5px solid #4ade8033" }
+                    : c.status === "idle"
+                    ? { background: "var(--amber-dim)", color: "var(--amber)", border: "0.5px solid #f59e0b33" }
+                    : { background: "#ffffff08", color: "var(--text-muted)", border: "0.5px solid var(--border)" };
+                return (
+                  <div key={c.id} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: "var(--surface-1)", borderRadius: "var(--radius-md)",
+                    padding: "10px 12px", marginBottom: 6, border: "1px solid var(--border)",
+                  }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                      background: `${c.color}22`, color: c.color,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 500,
+                    }}>
+                      {c.name[0]?.toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: "#fff", fontWeight: 500, marginBottom: 3 }}>
+                        {c.name}
+                        <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400, marginLeft: 6 }}>
+                          {c.calls} lig · {c.answered} atend.
+                        </span>
+                      </div>
+                      <div style={{ height: 3, background: "#ffffff0f", borderRadius: 2, marginBottom: 3 }}>
+                        <div style={{
+                          height: 3, borderRadius: 2, background: c.color,
+                          width: `${pct}%`, transition: "width 0.4s ease",
+                        }} />
+                      </div>
+                      <div style={{ display: "flex", gap: 10, fontSize: 10, color: "var(--text-muted)" }}>
+                        <span style={fontNumeric}>{c.calls}/{c.meta} meta</span>
+                        <span style={fontNumeric}>{answerPct}% atend.</span>
+                        {c.status === "idle" && c.idleMinutes > 0 && (
+                          <span style={{ ...fontNumeric, color: "var(--red)" }}>parado {c.idleMinutes}min</span>
+                        )}
+                      </div>
+                    </div>
+                    <span style={{
+                      ...fontDisplay,
+                      padding: "2px 8px", borderRadius: 20,
+                      fontSize: 9, fontWeight: 600, letterSpacing: "0.04em", flexShrink: 0,
+                      ...statusStyle,
+                    }}>
+                      {c.status === "online" ? "LIGANDO" : c.status === "idle" ? "PARADO" : "OFFLINE"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {alerts.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ ...fontDisplay, fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", marginBottom: 8 }}>
+                  ALERTAS
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {alerts.map((a, i) => {
+                    const c = a.level === "red" ? "var(--red)" : a.level === "amber" ? "var(--amber)" : "var(--gold)";
+                    const bg = a.level === "red" ? "var(--red-dim)" : a.level === "amber" ? "var(--amber-dim)" : "var(--gold-dim)";
+                    return (
+                      <div key={i} style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        background: bg, border: `0.5px solid ${c}33`,
+                        borderRadius: "var(--radius-sm)", padding: "8px 12px",
+                        fontSize: 12, color: c,
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                        {a.text}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
 
       <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-6">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
