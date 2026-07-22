@@ -150,7 +150,7 @@ export async function logDialerError(params: {
 export const fontDisplay = { fontFamily: "'Fraunces', 'Playfair Display', Georgia, serif", fontOpticalSizing: "auto" } as const;
 export const fontNumeric = { fontFamily: "'Fraunces', Georgia, serif", fontVariantNumeric: "tabular-nums lining-nums", fontFeatureSettings: "'ss01'" } as const;
 export const inputCls =
-  "h-10 w-full rounded-md border border-zinc-700 bg-[#0f1117] px-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30";
+  "h-10 w-full rounded-md border border-zinc-700 bg-[#0c0e14] px-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-[#c9a84c] focus:ring-2 focus:ring-[#c9a84c]/30";
 
 /* ---------------- Atoms ---------------- */
 
@@ -172,7 +172,7 @@ export function YesNo({ value, onChange }: { value: boolean | null; onChange: (v
         className={`flex h-10 items-center justify-center gap-1.5 rounded-md border text-sm font-bold uppercase tracking-wider transition ${
           value === true
             ? "border-emerald-500 bg-emerald-500/20 text-emerald-400 shadow-[0_0_18px_-8px_#22c55e]"
-            : "border-zinc-700 bg-[#0f1117] text-zinc-400 hover:border-emerald-500/50 hover:text-emerald-400"
+            : "border-zinc-700 bg-[#0c0e14] text-zinc-400 hover:border-emerald-500/50 hover:text-emerald-400"
         }`}
         style={fontDisplay}
       >
@@ -184,7 +184,7 @@ export function YesNo({ value, onChange }: { value: boolean | null; onChange: (v
         className={`flex h-10 items-center justify-center gap-1.5 rounded-md border text-sm font-bold uppercase tracking-wider transition ${
           value === false
             ? "border-red-500 bg-red-500/20 text-red-400 shadow-[0_0_18px_-8px_#ef4444]"
-            : "border-zinc-700 bg-[#0f1117] text-zinc-400 hover:border-red-500/50 hover:text-red-400"
+            : "border-zinc-700 bg-[#0c0e14] text-zinc-400 hover:border-red-500/50 hover:text-red-400"
         }`}
         style={fontDisplay}
       >
@@ -196,7 +196,7 @@ export function YesNo({ value, onChange }: { value: boolean | null; onChange: (v
 
 export function Kpi({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
-    <div className="rounded-xl border border-zinc-800/80 bg-gradient-to-b from-[#13161f] to-[#0f1117] p-4 sm:p-5">
+    <div className="rounded-xl border border-zinc-800/80 bg-gradient-to-b from-[#1a1d28] to-[#0c0e14] p-4 sm:p-5">
       <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-zinc-500">{label}</div>
       <div
         className="mt-2 text-[44px] sm:text-[56px] font-semibold leading-[0.95] tracking-[-0.04em]"

@@ -116,16 +116,16 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-4 flex flex-wrap gap-3 items-end">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-4 flex flex-wrap gap-3 items-end">
         <Field label="Data" className="min-w-[180px]">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
         </Field>
         {isAdmin && (
           <Field label="Corretor" className="min-w-[200px]">
             <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls + " appearance-none"}>
-              <option value="" className="bg-[#171a23]">Todos</option>
+              <option value="" className="bg-[#13151e]">Todos</option>
               {state.brokers.map((b) => (
-                <option key={b.id} value={b.id} className="bg-[#171a23]">{b.name}</option>
+                <option key={b.id} value={b.id} className="bg-[#13151e]">{b.name}</option>
               ))}
             </select>
           </Field>
@@ -156,7 +156,7 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
       {showCharts && (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Kpi label="Ligações" value={uniqueContactCount(filtered)} color="#c9a24c" />
+            <Kpi label="Ligações" value={uniqueContactCount(filtered)} color="#c9a84c" />
             <Kpi label="Horas ativas" value={analytics.activeHours} color="#22c55e" />
             <Kpi label="Horas ociosas" value={analytics.idleHours} color="#ef4444" />
             <Kpi
@@ -166,10 +166,10 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
             />
           </div>
 
-          <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
+          <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-5">
             <div className="mb-4 flex items-end justify-between">
               <div>
-                <h3 className="text-lg font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>Pico de ligações por hora</h3>
+                <h3 className="text-lg font-bold uppercase tracking-wider text-[#c9a84c]" style={fontDisplay}>Pico de ligações por hora</h3>
                 <p className="text-xs text-zinc-500 mt-1">
                   {selectedBroker?.name ?? "Corretor"}{date ? ` · ${new Date(date + "T00:00").toLocaleDateString("pt-BR")}` : " · todos os dias"}
                 </p>
@@ -177,7 +177,7 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
               {analytics.peakHour >= 0 && (
                 <div className="text-right">
                   <div className="text-[10px] uppercase tracking-widest text-zinc-500" style={fontDisplay}>Pico</div>
-                  <div className="text-2xl font-bold text-[#c9a24c]" style={fontNumeric}>
+                  <div className="text-2xl font-bold text-[#c9a84c]" style={fontNumeric}>
                     {analytics.peakHour.toString().padStart(2, "0")}h · {analytics.maxHour}
                   </div>
                 </div>
@@ -191,12 +191,12 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
                   <div key={h} className="flex-1 flex flex-col items-center gap-1 group">
                     <div className="w-full flex-1 flex items-end">
                       <div
-                        className={`w-full rounded-t transition-all ${isPeak ? "bg-[#c9a24c]" : v > 0 ? "bg-emerald-600/70" : "bg-zinc-800"}`}
+                        className={`w-full rounded-t transition-all ${isPeak ? "bg-[#c9a84c]" : v > 0 ? "bg-emerald-600/70" : "bg-zinc-800"}`}
                         style={{ height: `${Math.max(pct, v > 0 ? 6 : 2)}%` }}
                         title={`${h.toString().padStart(2, "0")}h — ${v} ligaç${v === 1 ? "ão" : "ões"}`}
                       />
                     </div>
-                    <div className={`text-[9px] tabular-nums ${isPeak ? "text-[#c9a24c] font-bold" : "text-zinc-600"}`}>
+                    <div className={`text-[9px] tabular-nums ${isPeak ? "text-[#c9a84c] font-bold" : "text-zinc-600"}`}>
                       {h.toString().padStart(2, "0")}
                     </div>
                   </div>
@@ -204,14 +204,14 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
               })}
             </div>
             <div className="mt-3 flex gap-4 text-[11px] text-zinc-500">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#c9a24c]" /> Hora de pico</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#c9a84c]" /> Hora de pico</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-emerald-600/70" /> Ativa</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-zinc-800" /> Ociosa</span>
             </div>
           </div>
 
-          <div className="rounded-lg border border-zinc-800 bg-[#171a23] p-5">
-            <h3 className="mb-4 text-lg font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>Contatos mais ligados</h3>
+          <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-5">
+            <h3 className="mb-4 text-lg font-bold uppercase tracking-wider text-[#c9a84c]" style={fontDisplay}>Contatos mais ligados</h3>
             {analytics.topContacts.length === 0 ? (
               <p className="text-sm text-zinc-500">Sem dados.</p>
             ) : (
@@ -233,7 +233,7 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
                         </div>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-                        <div className="h-full rounded-full bg-[#c9a24c]" style={{ width: `${pct}%` }} />
+                        <div className="h-full rounded-full bg-[#c9a84c]" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -245,14 +245,14 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
       )}
 
       {!showCharts && isAdmin && !effectiveBrokerId && filtered.length > 0 && (
-        <div className="rounded-lg border border-zinc-800/60 bg-[#171a23]/50 p-4 text-xs text-zinc-500">
+        <div className="rounded-lg border border-zinc-800/60 bg-[#13151e]/50 p-4 text-xs text-zinc-500">
           Selecione um corretor para visualizar gráfico de pico, horas ativas/ociosas e contatos mais ligados.
         </div>
       )}
 
       {/* Virtualized list — mobile-friendly cards, no horizontal scroll */}
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23]">
-        <div className="grid grid-cols-12 gap-2 border-b border-zinc-800 bg-[#0f1117] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e]">
+        <div className="grid grid-cols-12 gap-2 border-b border-zinc-800 bg-[#0c0e14] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-500" style={fontDisplay}>
           <div className="col-span-3 sm:col-span-2">Data / Hora</div>
           <div className="col-span-4 sm:col-span-3">Cliente</div>
           <div className="hidden sm:block sm:col-span-2">Corretor</div>
@@ -327,7 +327,7 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
                           )}
                         </div>
                         <div className="col-span-2 sm:col-span-1 flex gap-0.5 justify-end">
-                          <button onClick={() => startEdit(c)} className="rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-[#c9a24c]" title="Editar">
+                          <button onClick={() => startEdit(c)} className="rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-[#c9a84c]" title="Editar">
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button onClick={() => remove(c.id)} className="rounded p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400" title="Excluir">

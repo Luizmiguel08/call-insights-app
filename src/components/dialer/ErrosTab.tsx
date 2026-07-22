@@ -48,7 +48,7 @@ export default function ErrosTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold uppercase tracking-wider text-[#c9a24c]" style={fontDisplay}>
+          <h2 className="text-xl font-bold uppercase tracking-wider text-[#c9a84c]" style={fontDisplay}>
             Erros do Discador
           </h2>
           <p className="text-sm text-zinc-500 mt-1">Últimas 200 falhas registradas no sistema.</p>
@@ -68,7 +68,7 @@ export default function ErrosTab() {
         </div>
       )}
 
-      <div className="rounded-lg border border-zinc-800 bg-[#171a23] overflow-hidden">
+      <div className="rounded-lg border border-zinc-800 bg-[#13151e] overflow-hidden">
         {loading ? (
           <div className="p-6 text-center text-sm text-zinc-500">Carregando…</div>
         ) : rows.length === 0 ? (

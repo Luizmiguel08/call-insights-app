@@ -53,30 +53,30 @@ function ResetPasswordPage() {
 
   return (
     <div
-      className="min-h-[100dvh] flex items-center justify-center bg-[#0f1117] text-zinc-100 px-4"
+      className="min-h-[100dvh] flex items-center justify-center bg-[#0c0e14] text-zinc-100 px-4"
       style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img src={fortalLogo.url} alt="Fortal" width={96} height={96} className="h-24 w-24 object-contain mb-4" />
-          <div className="text-2xl text-[#c9a24c] tracking-[0.28em] font-medium" style={fontDisplay}>FORTAL</div>
+          <div className="text-2xl text-[#c9a84c] tracking-[0.28em] font-medium" style={fontDisplay}>FORTAL</div>
           <div className="text-[10px] uppercase tracking-[0.34em] text-zinc-500 mt-2 italic" style={fontDisplay}>
             Redefinir senha
           </div>
         </div>
 
         {!ready ? (
-          <div className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 text-center text-sm text-zinc-400">
+          <div className="rounded-2xl border border-zinc-800 bg-[#13151e] p-6 text-center text-sm text-zinc-400">
             Validando link de recuperação...
             <button
               onClick={() => navigate({ to: "/auth" })}
-              className="block mx-auto mt-4 text-xs text-[#c9a24c] hover:underline"
+              className="block mx-auto mt-4 text-xs text-[#c9a84c] hover:underline"
             >
               Voltar para o login
             </button>
           </div>
         ) : (
-          <form onSubmit={submit} className="rounded-2xl border border-zinc-800 bg-[#171a23] p-6 sm:p-8 space-y-4">
+          <form onSubmit={submit} className="rounded-2xl border border-zinc-800 bg-[#13151e] p-6 sm:p-8 space-y-4">
             <div className="text-center text-sm text-zinc-400 mb-2">Defina sua nova senha</div>
 
             <div className="relative">
@@ -87,7 +87,7 @@ function ResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Nova senha (mín. 8)"
-                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0c0e14] pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a84c] focus:ring-2 focus:ring-[#c9a84c]/30"
               />
             </div>
 
@@ -99,14 +99,14 @@ function ResetPasswordPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder="Confirmar nova senha"
-                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0f1117] pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a24c] focus:ring-2 focus:ring-[#c9a24c]/30"
+                className="h-12 w-full rounded-md border border-zinc-700 bg-[#0c0e14] pl-10 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#c9a84c] focus:ring-2 focus:ring-[#c9a84c]/30"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-md bg-[#c9a24c] py-3 text-sm font-semibold uppercase tracking-[0.2em] text-black shadow-[0_0_24px_-6px_#c9a24c] transition hover:bg-[#e6c878] active:scale-[0.99] disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-md bg-[#c9a84c] py-3 text-sm font-semibold uppercase tracking-[0.2em] text-black shadow-[0_0_24px_-6px_#c9a84c] transition hover:bg-[#d4b968] active:scale-[0.99] disabled:opacity-60"
             >
               <KeyRound className="h-4 w-4" />
               {loading ? "Salvando..." : "Salvar nova senha"}

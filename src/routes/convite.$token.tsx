@@ -83,11 +83,11 @@ function InvitePage() {
 
   return (
     <div
-      className="min-h-[100dvh] flex items-center justify-center bg-[#0f1117] text-zinc-100 px-4"
+      className="min-h-[100dvh] flex items-center justify-center bg-[#0c0e14] text-zinc-100 px-4"
       style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
-      <div className="max-w-sm w-full text-center rounded-2xl border border-zinc-800 bg-[#171a23] p-8 space-y-4">
-        <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#c9a24c]" />
+      <div className="max-w-sm w-full text-center rounded-2xl border border-zinc-800 bg-[#13151e] p-8 space-y-4">
+        <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#c9a84c]" />
         <div className="text-sm text-zinc-300">
           {status === "joining" ? "Entrando na equipe..." : "Validando convite..."}
         </div>
