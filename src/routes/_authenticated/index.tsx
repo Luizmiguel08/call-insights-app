@@ -2101,13 +2101,191 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
 
       {showReminderForm && me && current && (
-        <ReminderForm
+        <QuickReminderSheet
           me={me}
+          contact={{ id: current.id, name: current.name, phone: current.phone || "" }}
           onClose={() => setShowReminderForm(false)}
           onSaved={() => { setShowReminderForm(false); toast.success("Lembrete agendado"); }}
-          prefill={{ contact_id: current.id, contact_name: current.name, contact_phone: current.phone || "" }}
         />
       )}
+    </div>
+  );
+}
+
+function QuickReminderSheet({
+  me, contact, onClose, onSaved,
+}: {
+  me: { userId: string; brokerId: string | null };
+  contact: { id: string; name: string; phone: string };
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [reminderTime, setReminderTime] = useState<string>("Hoje às 17h");
+  const [customWhen, setCustomWhen] = useState<string>("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function resolveWhen(): Date | null {
+    const now = new Date();
+    const at = (d: Date, h: number, m = 0) => {
+      const x = new Date(d);
+      x.setHours(h, m, 0, 0);
+      return x;
+    };
+    if (reminderTime === "Hoje às 17h") {
+      const d = at(now, 17);
+      if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
+      return d;
+    }
+    if (reminderTime === "Amanhã às 9h") {
+      const d = new Date(now); d.setDate(d.getDate() + 1); return at(d, 9);
+    }
+    if (reminderTime === "Amanhã às 14h") {
+      const d = new Date(now); d.setDate(d.getDate() + 1); return at(d, 14);
+    }
+    if (reminderTime === "Escolher data") {
+      if (!customWhen) return null;
+      return new Date(customWhen);
+    }
+    return null;
+  }
+
+  async function save() {
+    if (!me.brokerId) { toast.error("Corretor não identificado"); return; }
+    const when = resolveWhen();
+    if (!when || isNaN(when.getTime())) { toast.error("Escolha uma data/hora"); return; }
+    setSaving(true);
+    const r = await (supabase as any).from("call_reminders").insert({
+      broker_id: me.brokerId,
+      user_id: me.userId,
+      contact_id: contact.id,
+      contact_name: contact.name,
+      contact_phone: contact.phone,
+      scheduled_for: when.toISOString(),
+      note: note.trim() || null,
+    });
+    setSaving(false);
+    if (r.error) { toast.error("Falha ao salvar"); console.error(r.error); return; }
+    onSaved();
+  }
+
+  const options = ["Hoje às 17h", "Amanhã às 9h", "Amanhã às 14h", "Escolher data"];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 50,
+        background: "rgba(12,14,20,0.92)",
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 520,
+          background: "var(--surface-1)",
+          borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
+          border: "1px solid var(--border)",
+          padding: 20,
+          paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
+        }}
+      >
+        <div style={{ ...fontDisplay, fontSize: 14, fontWeight: 500, color: "#fff", marginBottom: 4 }}>
+          Agendar lembrete
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 14 }}>
+          {contact.name}{contact.phone ? ` · ${contact.phone}` : ""}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+          {options.map((opt) => {
+            const active = reminderTime === opt;
+            return (
+              <button
+                key={opt}
+                onClick={() => setReminderTime(opt)}
+                style={{
+                  padding: 10,
+                  background: active ? "#c9a84c0f" : "var(--surface-0)",
+                  border: `0.5px solid ${active ? "var(--gold-border)" : "var(--border)"}`,
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 11,
+                  color: active ? "var(--gold)" : "var(--text-secondary)",
+                  cursor: "pointer",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {reminderTime === "Escolher data" && (
+          <input
+            type="datetime-local"
+            value={customWhen}
+            onChange={(e) => setCustomWhen(e.target.value)}
+            style={{
+              width: "100%", padding: "9px 12px",
+              background: "var(--surface-0)",
+              border: "0.5px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              fontSize: 12, color: "#ffffffcc",
+              outline: "none", marginBottom: 12,
+              colorScheme: "dark",
+            }}
+          />
+        )}
+
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="O que o cliente pediu? (opcional)"
+          rows={2}
+          style={{
+            width: "100%", padding: "9px 12px",
+            background: "var(--surface-0)",
+            border: "0.5px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            fontSize: 12, color: "#ffffffcc",
+            resize: "none", outline: "none", marginBottom: 12,
+            fontFamily: "inherit",
+          }}
+        />
+
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{
+            width: "100%", padding: 12,
+            background: "var(--gold)", border: "none",
+            borderRadius: "var(--radius-md)",
+            fontSize: 12, fontWeight: 600, color: "var(--surface-0)",
+            cursor: saving ? "wait" : "pointer",
+            letterSpacing: "0.06em", marginBottom: 8,
+            opacity: saving ? 0.7 : 1,
+            ...fontDisplay,
+          }}
+        >
+          {saving ? "SALVANDO..." : "SALVAR E AVANÇAR"}
+        </button>
+        <button
+          onClick={onClose}
+          style={{
+            width: "100%", padding: 10,
+            background: "transparent",
+            border: "0.5px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            fontSize: 11, color: "var(--text-muted)",
+            cursor: "pointer", letterSpacing: "0.04em",
+            ...fontDisplay,
+          }}
+        >
+          CANCELAR
+        </button>
+      </div>
     </div>
   );
 }
