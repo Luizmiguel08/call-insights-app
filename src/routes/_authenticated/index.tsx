@@ -2102,6 +2102,23 @@ function CallTimer({ startedAt }: { startedAt: number }) {
   );
 }
 
+function CallTimerInline({ startedAt }: { startedAt: number }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(i);
+  }, []);
+  const secs = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  const color = secs < 4 ? "var(--red)" : secs < 60 ? "var(--amber)" : "var(--green)";
+  return (
+    <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color, fontWeight: 600 }}>
+      {mm}:{ss}{secs < 4 && secs > 0 ? " ⚠ Muito curta" : ""}
+    </span>
+  );
+}
+
 /* ---------------- FILA (importação de contatos) ---------------- */
 
 function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; isAdmin: boolean; me: Me | null; refetchCloud: () => Promise<void> }) {
