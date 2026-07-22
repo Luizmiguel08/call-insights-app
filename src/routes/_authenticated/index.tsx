@@ -1498,64 +1498,107 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   return (
     <div className="space-y-4">
 
-      {/* Header bento: corretor + lista (8) | meta (4) */}
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 lg:col-span-8 rounded-2xl border border-[#c9a84c]/20 bg-[#1a1d28]/95 backdrop-blur p-5 shadow-2xl flex flex-wrap items-center gap-5">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#c9a84c] to-[#e6c878] font-bold text-[#0c0e14] shadow-lg shadow-[#c9a84c]/20" style={fontDisplay}>
+      {/* Corretor bar (compact) + Meta */}
+      <div className="grid grid-cols-12 gap-3">
+        <div
+          className="col-span-12 lg:col-span-8 flex items-center justify-between"
+          style={{
+            background: "var(--surface-1)",
+            borderRadius: "var(--radius-md)",
+            padding: "10px 14px",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="grid place-items-center shrink-0"
+              style={{
+                width: 36, height: 36, borderRadius: "50%",
+                background: "var(--gold-dim)",
+                border: "1.5px solid var(--gold-border)",
+                fontSize: 13, fontWeight: 500, color: "var(--gold)",
+              }}
+            >
               {brokerInitials}
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500" style={fontDisplay}>Corretor</div>
-              <select
-                value={brokerId}
-                onChange={(e) => setBrokerId(e.target.value)}
-                className="bg-transparent border-0 p-0 -ml-0.5 text-[#e6c878] text-lg font-bold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a84c] truncate max-w-[220px]"
-                style={fontDisplay}
-              >
-                {state.brokers.map((b) => <option key={b.id} value={b.id} className="bg-[#1a1d28]">{b.name}</option>)}
-              </select>
+              <div className="relative">
+                <div className="text-sm font-medium text-white truncate max-w-[240px]" style={fontDisplay}>
+                  {brokerName}
+                </div>
+                <select
+                  value={brokerId}
+                  onChange={(e) => setBrokerId(e.target.value)}
+                  aria-label="Selecionar corretor"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                >
+                  {state.brokers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                <span className="sync-dot" style={{ width: 6, height: 6 }} />
+                sincronizado agora
+              </div>
             </div>
           </div>
-          <div className="hidden sm:block h-10 w-px bg-zinc-800" />
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-500" style={fontDisplay}>Lista para discar</div>
+
+          <div className="relative shrink-0">
+            <div
+              className="flex items-center gap-1 uppercase tracking-wider"
+              style={{ fontSize: 10, color: "var(--text-muted)" }}
+            >
+              <span className="truncate max-w-[160px]">
+                {selectedList === "all" ? "Todas as listas" : selectedList}
+              </span>
+              <span aria-hidden>▾</span>
+            </div>
             <select
               value={selectedList}
               onChange={(e) => setSelectedList(e.target.value)}
-              className="bg-transparent border-0 p-0 -ml-0.5 text-zinc-100 text-base font-semibold leading-tight focus:outline-none focus:ring-0 cursor-pointer hover:text-[#c9a84c] truncate max-w-full"
-              style={fontDisplay}
+              aria-label="Selecionar lista"
+              className="absolute inset-0 opacity-0 cursor-pointer"
             >
-              <option value="all" className="bg-[#1a1d28]">Todas as listas</option>
+              <option value="all">Todas as listas</option>
               {discadorLists.map((l) => (
-                <option key={l} value={l} className="bg-[#1a1d28]">{l}</option>
+                <option key={l} value={l}>{l}</option>
               ))}
             </select>
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 rounded-2xl border border-[#c9a84c]/20 bg-[#1a1d28]/95 backdrop-blur p-5 flex flex-col justify-center gap-2">
+        <div
+          className="col-span-12 lg:col-span-4 flex flex-col justify-center gap-2"
+          style={{
+            background: "var(--surface-1)",
+            borderRadius: "var(--radius-md)",
+            padding: "10px 14px",
+            border: "1px solid var(--border)",
+          }}
+        >
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em]" style={{ ...fontDisplay, color: "var(--text-muted)" }}>
               <Target className="h-3.5 w-3.5" /> Meta diária
             </span>
-            <span className={`text-sm font-bold tabular-nums ${reached ? "text-emerald-400" : "text-[#e6c878]"}`} style={fontDisplay}>
+            <span className={`text-sm font-bold tabular-nums`} style={{ ...fontDisplay, color: reached ? "var(--green)" : "var(--gold)" }}>
               {k.total}/{meta}{reached && " ✓"}
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-[#0c0e14] border border-[#c9a84c]/10 overflow-hidden">
+          <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--surface-0)", border: "1px solid var(--gold-border)" }}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
                 width: `${pct}%`,
                 background: reached
-                  ? "linear-gradient(to right, #22c55e, #6ee7b7)"
-                  : "linear-gradient(to right, #c9a84c, #e6c878)",
+                  ? "linear-gradient(to right, var(--green), #6ee7b7)"
+                  : "linear-gradient(to right, var(--gold), #e6c878)",
               }}
             />
           </div>
         </div>
       </div>
+
 
       {current ? (
         <div className="rounded-3xl border border-[#c9a84c]/30 bg-[#1a1d28]/95 backdrop-blur p-6 sm:p-7 shadow-2xl relative overflow-hidden">
