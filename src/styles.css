@@ -215,3 +215,24 @@
   button:active:not(:disabled) { transform: scale(0.97); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
+
+/* Mobile refinements */
+@media (max-width: 640px) {
+  .result-btn { padding: 16px 6px !important; font-size: 11px !important; }
+  .result-btn i { font-size: 20px !important; }
+
+  .contact-name { font-size: 22px !important; }
+
+  .reminder-modal { align-items: flex-end !important; padding: 0 !important; }
+  .reminder-modal > div {
+    border-radius: 16px 16px 0 0 !important;
+    padding-bottom: 32px !important;
+  }
+
+  .nav-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+}
