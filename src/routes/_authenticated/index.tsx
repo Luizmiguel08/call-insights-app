@@ -2066,14 +2066,39 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       )}
 
       {/* Barra de stats — sticky no rodapé */}
-      <div className="sticky bottom-0 -mx-3 sm:-mx-6 mt-4 border-t border-zinc-800 bg-[#0c0e14]/95 backdrop-blur px-3 sm:px-6 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] z-20">
-        <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
-          <StatPill label="Ligações" value={k.total} color="#c9a84c" />
-          <StatPill label="Atendidas" value={k.attended} color="#22c55e" />
-          <StatPill label="Não atend." value={k.notAttended} color="#ef4444" />
-          <StatPill label="Agendadas" value={k.scheduled} color="#eab308" />
+      <div
+        className="sticky bottom-0 -mx-3 sm:-mx-6 mt-4 z-20"
+        style={{
+          background: "color-mix(in srgb, var(--surface-0) 95%, transparent)",
+          backdropFilter: "blur(8px)",
+          borderTop: "0.5px solid var(--border)",
+          paddingBottom: "max(env(safe-area-inset-bottom), 0)",
+        }}
+      >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
+          {[
+            { label: "LIGAÇÕES", value: k.total, color: "#fff" },
+            { label: "ATENDIDAS", value: k.attended, color: "var(--green)" },
+            { label: "NÃO ATEND.", value: k.notAttended, color: "var(--red)" },
+            { label: "AGENDADAS", value: k.scheduled, color: "var(--gold)" },
+          ].map((s, i) => (
+            <div
+              key={s.label}
+              style={{
+                padding: "10px 6px",
+                textAlign: "center",
+                borderRight: i < 3 ? "0.5px solid var(--border)" : "none",
+              }}
+            >
+              <div style={{ ...fontNumeric, fontSize: 18, fontWeight: 600, color: s.color }}>{s.value}</div>
+              <div style={{ ...fontDisplay, fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.06em", marginTop: 1 }}>
+                {s.label}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
+
 
       {showReminderForm && me && current && (
         <ReminderForm
