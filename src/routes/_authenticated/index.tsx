@@ -1569,7 +1569,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
         </div>
 
         <div
-          className="col-span-12 lg:col-span-4 flex flex-col justify-center gap-2"
+          className="col-span-12 lg:col-span-4"
           style={{
             background: "var(--surface-1)",
             borderRadius: "var(--radius-md)",
@@ -1577,27 +1577,30 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
             border: "1px solid var(--border)",
           }}
         >
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.22em]" style={{ ...fontDisplay, color: "var(--text-muted)" }}>
-              <Target className="h-3.5 w-3.5" /> Meta diária
-            </span>
-            <span className={`text-sm font-bold tabular-nums`} style={{ ...fontDisplay, color: reached ? "var(--green)" : "var(--gold)" }}>
-              {k.total}/{meta}{reached && " ✓"}
+          <div
+            className="flex justify-between items-center"
+            style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6, letterSpacing: "0.08em" }}
+          >
+            <span style={fontDisplay}>META DIÁRIA</span>
+            <span style={fontNumeric}>
+              <span style={{ color: reached ? "var(--green)" : "var(--gold)", fontWeight: 500 }}>{k.total}</span>
+              {" / "}{meta} ligações
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "var(--surface-0)", border: "1px solid var(--gold-border)" }}>
+          <div style={{ height: 4, background: "#ffffff0f", borderRadius: 2, overflow: "hidden" }}>
             <div
-              className="h-full rounded-full transition-all duration-500"
               style={{
+                height: 4,
+                background: reached ? "var(--green)" : "var(--gold)",
+                borderRadius: 2,
                 width: `${pct}%`,
-                background: reached
-                  ? "linear-gradient(to right, var(--green), #6ee7b7)"
-                  : "linear-gradient(to right, var(--gold), #e6c878)",
+                transition: "width 0.4s ease",
               }}
             />
           </div>
         </div>
       </div>
+
 
 
       {current ? (
