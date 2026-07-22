@@ -2101,11 +2101,11 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
 
       {showReminderForm && me && current && (
-        <ReminderForm
+        <QuickReminderSheet
           me={me}
+          contact={{ id: current.id, name: current.name, phone: current.phone || "" }}
           onClose={() => setShowReminderForm(false)}
           onSaved={() => { setShowReminderForm(false); toast.success("Lembrete agendado"); }}
-          prefill={{ contact_id: current.id, contact_name: current.name, contact_phone: current.phone || "" }}
         />
       )}
     </div>
