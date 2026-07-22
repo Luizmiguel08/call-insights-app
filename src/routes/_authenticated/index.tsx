@@ -76,13 +76,36 @@ function LigaCtrlApp() {
   }
 
   const isAdmin = me?.isAdmin ?? false;
-  const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean }[] = [
+
+  // Contagem de lembretes pendentes (para badge na aba Lembretes)
+  const [pendingReminders, setPendingReminders] = useState(0);
+  useEffect(() => {
+    if (!me?.userId) return;
+    let alive = true;
+    const load = async () => {
+      const q = (supabase as any)
+        .from("call_reminders")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "snoozed"]);
+      if (!isAdmin) q.eq("broker_user_id", me.userId);
+      const { count } = await q;
+      if (alive) setPendingReminders(count ?? 0);
+    };
+    void load();
+    const ch = (supabase as any)
+      .channel(`reminders-badge-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_reminders" }, () => void load())
+      .subscribe();
+    return () => { alive = false; (supabase as any).removeChannel(ch); };
+  }, [me?.userId, isAdmin]);
+
+  const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "fila", label: "Fila", icon: ListPlus },
-    { id: "lembretes", label: "Lembretes", icon: Bell },
+    { id: "lembretes", label: "Lembretes", icon: Bell, badge: pendingReminders },
     { id: "rapido", label: "Rápido", icon: Zap },
     { id: "historico", label: "Histórico", icon: History },
-    { id: "dashboard", label: "Dashboard", icon: BarChart3 },
+    { id: "dashboard", label: "Painel", icon: BarChart3 },
     { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
     { id: "erros", label: "Erros", icon: AlertTriangle, admin: true },
   ];
