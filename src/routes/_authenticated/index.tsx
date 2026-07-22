@@ -1604,343 +1604,411 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
 
       {current ? (
-        <div className="rounded-3xl border border-[#c9a84c]/30 bg-[#1a1d28]/95 backdrop-blur p-6 sm:p-7 shadow-2xl relative overflow-hidden">
-          {/* glow accent */}
-          <div className="pointer-events-none absolute -top-10 -right-10 h-40 w-40 rounded-full bg-[#c9a84c]/10 blur-3xl" />
-
-          {/* status bar */}
-          <div className="relative z-10 mb-5 flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-            <span className="flex items-center gap-2">
-              <span>Próximo da fila — {brokerName}</span>
-              <SyncBadge ts={lastSyncedAt} />
-            </span>
-            <span className="flex items-center gap-2">
-              {lastSwitchMs !== null && (
-                <span className="inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-400">
-                  {lastSwitchMs} ms
-                </span>
-              )}
-              <span>{myQueue.length} pendente{myQueue.length === 1 ? "" : "s"}</span>
-            </span>
-          </div>
-
+        <div
+          className="relative overflow-hidden"
+          style={{
+            background: "var(--surface-1)",
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid var(--border)",
+            padding: 16,
+          }}
+        >
           <div
             key={current.id}
-            className={`relative z-10 grid grid-cols-12 gap-5 transition-all duration-150 ease-out ${
+            className={`transition-all duration-150 ease-out ${
               isTransitioning
-                ? "opacity-0 -translate-x-4 scale-[0.98] pointer-events-none"
-                : "animate-slide-in-x opacity-100 translate-x-0 scale-100"
+                ? "opacity-0 -translate-x-4 pointer-events-none"
+                : "animate-slide-in-x opacity-100 translate-x-0"
             }`}
           >
+            {/* Badge de tentativa */}
+            {(() => {
+              const label = attemptLabel(current.attempts);
+              if (!label) return null;
+              const isLast = current.attempts >= 1;
+              const badgeStyle = isLast
+                ? { background: "var(--amber-dim)", color: "var(--amber)", border: "0.5px solid #f59e0b33" }
+                : { background: "var(--gold-dim)", color: "var(--gold)", border: "0.5px solid var(--gold-border)" };
+              return (
+                <span
+                  className="inline-block"
+                  style={{
+                    padding: "3px 10px", borderRadius: 20,
+                    fontSize: 10, letterSpacing: ".06em", marginBottom: 10,
+                    fontWeight: 600,
+                    ...badgeStyle,
+                  }}
+                >
+                  {isLast ? "2ª E ÚLTIMA TENTATIVA" : "1ª TENTATIVA"}
+                </span>
+              );
+            })()}
 
-            {/* ESQUERDA — identidade + CTA principal */}
-            <div className="col-span-12 lg:col-span-7 flex flex-col">
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {(() => {
-                  const label = attemptLabel(current.attempts);
-                  if (!label) return null;
-                  const isLast = current.attempts >= 1;
-                  return (
-                    <span
-                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${
-                        isLast
-                          ? "border-amber-400/40 bg-amber-500/10 text-amber-300 animate-pulse"
-                          : "border-[#c9a84c]/30 bg-[#c9a84c]/10 text-[#e6c878]"
-                      }`}
-                      style={fontDisplay}
-                    >
-                      {isLast && <span>⚠</span>} {label}
-                    </span>
-                  );
-                })()}
-                {current.brokerId === null && (
-                  <span className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800/60 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400" style={fontDisplay}>
-                    Fila geral
-                  </span>
-                )}
+            {/* Nome */}
+            <div style={{ fontSize: 28, fontWeight: 600, color: "#fff", marginBottom: 3, lineHeight: 1.1, ...fontDisplay }} className="break-words">
+              {current.name}
+            </div>
+            {/* Telefone */}
+            <div style={{ fontSize: 15, color: "var(--gold)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", marginBottom: 12 }}>
+              {current.phone || "(sem telefone)"}
+            </div>
+
+            {/* Preview do próximo */}
+            <div
+              className="flex justify-between items-center"
+              style={{
+                background: "var(--surface-0)", borderRadius: 8,
+                padding: "8px 12px", marginBottom: 14,
+              }}
+            >
+              <div className="min-w-0">
+                <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: ".06em", marginBottom: 2, ...fontDisplay }}>
+                  A SEGUIR
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }} className="truncate">
+                  {next ? `${next.name} · ${next.phone || "sem telefone"}` : "Sem próximos na fila"}
+                </div>
               </div>
-
-              <h1 className="text-[34px] sm:text-[44px] lg:text-[48px] leading-[1.02] tracking-[-0.02em] font-bold text-white break-words" style={fontDisplay}>
-                {current.name}
-              </h1>
-              <div className="mt-2 text-xl sm:text-2xl tracking-tight text-zinc-400 font-medium break-all" style={fontNumeric}>
-                {current.phone || "(sem telefone)"}
-              </div>
-
-              {/* Próximo da fila — preview */}
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-800 bg-[#0c0e14]/60 px-4 py-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>A seguir</span>
-                {next ? (
-                  <>
-                    <span className="flex-1 truncate text-sm font-semibold text-zinc-300">{next.name}</span>
-                    <span className="text-xs tabular-nums text-zinc-500">{next.phone}</span>
-                  </>
-                ) : (
-                  <span className="flex-1 truncate text-sm text-zinc-500">Sem próximos na fila</span>
-                )}
-              </div>
-
-              {/* CTA Principal — LIGAR / ENCERRAR */}
-              <div className="mt-auto pt-5">
-                {callStatus === "calling" || callStatus === "answered" ? (
-                  <button
-                    type="button"
-                    onClick={endCall}
-                    aria-label="Encerrar ligação"
-                    className="w-full bg-gradient-to-r from-emerald-400 to-emerald-300 py-5 rounded-2xl text-black font-extrabold text-lg sm:text-xl shadow-[0_0_40px_-8px_rgba(110,231,183,0.7)] hover:scale-[1.01] active:scale-[0.99] transition-transform flex items-center justify-center gap-3 uppercase tracking-[0.18em]"
-                    style={fontDisplay}
-                  >
-                    <span className="relative flex items-center gap-1" aria-hidden>
-                      <span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" /><span className="wave-bar" />
-                    </span>
-                    Encerrar
-                    <CallTimer startedAt={calledAt ?? Date.now()} />
-                  </button>
-                ) : (
-                  <a
-                    href={telHref(current.phone)}
-                    target="_top"
-                    rel="noopener"
-                    aria-label="Ligar agora"
-                    onClick={(e) => {
-                      if (submittingOutcome) {
-                        e.preventDefault();
-                        return;
-                      }
-                      // NÃO prevenir default — deixar o navegador abrir o tel: nativamente
-                      // dentro do gesto do usuário (essencial no iOS Safari/PWA).
-                      // startCall apenas registra estado; pode rodar depois.
-                      startCall();
-                    }}
-                    className={`w-full bg-gradient-to-r from-[#c9a84c] to-[#e6c878] py-5 rounded-2xl text-[#0c0e14] font-extrabold text-lg sm:text-xl shadow-[0_8px_40px_-8px_rgba(201,162,76,0.5)] hover:scale-[1.01] active:scale-[0.99] transition-transform flex items-center justify-center gap-3 uppercase tracking-[0.18em] ${submittingOutcome ? "pointer-events-none opacity-50" : ""}`}
-                    style={fontDisplay}
-                  >
-                    <Phone className="h-6 w-6" strokeWidth={2.5} />
-                    Ligar agora
-                  </a>
-                )}
-                {remoteIsOtherDevice && (
-                  <div className="mt-2 text-center text-[10px] uppercase tracking-widest text-zinc-500" style={fontDisplay}>
-                    via {remoteCall!.device_label}
-                  </div>
-                )}
+              <div style={{ fontSize: 10, color: "var(--text-muted)" }} className="shrink-0 ml-3">
+                {myQueue.length} pendentes
               </div>
             </div>
 
-            {/* DIREITA — ações secundárias e desfechos */}
-            <div className="col-span-12 lg:col-span-5 flex flex-col gap-3">
-              {/* WhatsApp */}
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="min-w-0 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 px-2 py-3 text-xs font-bold uppercase tracking-[0.12em] text-emerald-300 transition"
-                  style={fontDisplay}
-                  title={renderWaMessage(waMsg, current.name)}
-                >
-                  <MessageCircle className="h-4 w-4 shrink-0" /> <span className="truncate">WhatsApp 1</span>
-                </a>
-                <a
-                  href={waHrefFromMessage(current.phone, renderWaMessage(waMsg2, current.name))}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="min-w-0 flex items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 hover:bg-emerald-600/20 px-2 py-3 text-xs font-bold uppercase tracking-[0.12em] text-emerald-300 transition"
-                  style={fontDisplay}
-                  title={renderWaMessage(waMsg2, current.name)}
-                >
-                  <MessageCircle className="h-4 w-4 shrink-0" /> <span className="truncate">WhatsApp 2</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setWaEditing((v) => !v)}
-                  className="col-span-2 rounded-xl border border-zinc-700 bg-[#0c0e14] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-[#c9a84c]"
-                  style={fontDisplay}
-                  title="Editar mensagens"
-                >
-                  {waEditing ? "Fechar editor de mensagens" : "Editar mensagens 1 e 2"}
-                </button>
-              </div>
-
-              {waEditing && (
-                <div className="rounded-xl border border-zinc-800 bg-[#0c0e14] p-3 space-y-3">
-                  <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                        Mensagem 1 · use <span className="text-[#c9a84c]">{"{nome}"}</span>
-                      </label>
-                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
-                    </div>
-                    <textarea
-                      value={waMsg}
-                      onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
-                      rows={3}
-                      className={inputCls + " resize-none py-2 text-sm"}
-                      placeholder={DEFAULT_WA_TEMPLATE}
-                    />
-                  </div>
-                  <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
-                        Mensagem 2 · use <span className="text-[#c9a84c]">{"{nome}"}</span>
-                      </label>
-                      <span className="text-[10px] tabular-nums text-zinc-600">{waMsg2.length}/1000</span>
-                    </div>
-                    <textarea
-                      value={waMsg2}
-                      onChange={(e) => setWaMsg2(e.target.value.slice(0, 1000))}
-                      rows={3}
-                      className={inputCls + " resize-none py-2 text-sm"}
-                      placeholder={DEFAULT_WA_TEMPLATE_2}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={saveWaTemplate}
-                      className="rounded-md bg-[#c9a84c] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-black hover:bg-[#e6c878]"
-                      style={fontDisplay}
-                    >
-                      Salvar padrão
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setWaMsg(DEFAULT_WA_TEMPLATE); setWaMsg2(DEFAULT_WA_TEMPLATE_2); }}
-                      className="rounded-md border border-zinc-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
-                      style={fontDisplay}
-                    >
-                      Restaurar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Observação */}
-              <textarea
-                value={note}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setNote(v);
-                  if (noteIncomingRef.current) return;
-                  if (noteBroadcastTimerRef.current) clearTimeout(noteBroadcastTimerRef.current);
-                  noteBroadcastTimerRef.current = setTimeout(() => {
-                    broadcastRef.current?.send({ type: "broadcast", event: "note", payload: { note: v, deviceId: deviceIdRef.current } });
-                  }, 250);
+            {/* Indicador de chamada ativa */}
+            {(callStatus === "calling" || callStatus === "answered") && calledAt && (
+              <div
+                className="flex items-center gap-2"
+                style={{
+                  padding: "8px 12px", marginBottom: 10,
+                  background: "var(--green-dim)",
+                  border: "0.5px solid #4ade8020",
+                  borderRadius: 8,
                 }}
-                rows={2}
-                placeholder="Observação (opcional)"
-                className={inputCls + " resize-none py-2 text-sm rounded-xl"}
-              />
-
-              {/* Chips de motivo rápido */}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: "Não atendeu", hover: "hover:border-red-500/40 hover:text-red-300" },
-                  { label: "Caixa postal", hover: "hover:border-amber-500/40 hover:text-amber-300" },
-                  { label: "Número errado", hover: "hover:border-zinc-400 hover:text-white" },
-                  { label: "Sem interesse", hover: "hover:border-orange-500/40 hover:text-orange-300" },
-                ].map((chip) => (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    onClick={() => setNote(chip.label)}
-                    className={`rounded-xl border border-zinc-800 bg-[#0c0e14] py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400 transition ${chip.hover}`}
-                    style={fontDisplay}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Desfechos principais */}
-              {outcomeError && (
-                <div className="flex items-center justify-between gap-2 rounded-xl border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-                  <span className="truncate">⚠ {outcomeError.label}</span>
-                  <button
-                    type="button"
-                    onClick={() => { const r = outcomeError.retry; setOutcomeError(null); r(); }}
-                    className="shrink-0 rounded-md border border-red-400/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-500/20"
-                    style={fontDisplay}
-                  >
-                    <RefreshCw className="inline h-3 w-3 mr-0.5" /> Tentar
-                  </button>
-                </div>
-              )}
-
-              {(() => {
-                const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome || isTransitioning;
-                const lockedHint = submittingOutcome ? "Registrando ligação..." : (isTransitioning ? "Avançando..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined));
-                return (
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleResultClick(false, false)}
-                      disabled={outcomesLocked}
-                      title={lockedHint}
-                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0c0e14] py-3 hover:border-red-500/50 hover:bg-red-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <span className="grid h-9 w-9 place-items-center rounded-full bg-red-500/15 border border-red-500/30 text-red-400 group-hover:bg-red-500 group-hover:text-white transition">
-                        <X className="h-5 w-5" strokeWidth={3} />
-                      </span>
-                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-400 group-hover:text-red-300" style={fontDisplay}>Não atend.</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResultClick(true, false)}
-                      disabled={outcomesLocked}
-                      title={lockedHint}
-                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-800 bg-[#0c0e14] py-3 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition">
-                        <Check className="h-5 w-5" strokeWidth={3} />
-                      </span>
-                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-400 group-hover:text-emerald-300" style={fontDisplay}>Atendeu</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResultClick(true, true)}
-                      disabled={outcomesLocked}
-                      title={lockedHint}
-                      className="group flex flex-col items-center gap-1.5 rounded-2xl border border-[#c9a84c]/30 bg-[#c9a84c]/5 py-3 hover:border-[#c9a84c] hover:bg-[#c9a84c]/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#c9a84c] to-[#e6c878] text-[#0c0e14] shadow-md shadow-[#c9a84c]/30">
-                        <Calendar className="h-5 w-5" strokeWidth={3} />
-                      </span>
-                      <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#e6c878]" style={fontDisplay}>Agendou</span>
-                    </button>
-                  </div>
-                );
-              })()}
-
-              {/* Bottom nav */}
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <button
-                  onClick={callback}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0c0e14] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
-                  style={fontDisplay}
-                >
-                  <Undo2 className="h-3.5 w-3.5" /> Retornar
-                </button>
-                <button
-                  onClick={skip}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-[#0c0e14] py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-white hover:border-zinc-600 transition"
-                  style={fontDisplay}
-                >
-                  Pular <SkipForward className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <button
-                onClick={() => setShowReminderForm(true)}
-                disabled={!me?.brokerId}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[#c9a84c]/30 bg-[#c9a84c]/5 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#e6c878] hover:bg-[#c9a84c]/10 hover:border-[#c9a84c]/60 transition disabled:opacity-40"
-                style={fontDisplay}
-                title="Agendar para retornar mais tarde"
               >
-                <Bell className="h-3.5 w-3.5" /> Agendar lembrete
+                <span className="relative flex items-center gap-0.5" aria-hidden>
+                  <span className="wave-bar" style={{ height: 12 }} />
+                  <span className="wave-bar" style={{ height: 12 }} />
+                  <span className="wave-bar" style={{ height: 12 }} />
+                </span>
+                <span style={{ fontSize: 11, color: "var(--green)", fontWeight: 500 }}>Em ligação</span>
+                <span style={{ marginLeft: "auto", fontSize: 12 }}>
+                  <CallTimerInline startedAt={calledAt} />
+                </span>
+              </div>
+            )}
+
+            {/* Botão principal */}
+            {callStatus === "calling" || callStatus === "answered" ? (
+              <button
+                type="button"
+                onClick={endCall}
+                style={{
+                  width: "100%", padding: 13,
+                  background: "var(--surface-0)",
+                  border: "1.5px solid var(--green)",
+                  borderRadius: "var(--radius-md)",
+                  fontSize: 13, fontWeight: 600, letterSpacing: ".06em",
+                  color: "var(--green)", cursor: "pointer", marginBottom: 8,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  transition: "var(--transition)",
+                  ...fontDisplay,
+                }}
+              >
+                <X className="h-4 w-4" strokeWidth={2.5} />
+                ENCERRAR LIGAÇÃO
+              </button>
+            ) : (
+              <a
+                href={telHref(current.phone)}
+                target="_top"
+                rel="noopener"
+                aria-label="Ligar agora"
+                onClick={(e) => {
+                  if (submittingOutcome) { e.preventDefault(); return; }
+                  startCall();
+                }}
+                style={{
+                  width: "100%", padding: 13,
+                  background: "var(--gold)",
+                  border: "none",
+                  borderRadius: "var(--radius-md)",
+                  fontSize: 13, fontWeight: 600, letterSpacing: ".06em",
+                  color: "var(--surface-0)", cursor: "pointer", marginBottom: 8,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  transition: "var(--transition)",
+                  ...fontDisplay,
+                  ...(submittingOutcome ? { pointerEvents: "none" as const, opacity: 0.5 } : {}),
+                }}
+              >
+                <Phone className="h-4 w-4" strokeWidth={2.5} />
+                LIGAR AGORA
+              </a>
+            )}
+            {remoteIsOtherDevice && (
+              <div className="text-center" style={{ fontSize: 10, letterSpacing: ".18em", color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase", ...fontDisplay }}>
+                via {remoteCall!.device_label}
+              </div>
+            )}
+
+            {/* WhatsApp + Editar msg */}
+            <div className="grid grid-cols-2 gap-2" style={{ marginBottom: 12 }}>
+              <a
+                href={waHrefFromMessage(current.phone, renderWaMessage(waMsg, current.name))}
+                target="_blank" rel="noopener noreferrer"
+                title={renderWaMessage(waMsg, current.name)}
+                style={{
+                  padding: 10,
+                  background: "#0b3d2e",
+                  border: "0.5px solid #25d36633",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 12, color: "#25d366", cursor: "pointer", fontWeight: 600,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  ...fontDisplay,
+                }}
+              >
+                <MessageCircle className="h-4 w-4" /> WHATSAPP 1
+              </a>
+              <a
+                href={waHrefFromMessage(current.phone, renderWaMessage(waMsg2, current.name))}
+                target="_blank" rel="noopener noreferrer"
+                title={renderWaMessage(waMsg2, current.name)}
+                style={{
+                  padding: 10,
+                  background: "#0b3d2e",
+                  border: "0.5px solid #25d36633",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 12, color: "#25d366", cursor: "pointer", fontWeight: 600,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  ...fontDisplay,
+                }}
+              >
+                <MessageCircle className="h-4 w-4" /> WHATSAPP 2
+              </a>
+              <button
+                type="button"
+                onClick={() => setWaEditing((v) => !v)}
+                className="col-span-2"
+                style={{
+                  padding: "10px 14px",
+                  background: "#ffffff08",
+                  border: "0.5px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 11, color: "var(--text-secondary)", cursor: "pointer",
+                  fontWeight: 600, letterSpacing: ".06em",
+                  ...fontDisplay,
+                }}
+              >
+                {waEditing ? "FECHAR EDITOR" : "EDITAR MSG"}
               </button>
             </div>
+
+            {waEditing && (
+              <div className="rounded-xl border border-zinc-800 p-3 space-y-3" style={{ background: "var(--surface-0)", marginBottom: 12 }}>
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                      Mensagem 1 · use <span style={{ color: "var(--gold)" }}>{"{nome}"}</span>
+                    </label>
+                    <span className="text-[10px] tabular-nums text-zinc-600">{waMsg.length}/1000</span>
+                  </div>
+                  <textarea
+                    value={waMsg}
+                    onChange={(e) => setWaMsg(e.target.value.slice(0, 1000))}
+                    rows={3}
+                    className={inputCls + " resize-none py-2 text-sm"}
+                    placeholder={DEFAULT_WA_TEMPLATE}
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-[10px] uppercase tracking-[0.22em] text-zinc-500" style={fontDisplay}>
+                      Mensagem 2 · use <span style={{ color: "var(--gold)" }}>{"{nome}"}</span>
+                    </label>
+                    <span className="text-[10px] tabular-nums text-zinc-600">{waMsg2.length}/1000</span>
+                  </div>
+                  <textarea
+                    value={waMsg2}
+                    onChange={(e) => setWaMsg2(e.target.value.slice(0, 1000))}
+                    rows={3}
+                    className={inputCls + " resize-none py-2 text-sm"}
+                    placeholder={DEFAULT_WA_TEMPLATE_2}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={saveWaTemplate}
+                    className="rounded-md px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider"
+                    style={{ background: "var(--gold)", color: "var(--surface-0)", ...fontDisplay }}
+                  >
+                    Salvar padrão
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setWaMsg(DEFAULT_WA_TEMPLATE); setWaMsg2(DEFAULT_WA_TEMPLATE_2); }}
+                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+                    style={fontDisplay}
+                  >
+                    Restaurar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Observação */}
+            <textarea
+              value={note}
+              onChange={(e) => {
+                const v = e.target.value;
+                setNote(v);
+                if (noteIncomingRef.current) return;
+                if (noteBroadcastTimerRef.current) clearTimeout(noteBroadcastTimerRef.current);
+                noteBroadcastTimerRef.current = setTimeout(() => {
+                  broadcastRef.current?.send({ type: "broadcast", event: "note", payload: { note: v, deviceId: deviceIdRef.current } });
+                }, 250);
+              }}
+              rows={2}
+              placeholder="Observação..."
+              style={{
+                width: "100%", padding: "9px 12px",
+                background: "var(--surface-0)",
+                border: "0.5px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                fontSize: 12, color: "#ffffffcc",
+                resize: "none", outline: "none", marginBottom: 8,
+              }}
+            />
+
+            {/* Chips rápidos */}
+            <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 12 }}>
+              {["Caixa postal", "Não atendeu", "Nº errado", "Sem interesse", "Ligar depois"].map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => setNote(chip)}
+                  style={{
+                    fontSize: 10, padding: "4px 10px",
+                    background: "#ffffff08",
+                    border: "0.5px solid var(--border)",
+                    borderRadius: 20,
+                    color: "var(--text-muted)",
+                    cursor: "pointer", transition: "var(--transition)",
+                    fontWeight: 600, letterSpacing: ".04em",
+                    ...fontDisplay,
+                  }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+
+            {/* Erro tabulação */}
+            {outcomeError && (
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200 mb-2">
+                <span className="truncate">⚠ {outcomeError.label}</span>
+                <button
+                  type="button"
+                  onClick={() => { const r = outcomeError.retry; setOutcomeError(null); r(); }}
+                  className="shrink-0 rounded-md border border-red-400/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-500/20"
+                  style={fontDisplay}
+                >
+                  <RefreshCw className="inline h-3 w-3 mr-0.5" /> Tentar
+                </button>
+              </div>
+            )}
+
+            {/* Desfechos — 3 grandes */}
+            {(() => {
+              const outcomesLocked = callStatus === "calling" || callStatus === "answered" || submittingOutcome || isTransitioning;
+              const lockedHint = submittingOutcome ? "Registrando ligação..." : (isTransitioning ? "Avançando..." : (outcomesLocked ? "Encerre a ligação para tabular" : undefined));
+              const outcomeBtn = (bg: string, color: string, borderColor: string) => ({
+                padding: "12px 6px",
+                border: `0.5px solid ${borderColor}`,
+                borderRadius: "var(--radius-sm)",
+                background: bg,
+                color,
+                fontSize: 10, fontWeight: 600, letterSpacing: ".04em",
+                cursor: outcomesLocked ? ("not-allowed" as const) : ("pointer" as const),
+                display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 4,
+                opacity: outcomesLocked ? 0.4 : 1,
+                ...fontDisplay,
+              });
+              return (
+                <div className="grid grid-cols-3 gap-2" style={{ marginBottom: 8 }}>
+                  <button type="button" title={lockedHint} disabled={outcomesLocked} onClick={() => handleResultClick(false, false)}
+                    style={outcomeBtn("var(--red-dim)", "var(--red)", "#f8717130")}>
+                    <X className="h-4 w-4" strokeWidth={2.5} />
+                    NÃO ATEND.
+                  </button>
+                  <button type="button" title={lockedHint} disabled={outcomesLocked} onClick={() => handleResultClick(true, false)}
+                    style={outcomeBtn("#0d3d22", "var(--green)", "#4ade8030")}>
+                    <Check className="h-4 w-4" strokeWidth={2.5} />
+                    ATENDEU
+                  </button>
+                  <button type="button" title={lockedHint} disabled={outcomesLocked} onClick={() => handleResultClick(true, true)}
+                    style={outcomeBtn("#2d2208", "#e8c97a", "#e8c97a30")}>
+                    <Calendar className="h-4 w-4" strokeWidth={2.5} />
+                    AGENDOU
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Retornar + Pular */}
+            <div className="grid grid-cols-2 gap-2" style={{ marginBottom: 8 }}>
+              <button
+                type="button"
+                onClick={callback}
+                style={{
+                  padding: 9, background: "transparent",
+                  border: "0.5px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 10, color: "var(--text-muted)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  fontWeight: 600, letterSpacing: ".06em",
+                  ...fontDisplay,
+                }}
+              >
+                <Undo2 className="h-3 w-3" /> RETORNAR
+              </button>
+              <button
+                type="button"
+                onClick={skip}
+                style={{
+                  padding: 9, background: "transparent",
+                  border: "0.5px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 10, color: "var(--text-muted)", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  fontWeight: 600, letterSpacing: ".06em",
+                  ...fontDisplay,
+                }}
+              >
+                PULAR <SkipForward className="h-3 w-3" />
+              </button>
+            </div>
+
+            {/* Agendar lembrete */}
+            <button
+              type="button"
+              onClick={() => setShowReminderForm(true)}
+              disabled={!me?.brokerId}
+              style={{
+                width: "100%", padding: 9, background: "transparent",
+                border: "0.5px solid var(--gold-border)",
+                borderRadius: "var(--radius-sm)",
+                fontSize: 11, color: "#c9a84c88", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                fontWeight: 600, letterSpacing: ".06em",
+                opacity: me?.brokerId ? 1 : 0.4,
+                ...fontDisplay,
+              }}
+            >
+              <Bell className="h-3.5 w-3.5" /> AGENDAR LEMBRETE
+            </button>
           </div>
         </div>
+
       ) : !hydrated ? (
         <div className="rounded-3xl border border-zinc-800 bg-[#1a1d28]/95 p-12 text-center">
           <RefreshCw className="mx-auto h-10 w-10 text-[#c9a84c] animate-spin" />
