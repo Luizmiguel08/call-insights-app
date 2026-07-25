@@ -217,8 +217,83 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
 
   return (
     <div className="flex flex-col gap-5" style={{ fontFamily: T.manrope, color: T.text }}>
+      {/* List selector */}
+      <div className="rounded-3xl p-4 sm:p-5" style={{ background: T.surface, border: `1px solid ${T.line}` }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.gold}` }}>
+              <ListFilter className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: T.textMute, fontFamily: T.sora }}>Lista ativa</p>
+              <p className="text-sm font-semibold truncate" style={{ color: T.sand, fontFamily: T.sora }}>
+                {selectedList ?? "Todas as listas"}
+                {selectedList && (() => {
+                  const info = lists.find((l) => l.list_name === selectedList);
+                  return info ? <span className="ml-2 text-[11px] tabular-nums" style={{ color: T.textDim }}>({info.pending} pendentes · {info.total} total)</span> : null;
+                })()}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { void loadLists(); setListsOpen((o) => !o); }}
+              className="px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.18em] transition-all"
+              style={{ background: listsOpen ? T.gold : T.bgSoft, color: listsOpen ? T.bg : T.gold, border: `1px solid ${T.gold}`, fontFamily: T.sora }}
+            >
+              {listsOpen ? "Fechar" : "Trocar lista"}
+            </button>
+          </div>
+        </div>
+        {listsOpen && (
+          <div className="mt-4 pt-4 grid grid-cols-2 sm:grid-cols-3 gap-2" style={{ borderTop: `1px solid ${T.lineSoft}` }}>
+            <button
+              onClick={() => { setSelectedList(null); setListsOpen(false); void refresh(); }}
+              className="text-left p-3 rounded-xl transition-all"
+              style={{
+                background: selectedList === null ? T.goldDim : T.bgSoft,
+                border: `1px solid ${selectedList === null ? T.gold : T.lineSoft}`,
+                color: T.text,
+              }}
+            >
+              <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: selectedList === null ? T.gold : T.textMute, fontFamily: T.sora }}>Todas</p>
+              <p className="text-sm font-semibold mt-0.5" style={{ color: T.sand }}>Fila completa</p>
+              <p className="text-[11px] mt-1 tabular-nums" style={{ color: T.textDim }}>
+                {lists.reduce((a, l) => a + l.pending, 0)} pendentes
+              </p>
+            </button>
+            {lists.length === 0 && (
+              <p className="col-span-full text-xs" style={{ color: T.textDim }}>Nenhuma lista encontrada.</p>
+            )}
+            {lists.map((l) => {
+              const active = selectedList === l.list_name;
+              return (
+                <button
+                  key={l.list_name}
+                  onClick={() => { setSelectedList(l.list_name); setListsOpen(false); void refresh(); }}
+                  className="text-left p-3 rounded-xl transition-all"
+                  style={{
+                    background: active ? T.goldDim : T.bgSoft,
+                    border: `1px solid ${active ? T.gold : T.lineSoft}`,
+                  }}
+                >
+                  <p className="text-[10px] uppercase tracking-widest font-bold truncate" style={{ color: active ? T.gold : T.textMute, fontFamily: T.sora }}>
+                    {l.list_name}
+                  </p>
+                  <p className="text-[11px] mt-1 tabular-nums" style={{ color: T.textDim }}>
+                    {l.pending} pend. · {l.done} feitas · {l.total} total
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Bento */}
       <div className="grid grid-cols-12 gap-5 items-start">
+
         {/* Left col */}
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-5">
           {/* Corretor + meta */}
