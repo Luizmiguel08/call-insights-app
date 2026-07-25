@@ -7,7 +7,7 @@ import wolfBg from "@/assets/wolf-wall-street.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useDialerSession } from "@/hooks/useDialerSession";
-import { recordContactAttempt } from "@/hooks/useContactBuffer";
+import { recordContactAttempt, useContactBuffer } from "@/hooks/useContactBuffer";
 import { useConnectionWatchdog } from "@/hooks/useConnectionWatchdog";
 import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
@@ -733,6 +733,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   // Realtime e desligamos polls redundantes. Quando degradado, ligamos
   // polls curtos como fallback.
   const { mode: connMode, visible } = useConnectionWatchdog();
+  const contactBuffer = useContactBuffer(brokerId || null, selectedList === "all" ? null : selectedList);
 
 
 
@@ -992,31 +993,20 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     });
   }, [state.contacts, contactProgress]);
 
-  // Fila do corretor: contatos atribuídos a ele OU fila geral, pendentes
+  // Fila operacional: apenas o buffer pequeno vindo do backend. O discador
+  // não depende mais de baixar todos os contatos pendentes para funcionar.
   const myQueue = useMemo(
     () => {
-      const sorted = state.contacts
-        .map((c) => {
-          const progress = contactProgress.get(sameContactKey(c));
-          const effectiveAttempts = Math.max(c.attempts, progress?.attempts ?? 0);
-          const resolved = c.status !== "pendente" || Boolean(progress?.resolved) || effectiveAttempts >= 2;
-          return {
-            ...c,
-            attempts: Math.min(2, effectiveAttempts),
-            status: resolved ? "feito" as const : c.status,
-          };
-        })
-        .filter((c) => !isContactSuppressed(sameContactKey(c)))
-        .filter((c) => (deferredRemainingByKey[sameContactKey(c)] ?? 0) <= 0)
-        .filter((c) => c.status === "pendente" && (c.brokerId === brokerId || c.brokerId === null))
-        .filter((c) => selectedList === "all" || (c.listName || "Geral") === selectedList)
-        .sort((a, b) => {
-          // Atribuídos primeiro, depois menor número de tentativas, e só então ordem de criação.
-          if ((a.brokerId === brokerId) !== (b.brokerId === brokerId)) return a.brokerId === brokerId ? -1 : 1;
-          if (a.attempts !== b.attempts) return a.attempts - b.attempts;
-          if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
-          return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-        });
+      const sorted: Contact[] = contactBuffer.buffer.map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        brokerId: c.broker_id,
+        status: "pendente",
+        createdAt: new Date(c.created_at).getTime(),
+        attempts: c.attempt_count,
+        listName: c.list_name || "Geral",
+      }));
       // Dedupe: mesmo telefone (ou mesmo nome, se sem telefone) aparece só uma vez na fila.
       const seen = new Set<string>();
       const out: typeof sorted = [];
@@ -1029,7 +1019,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       }
       return out;
     },
-    [state.contacts, brokerId, contactProgress, selectedList, suppressedCompletedUntil, deferredRemainingByKey]
+    [contactBuffer.buffer]
   );
 
   const discadorLists = useMemo(() => {
@@ -1337,6 +1327,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     });
 
     if (!attended && !scheduled && newAttemptsLocal < 2) {
+      contactBuffer.incrementAttempt(contactId);
       // Sem resposta na 1ª tentativa: MANTÉM o mesmo contato em foco para
       // a 2ª tentativa imediata. Não defere, não vai para o próximo cliente.
       setForcedCurrentContactId(contactId);
@@ -1353,6 +1344,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       });
       toast(`Sem resposta — faça a 2ª tentativa agora`, { description: contactName });
     } else {
+      contactBuffer.remove(contactId);
       // Resolvido (atendeu/agendou) ou esgotou 2 tentativas: oculta temporariamente o contato concluído.
       setForcedCurrentContactId(null);
       setSuppressedCompletedUntil((entries) => ({
@@ -1394,6 +1386,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
         // Backend é a fonte da verdade do próximo cliente.
         const nextFromServer = (data as any)?.next?.id ?? null;
         setServerNextId(nextFromServer);
+        void contactBuffer.refresh();
         void refreshServerNext("record-call-outcome-success");
         // Reconciliação fica por conta do realtime (scheduleRefetch).
         // Evita um loadAll() pesado depois de cada ligação.
@@ -1444,6 +1437,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
     const key = sameContactKey(current);
     const skippedId = current.id;
     const skippedAttempts = current.attempts;
+    contactBuffer.remove(skippedId);
     setState((s) => ({
       ...s,
       contacts: s.contacts.map((c) =>
@@ -1468,6 +1462,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       [key]: Date.now() + 15000,
     }));
     void refreshServerNext("skip");
+    void contactBuffer.refresh();
     toast("Contato pulado");
   }
 
