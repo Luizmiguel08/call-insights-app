@@ -8,6 +8,7 @@ import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useDialerSession } from "@/hooks/useDialerSession";
 import { recordContactAttempt } from "@/hooks/useContactBuffer";
+import { useConnectionWatchdog } from "@/hooks/useConnectionWatchdog";
 import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
   type Broker, type Call, type Contact, type State, type Tab,
@@ -728,6 +729,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const noteIncomingRef = useRef(false);
   const noteBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Watchdog de conexão: quando online+visível ("live"), confiamos no
+  // Realtime e desligamos polls redundantes. Quando degradado, ligamos
+  // polls curtos como fallback.
+  const { mode: connMode, visible } = useConnectionWatchdog();
+
+
+
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
@@ -785,10 +793,16 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           applyRow(payload.new);
         })
       .subscribe();
-    // Fallback: re-sincroniza periodicamente caso algum evento se perca
-    const poll = window.setInterval(() => { void load(); }, 2000);
-    return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
-  }, [brokerId]);
+    // Realtime já cobre INSERT/UPDATE/DELETE de active_calls em tempo real.
+    // O poll aqui é só watchdog para quando a conexão degrada (offline / aba
+    // volta do background). Em regime normal fica desligado — antes era um
+    // poll fixo de 2s que ficava batendo mesmo com WS OK.
+    const shouldPoll = connMode === "degraded";
+    const poll = shouldPoll
+      ? window.setInterval(() => { void load(); }, 15_000)
+      : null;
+    return () => { cancelled = true; if (poll) window.clearInterval(poll); supabase.removeChannel(channel); };
+  }, [brokerId, connMode]);
 
   const refreshServerNext = useCallback(async (reason = "manual") => {
     if (!brokerId) {
@@ -833,13 +847,23 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   useEffect(() => {
     if (!brokerId) return;
-    const id = window.setInterval(() => {
+    // Realtime já patcha state incrementalmente (mergeContactsRows/mergeCallsRows).
+    // Este intervalo é só reconciliação de segurança contra eventos perdidos.
+    // - Antes: 5s constantes (12 req/min × 4 queries).
+    // - Agora: 30s em regime live; 5s se offline/aba escondida ao voltar.
+    // Também: dispara 1 refetch imediato quando a aba volta a ficar visível.
+    if (!visible) return; // aba escondida: nada de polling
+    const intervalMs = connMode === "live" ? 30_000 : 5_000;
+    const run = () => {
       void refetchCloud()
         .then(() => { setLastSyncedAt(Date.now()); setSyncError(null); })
         .catch((e: any) => setSyncError(e?.message || "Sem conexão com o servidor"));
-    }, 5_000);
+    };
+    // Refetch imediato quando (re)entramos em visible/live — cobre gap.
+    run();
+    const id = window.setInterval(run, intervalMs);
     return () => window.clearInterval(id);
-  }, [brokerId, refetchCloud]);
+  }, [brokerId, refetchCloud, connMode, visible]);
 
   // Marca timestamp de sync sempre que a fila do estado mudar
   useEffect(() => { setLastSyncedAt(Date.now()); }, [state.contacts.length, state.calls.length]);
@@ -1076,17 +1100,23 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       })
       .subscribe();
 
-    const poll = window.setInterval(() => {
-      scheduleHeadRefresh("head-poll");
-    }, 1200);
+
+
+    // Realtime cobre INSERT/UPDATE/DELETE em calls + contacts_queue e chama
+    // scheduleHeadRefresh acima. O poll aqui é só watchdog para modo degraded
+    // (offline/aba escondida). Antes: setInterval(1200ms) = ~50 chamadas/min
+    // por corretor. Agora: 0 em regime live.
+    const poll = connMode === "degraded"
+      ? window.setInterval(() => scheduleHeadRefresh("head-poll-degraded"), 15_000)
+      : null;
 
     return () => {
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
-      window.clearInterval(poll);
+      if (poll) window.clearInterval(poll);
       void supabase.removeChannel(channel);
     };
-  }, [brokerId, selectedList, refreshServerNext]);
+  }, [brokerId, selectedList, refreshServerNext, connMode]);
 
   useEffect(() => {
     if (!forcedCurrentContactId) return;
