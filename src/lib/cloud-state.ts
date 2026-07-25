@@ -150,64 +150,74 @@ async function loadAll(me: Me | null): Promise<State> {
 
   async function loadAllContacts() {
     const pageSize = 1000;
-    const all: any[] = [];
 
-    // Pendentes (fila viva) — keyset em (priority DESC, created_at ASC, id ASC)
-    let lastPriority: number | null = null;
-    let lastCreatedAt: string | null = null;
-    let lastId: string | null = null;
-    for (let guard = 0; guard < 100; guard++) {
-      let q: any = supabase
-        .from("contacts_queue")
-        .select("*")
-        .eq("status", "pending")
-        .order("priority", { ascending: false })
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(pageSize);
-      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
-      if (lastPriority !== null && lastCreatedAt !== null && lastId !== null) {
-        // Keyset: linhas "depois" do último tuple visto na mesma ordenação.
-        q = q.or(
-          `priority.lt.${lastPriority},` +
-          `and(priority.eq.${lastPriority},created_at.gt.${lastCreatedAt}),` +
-          `and(priority.eq.${lastPriority},created_at.eq.${lastCreatedAt},id.gt.${lastId})`
-        );
+    // As duas metades (pendentes e resolvidos) são queries independentes
+    // (filtros de status disjuntos), então rodam em paralelo. Dentro de cada
+    // metade a paginação continua sequencial (keyset precisa do cursor da
+    // página anterior), mas as duas metades se sobrepõem no tempo.
+    async function loadPending() {
+      const out: any[] = [];
+      let lastPriority: number | null = null;
+      let lastCreatedAt: string | null = null;
+      let lastId: string | null = null;
+      for (let guard = 0; guard < 100; guard++) {
+        let q: any = supabase
+          .from("contacts_queue")
+          .select("*")
+          .eq("status", "pending")
+          .order("priority", { ascending: false })
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(pageSize);
+        if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+        if (lastPriority !== null && lastCreatedAt !== null && lastId !== null) {
+          q = q.or(
+            `priority.lt.${lastPriority},` +
+            `and(priority.eq.${lastPriority},created_at.gt.${lastCreatedAt}),` +
+            `and(priority.eq.${lastPriority},created_at.eq.${lastCreatedAt},id.gt.${lastId})`
+          );
+        }
+        const r = await q;
+        if (r.error) throw r.error;
+        const rows = (r.data ?? []) as any[];
+        out.push(...rows);
+        if (rows.length < pageSize) break;
+        const last = rows[rows.length - 1];
+        lastPriority = last.priority;
+        lastCreatedAt = last.created_at;
+        lastId = last.id;
       }
-      const r = await q;
-      if (r.error) throw r.error;
-      const rows = (r.data ?? []) as any[];
-      all.push(...rows);
-      if (rows.length < pageSize) break;
-      const last = rows[rows.length - 1];
-      lastPriority = last.priority;
-      lastCreatedAt = last.created_at;
-      lastId = last.id;
+      return out;
     }
 
-    // Resolvidos recentes — keyset em updated_at DESC.
-    let lastUpdated: string | null = null;
-    for (let guard = 0; guard < 100; guard++) {
-      let q: any = supabase
-        .from("contacts_queue")
-        .select("*")
-        .neq("status", "pending")
-        .gte("updated_at", sinceIso)
-        .order("updated_at", { ascending: false })
-        .order("id", { ascending: true })
-        .limit(pageSize);
-      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
-      if (lastUpdated !== null) q = q.lt("updated_at", lastUpdated);
-      const r = await q;
-      if (r.error) throw r.error;
-      const rows = (r.data ?? []) as any[];
-      all.push(...rows);
-      if (rows.length < pageSize) break;
-      lastUpdated = rows[rows.length - 1].updated_at;
+    async function loadResolvedRecent() {
+      const out: any[] = [];
+      let lastUpdated: string | null = null;
+      for (let guard = 0; guard < 100; guard++) {
+        let q: any = supabase
+          .from("contacts_queue")
+          .select("*")
+          .neq("status", "pending")
+          .gte("updated_at", sinceIso)
+          .order("updated_at", { ascending: false })
+          .order("id", { ascending: true })
+          .limit(pageSize);
+        if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+        if (lastUpdated !== null) q = q.lt("updated_at", lastUpdated);
+        const r = await q;
+        if (r.error) throw r.error;
+        const rows = (r.data ?? []) as any[];
+        out.push(...rows);
+        if (rows.length < pageSize) break;
+        lastUpdated = rows[rows.length - 1].updated_at;
+      }
+      return out;
     }
 
-    return all;
+    const [pending, resolved] = await Promise.all([loadPending(), loadResolvedRecent()]);
+    return [...pending, ...resolved];
   }
+
 
   async function loadAllCalls() {
     const pageSize = 1000;
