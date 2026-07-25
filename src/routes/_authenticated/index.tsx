@@ -847,13 +847,23 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
 
   useEffect(() => {
     if (!brokerId) return;
-    const id = window.setInterval(() => {
+    // Realtime já patcha state incrementalmente (mergeContactsRows/mergeCallsRows).
+    // Este intervalo é só reconciliação de segurança contra eventos perdidos.
+    // - Antes: 5s constantes (12 req/min × 4 queries).
+    // - Agora: 30s em regime live; 5s se offline/aba escondida ao voltar.
+    // Também: dispara 1 refetch imediato quando a aba volta a ficar visível.
+    if (!visible) return; // aba escondida: nada de polling
+    const intervalMs = connMode === "live" ? 30_000 : 5_000;
+    const run = () => {
       void refetchCloud()
         .then(() => { setLastSyncedAt(Date.now()); setSyncError(null); })
         .catch((e: any) => setSyncError(e?.message || "Sem conexão com o servidor"));
-    }, 5_000);
+    };
+    // Refetch imediato quando (re)entramos em visible/live — cobre gap.
+    run();
+    const id = window.setInterval(run, intervalMs);
     return () => window.clearInterval(id);
-  }, [brokerId, refetchCloud]);
+  }, [brokerId, refetchCloud, connMode, visible]);
 
   // Marca timestamp de sync sempre que a fila do estado mudar
   useEffect(() => { setLastSyncedAt(Date.now()); }, [state.contacts.length, state.calls.length]);
