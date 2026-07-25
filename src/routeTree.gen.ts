@@ -19,7 +19,6 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
-import { Route as AuthenticatedRedesignRouteImport } from './routes/_authenticated/redesign'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -70,11 +69,6 @@ const ConviteTokenRoute = ConviteTokenRouteImport.update({
   path: '/convite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRedesignRoute = AuthenticatedRedesignRouteImport.update({
-  id: '/redesign',
-  path: '/redesign',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -85,7 +79,6 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/redesign': typeof AuthenticatedRedesignRoute
   '/convite/$token': typeof ConviteTokenRoute
 }
 export interface FileRoutesByTo {
@@ -96,7 +89,6 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/redesign': typeof AuthenticatedRedesignRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/': typeof AuthenticatedIndexRoute
 }
@@ -110,7 +102,6 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/_authenticated/redesign': typeof AuthenticatedRedesignRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
@@ -125,7 +116,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sessoes'
     | '/sitemap.xml'
-    | '/redesign'
     | '/convite/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -136,7 +126,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sessoes'
     | '/sitemap.xml'
-    | '/redesign'
     | '/convite/$token'
     | '/'
   id:
@@ -149,7 +138,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sessoes'
     | '/sitemap.xml'
-    | '/_authenticated/redesign'
     | '/convite/$token'
     | '/_authenticated/'
   fileRoutesById: FileRoutesById
@@ -238,23 +226,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/redesign': {
-      id: '/_authenticated/redesign'
-      path: '/redesign'
-      fullPath: '/redesign'
-      preLoaderRoute: typeof AuthenticatedRedesignRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedRedesignRoute: typeof AuthenticatedRedesignRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedRedesignRoute: AuthenticatedRedesignRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
