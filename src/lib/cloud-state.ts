@@ -824,7 +824,6 @@ export function useCloudState() {
       if (currentChannel) void supabase.removeChannel(currentChannel);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
-      window.removeEventListener("online", onOnline);
 
     };
   }, [scheduleRefetch, refetch]);
