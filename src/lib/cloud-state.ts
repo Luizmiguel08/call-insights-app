@@ -138,74 +138,98 @@ function scopeBrokerId(me: Me | null): string | null {
 async function loadAll(me: Me | null): Promise<State> {
   const scoped = scopeBrokerId(me);
 
-  // JANELA DE HISTÓRICO: baixamos apenas os últimos N dias em vez das ~46k
-  // linhas totais. Reduz o payload inicial de ~15MB para <500KB e elimina
-  // a "tela branca" no celular em 3G/4G. Contatos pendentes (ativos na fila)
-  // continuam vindo integralmente porque o discador precisa deles.
-  const HISTORY_DAYS = 30;
+  // JANELA DE HISTÓRICO: reduzida de 30 → 7 dias. O dashboard/histórico usam
+  // esse dado, e 7 dias já cobre 99% dos casos. Reduz payload inicial em ~4x.
+  const HISTORY_DAYS = 7;
   const sinceIso = new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  // Contatos: pendentes sempre + resolvidos apenas dos últimos N dias.
+  // KEYSET pagination: em vez de .range(from, from+pageSize-1) (que vira
+  // OFFSET/LIMIT — cada página fica O(offset+limit) no Postgres), iteramos
+  // usando o valor da última linha como cursor. Cada página fica O(limit).
+  // Isso elimina completamente as chamadas com offset=6000&limit=1000.
+
   async function loadAllContacts() {
     const pageSize = 1000;
     const all: any[] = [];
-    async function pageAll(builder: () => any) {
-      let from = 0;
-      while (from < 100000) {
-        const q = builder().range(from, from + pageSize - 1);
-        const r = await q;
-        if (r.error) throw r.error;
-        const rows = r.data ?? [];
-        all.push(...rows);
-        if (rows.length < pageSize) break;
-        from += pageSize;
-      }
-    }
-    // pendentes (fila viva)
-    await pageAll(() => {
+
+    // Pendentes (fila viva) — keyset em (priority DESC, created_at ASC, id ASC)
+    let lastPriority: number | null = null;
+    let lastCreatedAt: string | null = null;
+    let lastId: string | null = null;
+    for (let guard = 0; guard < 100; guard++) {
       let q: any = supabase
         .from("contacts_queue")
         .select("*")
         .eq("status", "pending")
         .order("priority", { ascending: false })
         .order("created_at", { ascending: true })
-        .order("id", { ascending: true });
+        .order("id", { ascending: true })
+        .limit(pageSize);
       if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
-      return q;
-    });
-    // resolvidos recentes (para o histórico do dashboard)
-    await pageAll(() => {
+      if (lastPriority !== null && lastCreatedAt !== null && lastId !== null) {
+        // Keyset: linhas "depois" do último tuple visto na mesma ordenação.
+        q = q.or(
+          `priority.lt.${lastPriority},` +
+          `and(priority.eq.${lastPriority},created_at.gt.${lastCreatedAt}),` +
+          `and(priority.eq.${lastPriority},created_at.eq.${lastCreatedAt},id.gt.${lastId})`
+        );
+      }
+      const r = await q;
+      if (r.error) throw r.error;
+      const rows = (r.data ?? []) as any[];
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+      const last = rows[rows.length - 1];
+      lastPriority = last.priority;
+      lastCreatedAt = last.created_at;
+      lastId = last.id;
+    }
+
+    // Resolvidos recentes — keyset em updated_at DESC.
+    let lastUpdated: string | null = null;
+    for (let guard = 0; guard < 100; guard++) {
       let q: any = supabase
         .from("contacts_queue")
         .select("*")
         .neq("status", "pending")
         .gte("updated_at", sinceIso)
         .order("updated_at", { ascending: false })
-        .order("id", { ascending: true });
+        .order("id", { ascending: true })
+        .limit(pageSize);
       if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
-      return q;
-    });
+      if (lastUpdated !== null) q = q.lt("updated_at", lastUpdated);
+      const r = await q;
+      if (r.error) throw r.error;
+      const rows = (r.data ?? []) as any[];
+      all.push(...rows);
+      if (rows.length < pageSize) break;
+      lastUpdated = rows[rows.length - 1].updated_at;
+    }
+
     return all;
   }
 
   async function loadAllCalls() {
     const pageSize = 1000;
-    let from = 0;
     const all: any[] = [];
-    while (from < 100000) {
+    // Keyset em created_at DESC.
+    let lastCreated: string | null = null;
+    for (let guard = 0; guard < 100; guard++) {
       let q: any = supabase
         .from("calls")
         .select("*")
         .gte("created_at", sinceIso)
         .order("created_at", { ascending: false })
-        .range(from, from + pageSize - 1);
+        .order("id", { ascending: true })
+        .limit(pageSize);
       if (scoped) q = q.eq("broker_id", scoped);
+      if (lastCreated !== null) q = q.lt("created_at", lastCreated);
       const r = await q;
       if (r.error) throw r.error;
-      const rows = r.data ?? [];
+      const rows = (r.data ?? []) as any[];
       all.push(...rows);
       if (rows.length < pageSize) break;
-      from += pageSize;
+      lastCreated = rows[rows.length - 1].created_at;
     }
     return all;
   }
@@ -257,31 +281,29 @@ async function loadAll(me: Me | null): Promise<State> {
 }
 
 /* ---------------- Incremental delta loaders ----------------
- * Refetch incremental usando `updated_at` como cursor:
- * em vez de baixar ~10k contatos + ~16k ligações a cada poll, buscamos
- * apenas o que mudou desde a última sincronização (`updated_at > cursor`)
- * e mesclamos no estado local por id. Reduz drasticamente o tráfego
- * (e a latência percebida) tanto no celular quanto no desktop.
+ * Refetch incremental usando `updated_at` como cursor + KEYSET (não OFFSET):
+ * cada página consulta `updated_at > cursor` e usa o último `updated_at`
+ * retornado como novo cursor. Reduz cada poll a O(delta_size) real.
  */
 async function loadDeltaContactsSince(sinceIso: string | null, me: Me | null): Promise<any[]> {
   const scoped = scopeBrokerId(me);
   const pageSize = 1000;
-  let from = 0;
   const all: any[] = [];
-  while (from < 100000) {
+  let cursor = sinceIso;
+  for (let guard = 0; guard < 100; guard++) {
     let q: any = (supabase.from("contacts_queue") as any)
       .select("*")
       .order("updated_at", { ascending: true })
       .order("id", { ascending: true })
-      .range(from, from + pageSize - 1);
-    if (sinceIso) q = q.gt("updated_at", sinceIso);
+      .limit(pageSize);
+    if (cursor) q = q.gt("updated_at", cursor);
     if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
     const r = await q;
     if (r.error) throw r.error;
     const rows = (r.data ?? []) as any[];
     all.push(...rows);
     if (rows.length < pageSize) break;
-    from += pageSize;
+    cursor = rows[rows.length - 1].updated_at;
   }
   return all;
 }
@@ -289,22 +311,22 @@ async function loadDeltaContactsSince(sinceIso: string | null, me: Me | null): P
 async function loadDeltaCallsSince(sinceIso: string | null, me: Me | null): Promise<any[]> {
   const scoped = scopeBrokerId(me);
   const pageSize = 1000;
-  let from = 0;
   const all: any[] = [];
-  while (from < 100000) {
+  let cursor = sinceIso;
+  for (let guard = 0; guard < 100; guard++) {
     let q: any = (supabase.from("calls") as any)
       .select("*")
       .order("updated_at", { ascending: true })
       .order("id", { ascending: true })
-      .range(from, from + pageSize - 1);
-    if (sinceIso) q = q.gt("updated_at", sinceIso);
+      .limit(pageSize);
+    if (cursor) q = q.gt("updated_at", cursor);
     if (scoped) q = q.eq("broker_id", scoped);
     const r = await q;
     if (r.error) throw r.error;
     const rows = (r.data ?? []) as any[];
     all.push(...rows);
     if (rows.length < pageSize) break;
-    from += pageSize;
+    cursor = rows[rows.length - 1].updated_at;
   }
   return all;
 }
