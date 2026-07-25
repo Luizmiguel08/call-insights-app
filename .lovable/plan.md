@@ -1,125 +1,55 @@
+## Diagnóstico confirmado
 
-## Diagnóstico — o que está acontecendo agora
+Essa URL não é uma única requisição presa: ela é uma **página de uma varredura sequencial**. O frontend busca `contacts_queue` em lotes de 1.000 até baixar todos os pendentes. Hoje existem **22.502 contatos pendentes**, então uma carga completa gera aproximadamente 23 chamadas como essa.
 
-Analisei os logs de rede da tela do discador (25 segundos, 1 usuário logado). Nesse período o app fez **~40 requisições**, todas repetidas em loop:
+O loop contínuo **não é necessário nem é a arquitetura mais robusta** para o discador. Ele acontece porque:
 
-| Requisição | Origem | Frequência hoje | Aparece nos logs |
-|---|---|---|---|
-| `rpc/next_contact_for_broker` | `_authenticated/index.tsx:1079` `setInterval(1200ms)` | **~1x por segundo** | 19 chamadas em 25s |
-| `active_calls?...` | `_authenticated/index.tsx:789` `setInterval(2000ms)` | ~1x a cada 2s | 11 chamadas |
-| `contacts_queue` (delta) | `cloud-state.ts:840` `setInterval(5000ms)` | 1x a cada 5s | 4 chamadas |
-| `calls` (delta) | mesmo | 1x a cada 5s | 4 chamadas |
-| `brokers` (full) | mesmo | 1x a cada 5s | 4 chamadas |
-| `app_settings` (full) | mesmo | 1x a cada 5s | 4 chamadas |
-| `call_reminders` | poller do LembretesTab | 1x a cada 5s | 4 chamadas |
+- `loadAllContacts()` baixa toda a fila pendente para montar `state.contacts` no navegador.
+- O discador ainda calcula `myQueue` e as listas a partir desse dataset completo.
+- Uma carga completa é acionada no primeiro acesso sem cache, após mais de 5 minutos com a aba oculta e periodicamente como reconciliação.
+- Se qualquer delta falhar, o código cai automaticamente em `loadAll()`, zera os cursores e pode iniciar outra varredura completa.
+- Além disso, o discador mantém uma reconciliação a cada 30 segundos; normalmente ela é incremental, mas falhas de cursor podem transformá-la novamente em carga completa.
+- Já existe no backend a RPC `dialer_prefetch_queue`, que retorna apenas os próximos 10 contatos, mas o hook de buffer não está sendo usado pelo discador atual.
 
-**Todas** as tabelas acima já têm subscription Realtime ativa. O polling existe só como "fallback caso o WebSocket caia" — mas ele roda o tempo todo, mesmo com WS conectado.
+Os índices necessários para a ordenação principal já existem; o maior problema agora é **volume e estratégia de carregamento**, não falta de índice nessa URL.
 
-**Impacto real:**
-- Com 17 corretores online = **~27 req/segundo** batendo constantemente no Postgres + PostgREST, mesmo sem ninguém clicando em nada.
-- `next_contact_for_broker` faz `ORDER BY` em `contacts_queue` (34k linhas) toda vez. É a query mais cara sendo executada 1x/segundo × 17 usuários = ~60x/minuto por corretor.
-- No mobile isso ainda esgota bateria e satura o rádio (cada request abre keep-alive HTTPS).
-- O tempo real "para trocar de contato" não melhora com esse poll — o Realtime já entrega o evento em ~200ms. O poll de 1.2s na verdade **atrasa** a UI porque enfileira refetches em cima do evento realtime.
+## Plano de correção
 
-## Estratégia — Realtime-first, poll apenas como watchdog
+1. **Trocar o discador para buffer pequeno do backend**
+   - Integrar `useContactBuffer` ao fluxo real do discador.
+   - Carregar somente os próximos 10 contatos pela `dialer_prefetch_queue`.
+   - Reabastecer silenciosamente quando restarem 3, sem bloquear o clique nem baixar os 22 mil pendentes.
+   - Manter o próximo contato definido pelo banco para preservar prioridade, tentativas e sincronização entre dispositivos.
 
-Princípio: **se o Realtime está conectado, não fazer poll**. Se cair (evento `CHANNEL_ERROR` / `TIMED_OUT` / `CLOSED`, ou `navigator.onLine === false`), aí sim ligar um poll curto até reconectar.
+2. **Remover a fila completa do bootstrap do discador**
+   - Parar de chamar `loadAllContacts()` para operar a tela principal.
+   - Separar estado operacional do discador de dados administrativos/históricos.
+   - Buscar nomes de listas por uma consulta agregada pequena, em vez de derivá-los de todos os contatos.
 
-Nenhuma dessas mudanças afeta usabilidade — todo o UX de "próximo contato aparece na hora" continua funcionando via Realtime, que já está lá e funcionando.
+3. **Paginar a aba Fila sob demanda**
+   - A aba de gerenciamento continuará mostrando contatos, mas por páginas/filtros no servidor.
+   - Não manter dezenas de milhares de registros em memória ou no `localStorage`.
+   - Buscar a próxima página apenas quando o usuário navegar/rolar.
 
-### 1. `next_contact_for_broker` — de 1x/seg para on-event
+4. **Tornar a sincronização Realtime-first sem fallback explosivo**
+   - Usar eventos em tempo real para invalidar/recarregar somente o buffer afetado.
+   - Manter um watchdog espaçado apenas para conferir o head da fila.
+   - Em erro de delta, não executar imediatamente uma varredura total; preservar o cursor, aplicar retry com backoff e mostrar estado degradado.
+   - Substituir a reconciliação completa periódica por uma consulta pequena de versão/contagem ou por reload do buffer.
 
-Hoje: `setInterval(scheduleHeadRefresh, 1200ms)` (`_authenticated/index.tsx:1079`).
+5. **Unificar as duas fontes de “próximo contato”**
+   - Evitar concorrência entre `next_contact_for_broker`, `state.contacts` e o buffer.
+   - Tornar `dialer_prefetch_queue` a fonte única da sequência exibida.
+   - Atualizar/remover um contato do buffer de forma otimista após o resultado e confirmar em segundo plano.
 
-Novo comportamento:
-- Chama 1x no mount (já faz).
-- Chama quando chega evento realtime de `contacts_queue` ou `calls` do broker (já faz).
-- Chama depois que o usuário registra outcome (já faz implicitamente).
-- **Remove o setInterval de 1.2s.**
-- Adiciona watchdog: se o canal Realtime reportar `CHANNEL_ERROR`/`CLOSED`, liga poll de 5s até voltar `SUBSCRIBED`.
+6. **Validar comportamento e carga**
+   - Confirmar que abrir o discador gera uma consulta pequena, não dezenas de páginas de 1.000.
+   - Testar troca de corretor/lista, primeira e segunda tentativas, dois dispositivos, retorno de aba oculta e falha temporária de conexão.
+   - Verificar que a aba Fila permanece funcional com paginação e que os eventos em tempo real atualizam o contato atual sem loops.
 
-Resultado: de ~50 chamadas/min → tipicamente 1–3 chamadas/min por corretor (só quando algo muda de verdade).
+## Resultado esperado
 
-### 2. `active_calls` — remove poll fixo, mantém só watchdog
-
-Hoje: `setInterval(load, 2000ms)` (`_authenticated/index.tsx:789`) + Realtime na mesma tabela.
-
-Novo:
-- Load inicial (1x).
-- Subscription Realtime (já existe) empurra qualquer mudança.
-- Poll só se `channel.state !== "joined"`.
-
-De 30 chamadas/min → ~1 chamada por sessão + eventos.
-
-### 3. `refetchCloud` (bootstrap 5s) — reduz e condiciona ao WS
-
-Hoje: `setInterval(refetchCloud, 5000ms)` em `_authenticated/index.tsx:840` — dispara 4 queries (`brokers`, `app_settings`, `contacts_queue` delta, `calls` delta) a cada 5s.
-
-Novo:
-- `brokers` e `app_settings` mudam raramente → carregam 1x no bootstrap; Realtime nas duas tabelas (`cloud-state.ts:767,770`) já dispara refetch quando muda. Remove do intervalo.
-- `contacts_queue` e `calls` delta: mantém, mas troca de **5s → 30s** como watchdog. Como o Realtime granular já está patchando o estado local (`mergeContactsRows`/`mergeCallsRows`, `cloud-state.ts:483-522`), o delta a cada 30s serve só pra pegar coisa que escapou (raro).
-- Se o WS cair, retomar delta 5s até reconectar.
-
-De 48 requests/min → ~4 requests/min por corretor em regime normal.
-
-### 4. `call_reminders` — alinha ao intervalo real
-
-Hoje: aparece 1x a cada 5s nos logs, mas o `LembretesTab.tsx:414` está com `setInterval(check, 30000)`. Ou seja, tem **outro poller** de lembretes rodando em paralelo (provavelmente o `useReminderNotifier` global montado no root). Vou identificar o segundo poller e:
-- Consolidar: 1 único poller de lembretes a cada 60s (é notificação, latência de 1 min é aceitável).
-- Substituir por Realtime + `scheduled_for` como cursor: subscrever INSERT/UPDATE em `call_reminders` e disparar timers locais baseados em `scheduled_for`. Zero polling em regime normal.
-
-De 12 req/min → ~1 req/min.
-
-### 5. Pausar tudo quando a aba não está visível
-
-Adiciona listener global de `document.visibilitychange`: quando `hidden`, cancela intervalos; quando volta a `visible`, faz 1 refetch imediato e religa. No mobile isso é o maior ganho de bateria e evita a "fila de requests" que dispara junto quando o usuário volta pro app.
-
-### 6. Watchdog centralizado de conexão
-
-Um único hook (`useConnectionWatchdog`) que:
-- Observa status dos canais Realtime principais.
-- Observa `navigator.onLine`.
-- Expõe um `mode: "live" | "degraded"`.
-- Todos os polls consomem esse hook: se `live`, poll desligado; se `degraded`, poll curto.
-
-Isso substitui a lógica atual de "polling defensivo sempre ligado".
-
-## Impacto esperado
-
-Em regime normal (Realtime funcionando, que é 99% do tempo):
-
-| Métrica | Hoje | Depois | Redução |
-|---|---|---|---|
-| Requests/min por corretor (ocioso) | ~96 | ~4 | **–96%** |
-| Chamadas `next_contact_for_broker`/min | ~50 | ~1 | **–98%** |
-| Chamadas `active_calls`/min | ~30 | ~0 | **–100%** |
-| Carga DB total (17 corretores) | ~27 req/s | ~1 req/s | **–96%** |
-| Latência percebida ao clicar outcome | ~1200ms (fila de polls) | ~200ms (evento realtime) | **~6x** |
-| Bateria mobile em uso contínuo | referência | notável melhora | — |
-
-Sem impacto em UX: a fila continua avançando na mesma velocidade (na verdade mais rápido, porque o Realtime já era mais rápido que o poll de 1.2s — o poll estava atrapalhando).
-
-## Escopo desta entrega
-
-Uma única leva:
-
-1. Criar `src/hooks/useConnectionWatchdog.ts` — observa status Realtime + `navigator.onLine`, expõe `mode`.
-2. Editar `src/routes/_authenticated/index.tsx`:
-   - Remover `setInterval(1200ms)` do head-poll (linha 1079); passar a depender do Realtime + watchdog.
-   - Remover `setInterval(2000ms)` do `active_calls` load (linha 789); poll só se watchdog em `degraded`.
-   - Adicionar `visibilitychange` gate em todos os intervalos remanescentes.
-3. Editar `src/lib/cloud-state.ts`:
-   - `setInterval(5000ms)` de refetch (linha ~840, hoje em index.tsx): passa a rodar 30s em `live`, 5s em `degraded`.
-   - Tira `brokers` e `app_settings` do intervalo (já cobertos por Realtime).
-4. Editar `LembretesTab.tsx` + notifier global: unificar em 1 poller de 60s, com Realtime empurrando eventos.
-
-**Não mexo em:** visual, autenticação, RLS, RPCs do banco, schema, `useContactBuffer`, layout, botões, cores.
-
-## Alternativa mais conservadora (se preferir só o mais crítico agora)
-
-Se quiser um alívio imediato sem tocar em `cloud-state.ts` nem lembretes:
-- **Só remover o poll de 1.2s de `next_contact_for_broker`** e o poll de 2s de `active_calls`.
-- Isso sozinho já corta ~80% das requisições e é uma edição em 1 arquivo (`_authenticated/index.tsx`).
-- Posso fazer isso em 5 minutos e o resto fica pra depois.
-
-Me diz se aprova o plano completo (as 4 mudanças) ou prefere só o alívio imediato primeiro.
+- A rota mostrada deixa de aparecer em sequência no uso normal do discador.
+- A abertura passa de dezenas de milhares de linhas para cerca de 10 contatos.
+- O consumo de rede e memória cai drasticamente.
+- Realtime melhora a velocidade, enquanto retry com backoff garante robustez sem provocar uma nova carga completa a cada falha.

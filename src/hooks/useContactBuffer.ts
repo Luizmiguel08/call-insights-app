@@ -35,11 +35,13 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
       inflightRef.current = true;
       if (replace) setLoading(true);
       try {
-        const { data, error: rpcErr } = await (supabase as any).rpc("dialer_prefetch_queue", {
+        // A função do backend aplica a identidade autenticada, a organização,
+        // prioridade e limite de tentativas de forma consistente entre devices.
+        const { data, error: rpcError } = await (supabase as any).rpc("dialer_prefetch_queue", {
           _limit: BUFFER_SIZE,
           _list_name: listName,
         });
-        if (rpcErr) throw rpcErr;
+        if (rpcError) throw rpcError;
         const rows = (data ?? []) as BufferedContact[];
         setBuffer((prev) => {
           if (replace) return rows;
@@ -73,6 +75,10 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
     setBuffer((prev) => prev.slice(1));
   }, []);
 
+  const remove = useCallback((contactId: string) => {
+    setBuffer((prev) => prev.filter((contact) => contact.id !== contactId));
+  }, []);
+
   const incrementAttempt = useCallback((contactId: string) => {
     setBuffer((prev) =>
       prev.map((c) => (c.id === contactId ? { ...c, attempt_count: c.attempt_count + 1 } : c)),
@@ -86,8 +92,10 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
     loading,
     error,
     advance,
+    remove,
     incrementAttempt,
     retry: () => load(true),
+    refresh: () => load(true),
   };
 }
 

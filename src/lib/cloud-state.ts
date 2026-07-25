@@ -149,69 +149,36 @@ async function loadAll(me: Me | null): Promise<State> {
   // Isso elimina completamente as chamadas com offset=6000&limit=1000.
 
   async function loadAllContacts() {
-    const pageSize = 1000;
-
-    // As duas metades (pendentes e resolvidos) são queries independentes
-    // (filtros de status disjuntos), então rodam em paralelo. Dentro de cada
-    // metade a paginação continua sequencial (keyset precisa do cursor da
-    // página anterior), mas as duas metades se sobrepõem no tempo.
+    // O discador usa um buffer próprio de 10 contatos. O estado global mantém
+    // apenas uma amostra administrativa recente, evitando baixar toda a fila
+    // (dezenas de milhares de linhas) no bootstrap.
     async function loadPending() {
-      const out: any[] = [];
-      let lastPriority: number | null = null;
-      let lastCreatedAt: string | null = null;
-      let lastId: string | null = null;
-      for (let guard = 0; guard < 100; guard++) {
-        let q: any = supabase
-          .from("contacts_queue")
-          .select("*")
-          .eq("status", "pending")
-          .order("priority", { ascending: false })
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true })
-          .limit(pageSize);
-        if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
-        if (lastPriority !== null && lastCreatedAt !== null && lastId !== null) {
-          q = q.or(
-            `priority.lt.${lastPriority},` +
-            `and(priority.eq.${lastPriority},created_at.gt.${lastCreatedAt}),` +
-            `and(priority.eq.${lastPriority},created_at.eq.${lastCreatedAt},id.gt.${lastId})`
-          );
-        }
-        const r = await q;
-        if (r.error) throw r.error;
-        const rows = (r.data ?? []) as any[];
-        out.push(...rows);
-        if (rows.length < pageSize) break;
-        const last = rows[rows.length - 1];
-        lastPriority = last.priority;
-        lastCreatedAt = last.created_at;
-        lastId = last.id;
-      }
-      return out;
+      let q: any = supabase
+        .from("contacts_queue")
+        .select("*")
+        .eq("status", "pending")
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: true })
+        .limit(200);
+      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+      const r = await q;
+      if (r.error) throw r.error;
+      return (r.data ?? []) as any[];
     }
 
     async function loadResolvedRecent() {
-      const out: any[] = [];
-      let lastUpdated: string | null = null;
-      for (let guard = 0; guard < 100; guard++) {
-        let q: any = supabase
-          .from("contacts_queue")
-          .select("*")
-          .neq("status", "pending")
-          .gte("updated_at", sinceIso)
-          .order("updated_at", { ascending: false })
-          .order("id", { ascending: true })
-          .limit(pageSize);
-        if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
-        if (lastUpdated !== null) q = q.lt("updated_at", lastUpdated);
-        const r = await q;
-        if (r.error) throw r.error;
-        const rows = (r.data ?? []) as any[];
-        out.push(...rows);
-        if (rows.length < pageSize) break;
-        lastUpdated = rows[rows.length - 1].updated_at;
-      }
-      return out;
+      let q: any = supabase
+        .from("contacts_queue")
+        .select("*")
+        .neq("status", "pending")
+        .gte("updated_at", sinceIso)
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: true })
+        .limit(200);
+      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+      const r = await q;
+      if (r.error) throw r.error;
+      return (r.data ?? []) as any[];
     }
 
     const [pending, resolved] = await Promise.all([loadPending(), loadResolvedRecent()]);
@@ -478,11 +445,6 @@ export function useCloudState() {
   // refetch (delta SQL) quanto via Realtime (patches que chegam pelo WS).
   const contactsCursorRef = useRef<string | null>(null);
   const callsCursorRef = useRef<string | null>(null);
-  // A cada N refetches incrementais fazemos um full sync pra capturar
-  // DELETEs que tenham escapado do canal Realtime (deletes não atualizam
-  // updated_at, por isso não aparecem no delta).
-  const incrementalsSinceFullRef = useRef(0);
-  const FULL_SYNC_EVERY = 720; // reconciliação de deletes ~1x/hora (5s/refetch)
 
   const setState = useCallback<React.Dispatch<React.SetStateAction<State>>>((value) => {
     dirtyRef.current = true;
@@ -546,8 +508,7 @@ export function useCloudState() {
     try {
       const me = meRef.current;
       const noCursor = contactsCursorRef.current === null || callsCursorRef.current === null;
-      const periodicFull = incrementalsSinceFullRef.current >= FULL_SYNC_EVERY;
-      const doFull = opts?.full || noCursor || periodicFull;
+      const doFull = opts?.full || noCursor;
 
       if (doFull) {
         const s = await loadAll(me);
@@ -557,7 +518,6 @@ export function useCloudState() {
           .select("updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle();
         contactsCursorRef.current = (cMax?.data?.updated_at as string | undefined) ?? null;
         callsCursorRef.current = (kMax?.data?.updated_at as string | undefined) ?? null;
-        incrementalsSinceFullRef.current = 0;
         lastSyncedRef.current = s;
         dirtyRef.current = false;
         setStateRaw(s);
@@ -574,7 +534,6 @@ export function useCloudState() {
         const kMax = maxUpdatedAt(deltaCalls);
         if (cMax && (!contactsCursorRef.current || cMax > contactsCursorRef.current)) contactsCursorRef.current = cMax;
         if (kMax && (!callsCursorRef.current || kMax > callsCursorRef.current)) callsCursorRef.current = kMax;
-        incrementalsSinceFullRef.current += 1;
 
         const brokers: Broker[] = (brokersR.data ?? []).map((b: any) => ({
           id: b.id, name: b.name, userId: b.user_id ?? null, approved: b.approved ?? true,
@@ -595,16 +554,9 @@ export function useCloudState() {
         dirtyRef.current = false;
       }
     } catch (e) {
-      console.warn("refetch incremental falhou — caindo pra full", e);
-      try {
-        const s = await loadAll(meRef.current);
-        lastSyncedRef.current = s;
-        setStateRaw(s);
-        contactsCursorRef.current = null;
-        callsCursorRef.current = null;
-      } catch (e2) {
-        console.error("refetch full também falhou", e2);
-      }
+      // Não reinicia uma varredura completa após falha transitória. Mantém os
+      // cursores e deixa o próximo watchdog tentar novamente com o mesmo delta.
+      console.warn("refetch incremental falhou; mantendo cache e cursores", e);
     } finally {
       refetchInFlightRef.current = false;
       if (queuedRefetchRef.current) {
