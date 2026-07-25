@@ -1100,7 +1100,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       })
       .subscribe();
 
-      .subscribe();
+
 
     // Realtime cobre INSERT/UPDATE/DELETE em calls + contacts_queue e chama
     // scheduleHeadRefresh acima. O poll aqui é só watchdog para modo degraded
