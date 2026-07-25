@@ -411,7 +411,13 @@ export function useReminderNotifier(me: Me | null, onOpenTab: () => void) {
       }
     }
     void check();
-    const i = setInterval(check, 30000);
-    return () => { alive = false; clearInterval(i); };
+    // Poll a cada 60s (lembrete tolera latência de 1 min). Só roda com
+    // aba visível — economiza requests e bateria em background.
+    const tick = () => { if (document.visibilityState === "visible") void check(); };
+    const i = setInterval(tick, 60000);
+    // Refetch imediato ao voltar do background
+    const onVis = () => { if (document.visibilityState === "visible") void check(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { alive = false; clearInterval(i); document.removeEventListener("visibilitychange", onVis); };
   }, [me, onOpenTab]);
 }
