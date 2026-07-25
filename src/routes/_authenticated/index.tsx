@@ -729,6 +729,13 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const noteIncomingRef = useRef(false);
   const noteBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Watchdog de conexão: quando online+visível ("live"), confiamos no
+  // Realtime e desligamos polls redundantes. Quando degradado, ligamos
+  // polls curtos como fallback.
+  const { mode: connMode, visible } = useConnectionWatchdog();
+
+
+
 
   // ---- Sincronia de "ligação em andamento" entre dispositivos do mesmo corretor ----
   const deviceInfo = useMemo(() => {
