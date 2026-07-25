@@ -8,6 +8,7 @@ import { useCloudState, newId, type Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useDialerSession } from "@/hooks/useDialerSession";
 import { recordContactAttempt } from "@/hooks/useContactBuffer";
+import { useConnectionWatchdog } from "@/hooks/useConnectionWatchdog";
 import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
   type Broker, type Call, type Contact, type State, type Tab,
