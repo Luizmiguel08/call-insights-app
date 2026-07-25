@@ -774,34 +774,54 @@ export function useCloudState() {
     }
     subscribeRealtime();
 
-    // Refetch imediato (ignora mute) usado em foco/visibilidade/online — mobile
-    // costuma perder o WebSocket quando a tela apaga; ao voltar fazemos um
-    // FULL sync pra também capturar deletes que tenham acontecido offline.
-    async function forceRefetchNow() {
-      // Liberar mute pra não bloquear o refetch que vem do wake.
-      muteUntilRef.current = 0;
-      await refetch({ full: true });
-    }
+    // Refetch em foco/visibilidade/online. Mobile perde WebSocket quando a
+    // tela apaga, então precisamos reconectar. Mas ANTES era 'full refetch'
+    // em todo evento — cada alt-tab redownloadava ~34k contatos.
+    // Estratégia nova:
+    //  - Delta (não full) por padrão. Cursor updated_at cobre tudo que mudou.
+    //  - Full só se ficamos offline/hidden >5min (chance real de perder
+    //    evento realtime não coberto pelo cursor, ex.: DELETE).
+    //  - Throttle: no máximo 1 wake a cada 20s (evita foco compulsivo).
+    let lastWakeAt = 0;
+    let lastHiddenAt = Date.now();
+    const WAKE_THROTTLE_MS = 20_000;
+    const FULL_AFTER_HIDDEN_MS = 5 * 60_000;
 
     function resyncAfterWake() {
-      // Recria o canal pra forçar reconexão do WebSocket após sleep do mobile.
-      if (currentChannel) { void supabase.removeChannel(currentChannel); currentChannel = null; }
-      subscribeRealtime();
-      void forceRefetchNow();
+      const now = Date.now();
+      if (now - lastWakeAt < WAKE_THROTTLE_MS) return;
+      lastWakeAt = now;
+      const hiddenFor = now - lastHiddenAt;
+      const needsFull = hiddenFor > FULL_AFTER_HIDDEN_MS;
+      // Reconecta WS só se estava hidden por mais que alguns segundos
+      if (hiddenFor > 15_000 && currentChannel) {
+        void supabase.removeChannel(currentChannel);
+        currentChannel = null;
+        subscribeRealtime();
+      }
+      muteUntilRef.current = 0;
+      void refetch(needsFull ? { full: true } : undefined);
     }
 
-    const onFocus = () => resyncAfterWake();
-    const onVisibility = () => { if (document.visibilityState === "visible") resyncAfterWake(); };
+    // NÃO escutamos 'focus' — dispara em qualquer clique de volta na janela
+    // e não indica realmente que a aba estava dormindo. 'visibilitychange'
+    // cobre o caso real (tab escondida/minimizada).
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        lastHiddenAt = Date.now();
+      } else {
+        resyncAfterWake();
+      }
+    };
     const onOnline = () => resyncAfterWake();
-    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("online", onOnline);
+
 
     return () => {
       alive = false;
       if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
       if (currentChannel) void supabase.removeChannel(currentChannel);
-      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
 
