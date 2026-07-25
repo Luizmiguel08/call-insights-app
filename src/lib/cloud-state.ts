@@ -823,7 +823,7 @@ export function useCloudState() {
       if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
       if (currentChannel) void supabase.removeChannel(currentChannel);
       document.removeEventListener("visibilitychange", onVisibility);
-      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
       window.removeEventListener("online", onOnline);
 
     };
