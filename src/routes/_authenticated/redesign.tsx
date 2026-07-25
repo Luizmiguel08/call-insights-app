@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar, Copy } from "lucide-react";
+import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import { useCloudState } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useContactBuffer, recordContactAttempt } from "@/hooks/useContactBuffer";
@@ -18,26 +20,34 @@ export const Route = createFileRoute("/_authenticated/redesign")({
   head: () => ({
     meta: [
       { title: "FORTAL — Novo Discador (preview)" },
-      { name: "description", content: "Preview do novo design do discador FORTAL — Soft Bento." },
+      { name: "description", content: "Preview do novo discador FORTAL — Identidade Fortal." },
     ],
   }),
   component: RedesignPreview,
 });
 
-// Paleta Warm Sand + tipografia Sora/Manrope — locked design tokens.
+// Paleta Fortal — navy profundo + dourado editorial + areia quente para respiro.
 const T = {
-  bg: "#faf8f5",
-  surface: "#f0ebe3",
-  surface2: "#ffffff",
-  muted: "#c9b99a",
-  accent: "#8b7355",
-  accentDark: "#725e46",
-  text: "#2b2622",
-  textDim: "#6b6157",
-  border: "rgba(43,38,34,0.06)",
-  borderStrong: "rgba(43,38,34,0.10)",
+  bg: "#0b0d13",              // fundo Fortal
+  bgSoft: "#10131c",           // panel base
+  surface: "#161a25",          // cards
+  surface2: "#1d2231",         // elevated
+  line: "rgba(201,168,76,0.12)",
+  lineSoft: "rgba(255,255,255,0.06)",
+  gold: "#c9a84c",             // Fortal gold
+  goldSoft: "#e2c46e",
+  goldDim: "rgba(201,168,76,0.15)",
+  sand: "#e8dcc0",             // texto quente para nomes
+  text: "#f2ede1",
+  textDim: "rgba(242,237,225,0.55)",
+  textMute: "rgba(242,237,225,0.35)",
+  green: "#6fbf7a",
+  greenSoft: "rgba(111,191,122,0.15)",
+  red: "#e07a7a",
+  redSoft: "rgba(224,122,122,0.15)",
   sora: "'Sora', ui-sans-serif, system-ui, sans-serif",
   manrope: "'Manrope', ui-sans-serif, system-ui, sans-serif",
+  fraunces: "'Fraunces', ui-serif, Georgia, serif",
 };
 
 type Tab = "discador" | "fila" | "lembretes" | "rapido" | "historico" | "painel" | "equipe" | "erros";
@@ -68,9 +78,22 @@ function RedesignPreview() {
 
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  useEffect(() => { setNote(""); }, [current?.id]);
+  const [waTemplate, setWaTemplate] = useState<1 | 2>(1);
+  const [dialing, setDialing] = useState(false);
+  const dialStartRef = useRef<number | null>(null);
+  const [callSeconds, setCallSeconds] = useState(0);
 
-  // KPIs de hoje (a partir do cache local, escopado ao corretor)
+  useEffect(() => { setNote(""); setDialing(false); dialStartRef.current = null; setCallSeconds(0); }, [current?.id]);
+
+  useEffect(() => {
+    if (!dialing) return;
+    const id = window.setInterval(() => {
+      if (dialStartRef.current) setCallSeconds(Math.floor((Date.now() - dialStartRef.current) / 1000));
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [dialing]);
+
+  // KPIs de hoje
   const today = todayISO();
   const k = useMemo(() => {
     const myCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === today);
@@ -84,8 +107,9 @@ function RedesignPreview() {
   const meta = state.metaDaily || 50;
   const pct = Math.min(100, Math.round((k.total / Math.max(1, meta)) * 100));
   const reached = k.total >= meta;
+  const attendRate = k.total > 0 ? Math.round((k.attended / k.total) * 100) : 0;
 
-  // Última ligação para o contato atual (fallback via DB)
+  // Última ligação
   type LastCallInfo = { createdAt: number; attended: boolean; scheduled: boolean; note: string | null };
   const [lastCall, setLastCall] = useState<LastCallInfo | null>(null);
   useEffect(() => {
@@ -94,12 +118,7 @@ function RedesignPreview() {
       .filter((c) => c.contactId === current.id)
       .sort((a, b) => b.createdAt - a.createdAt)[0];
     if (local) {
-      setLastCall({
-        createdAt: local.createdAt,
-        attended: local.attended,
-        scheduled: local.scheduled,
-        note: local.note || null,
-      });
+      setLastCall({ createdAt: local.createdAt, attended: local.attended, scheduled: local.scheduled, note: local.note || null });
       return;
     }
     let cancelled = false;
@@ -127,11 +146,11 @@ function RedesignPreview() {
 
   const [tab, setTab] = useState<Tab>("discador");
 
-  // Registrar resultado (usa o mesmo RPC do discador atual)
   async function registerOutcome(kind: "no_answer" | "answered" | "scheduled") {
     if (!current || submitting) return;
     setSubmitting(true);
     const nextAttempt = (current.attempt_count ?? 0) + 1;
+    const durationSeconds = dialStartRef.current ? Math.floor((Date.now() - dialStartRef.current) / 1000) : 0;
     incrementAttempt(current.id);
     try {
       const { data, error: rpcError } = await (supabase as any).rpc("record_call_outcome", {
@@ -139,9 +158,9 @@ function RedesignPreview() {
         _attended: kind !== "no_answer",
         _scheduled: kind === "scheduled",
         _notes: note.trim() || null,
-        _started_at: null,
-        _ended_at: null,
-        _duration_seconds: 0,
+        _started_at: dialStartRef.current ? new Date(dialStartRef.current).toISOString() : null,
+        _ended_at: dialStartRef.current ? new Date().toISOString() : null,
+        _duration_seconds: durationSeconds,
       });
       if (rpcError) throw rpcError;
       void recordContactAttempt({
@@ -155,9 +174,10 @@ function RedesignPreview() {
       const done = (data as any)?.inserted !== false || nextAttempt >= 2 || kind !== "no_answer";
       if (done) advance();
       setNote("");
-      toast.success(
-        kind === "scheduled" ? "Agendou!" : kind === "answered" ? "Registrado" : "Sem atendimento — registrado"
-      );
+      setDialing(false);
+      dialStartRef.current = null;
+      setCallSeconds(0);
+      toast.success(kind === "scheduled" ? "Agendou!" : kind === "answered" ? "Registrado" : "Sem atendimento — registrado");
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao registrar");
       void refresh();
@@ -168,8 +188,24 @@ function RedesignPreview() {
 
   function skip() { if (current) advance(); }
 
-  const wa1 = current ? waHrefFromMessage(current.phone, renderWaMessage(DEFAULT_WA_TEMPLATE, current.name)) : "#";
-  const wa2 = current ? waHrefFromMessage(current.phone, renderWaMessage(DEFAULT_WA_TEMPLATE_2, current.name)) : "#";
+  function startDial() {
+    if (!current?.phone) return;
+    dialStartRef.current = Date.now();
+    setDialing(true);
+    setCallSeconds(0);
+    // Nativo abre via <a href="tel:"> — mantemos <a> real abaixo, aqui apenas registramos início.
+  }
+
+  function copyPhone() {
+    if (!current?.phone) return;
+    navigator.clipboard?.writeText(current.phone).then(
+      () => toast.success("Telefone copiado"),
+      () => toast.error("Não foi possível copiar")
+    );
+  }
+
+  const waMsg = current ? renderWaMessage(waTemplate === 1 ? DEFAULT_WA_TEMPLATE : DEFAULT_WA_TEMPLATE_2, current.name) : "";
+  const wa = current ? waHrefFromMessage(current.phone, waMsg) : "#";
   const dial = current ? telHref(current.phone) : "#";
 
   const isLast = (current?.attempt_count ?? 0) >= 1;
@@ -178,48 +214,61 @@ function RedesignPreview() {
     : null;
   const lastResult = lastCall
     ? lastCall.attended && lastCall.scheduled
-      ? { text: "Agendou", color: "#4a7a4e" }
+      ? { text: "Agendou", color: T.gold }
       : lastCall.attended
-      ? { text: "Atendeu", color: "#4a7a4e" }
-      : { text: "Não atendeu", color: "#9b4a4a" }
+      ? { text: "Atendeu", color: T.green }
+      : { text: "Não atendeu", color: T.red }
     : null;
+
+  const callSecFmt = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
 
   return (
     <div
       className="min-h-screen w-full p-4 sm:p-6"
-      style={{ background: T.bg, color: T.text, fontFamily: T.manrope }}
+      style={{
+        background: `radial-gradient(1200px 600px at 20% -10%, rgba(201,168,76,0.06), transparent 60%), radial-gradient(900px 500px at 100% 0%, rgba(201,168,76,0.04), transparent 60%), ${T.bg}`,
+        color: T.text,
+        fontFamily: T.manrope,
+      }}
     >
-      <div className="max-w-6xl mx-auto flex flex-col gap-6">
-        {/* Preview banner */}
-        <div
-          className="flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5"
-          style={{ background: T.surface, border: `1px solid ${T.border}`, fontSize: 12 }}
-        >
-          <span style={{ color: T.textDim }}>
-            <strong style={{ color: T.text }}>Preview</strong> — visual novo. A tela atual continua em{" "}
-            <Link to="/" style={{ color: T.accent, textDecoration: "underline" }}>/</Link>.
-          </span>
-          <span style={{ color: T.textDim, fontFamily: T.sora, letterSpacing: "-0.02em" }}>Soft Bento · Warm Sand</span>
+      <div className="max-w-6xl mx-auto flex flex-col gap-5">
+        {/* Preview banner + brand */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <img src={fortalLogo.url} alt="Fortal" width={36} height={36} className="h-9 w-9 object-contain" />
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.32em]" style={{ color: T.gold, fontFamily: T.sora }}>Fortal</div>
+              <div className="text-[11px]" style={{ color: T.textDim, letterSpacing: "0.02em" }}>Inteligência Imobiliária</div>
+            </div>
+          </div>
+          <div
+            className="flex items-center gap-2 rounded-full px-3 py-1.5"
+            style={{ background: T.surface, border: `1px solid ${T.line}`, fontSize: 11, color: T.textDim }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: T.gold }} />
+            <span>Preview · <Link to="/" style={{ color: T.gold, textDecoration: "underline" }}>voltar ao atual</Link></span>
+          </div>
         </div>
 
         {/* Nav */}
         <nav
-          className="flex items-center justify-center rounded-[24px] p-2"
-          style={{ background: T.surface, border: `1px solid ${T.border}` }}
+          className="flex items-center rounded-full p-1.5"
+          style={{ background: T.bgSoft, border: `1px solid ${T.lineSoft}` }}
         >
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar w-full">
             {TABS.map((t) => {
               const active = t.key === tab;
               return (
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className="px-4 sm:px-5 py-2.5 rounded-[18px] text-sm whitespace-nowrap transition-all"
+                  className="px-4 sm:px-5 py-2 rounded-full text-[12px] whitespace-nowrap transition-all uppercase"
                   style={{
-                    background: active ? T.accent : "transparent",
+                    background: active ? T.gold : "transparent",
                     color: active ? T.bg : T.textDim,
-                    fontWeight: active ? 600 : 500,
-                    letterSpacing: "-0.01em",
+                    fontWeight: active ? 700 : 500,
+                    letterSpacing: "0.14em",
+                    fontFamily: T.sora,
                   }}
                 >
                   {t.label}
@@ -230,82 +279,70 @@ function RedesignPreview() {
         </nav>
 
         {/* Bento */}
-        <div className="grid grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-12 gap-5 items-start">
           {/* Left col */}
-          <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+          <div className="col-span-12 lg:col-span-4 flex flex-col gap-5">
             {/* Corretor + meta */}
-            <div className="p-6 rounded-[24px]" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+            <div className="p-6 rounded-3xl" style={{ background: T.surface, border: `1px solid ${T.line}` }}>
               <div className="flex items-center gap-4 mb-6">
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl shrink-0"
-                  style={{ background: T.muted, color: T.bg, fontFamily: T.sora }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0"
+                  style={{ background: T.goldDim, color: T.gold, fontFamily: T.sora, border: `1px solid ${T.gold}` }}
                 >
                   {brokerInitials}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: T.textDim }}>
-                    Corretor
-                  </p>
-                  <h3
-                    className="text-lg font-bold truncate"
-                    style={{ fontFamily: T.sora, letterSpacing: "-0.02em", color: T.text }}
-                  >
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: T.textMute }}>Corretor</p>
+                  <h3 className="text-lg font-semibold truncate" style={{ fontFamily: T.sora, letterSpacing: "-0.01em", color: T.sand }}>
                     {brokerName}
                   </h3>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: T.textDim }}>Meta diária</span>
-                  <span className="font-bold" style={{ fontFamily: T.sora }}>
-                    {k.total}/{meta}
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-baseline text-sm">
+                  <span className="text-[10px] uppercase tracking-[0.2em]" style={{ color: T.textMute }}>Meta diária</span>
+                  <span className="font-bold tabular-nums text-lg" style={{ fontFamily: T.sora, color: reached ? T.green : T.gold }}>
+                    {k.total}<span style={{ color: T.textMute, fontSize: 13 }}>/{meta}</span>
                   </span>
                 </div>
-                <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.5)" }}>
+                <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
                   <div
                     className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${pct}%`, background: reached ? "#4a7a4e" : T.accent }}
+                    style={{ width: `${pct}%`, background: reached ? T.green : `linear-gradient(90deg, ${T.gold}, ${T.goldSoft})` }}
                   />
+                </div>
+                <div className="flex justify-between text-[10px] uppercase tracking-[0.2em]" style={{ color: T.textMute }}>
+                  <span>{pct}% concluído</span>
+                  <span>Taxa atend. {attendRate}%</span>
                 </div>
               </div>
             </div>
 
             {/* A seguir */}
-            <div
-              className="p-6 rounded-[24px]"
-              style={{ background: "rgba(255,255,255,0.4)", border: `1px dashed ${T.muted}` }}
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: T.textDim }}>
-                A seguir
-              </p>
+            <div className="p-6 rounded-3xl" style={{ background: T.bgSoft, border: `1px dashed ${T.line}` }}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] mb-3" style={{ color: T.textMute }}>A seguir</p>
               {nextOne ? (
                 <div className="flex justify-between items-center gap-3">
                   <div className="min-w-0">
-                    <h4 className="font-bold truncate" style={{ color: T.text, fontFamily: T.sora }}>
-                      {nextOne.name}
-                    </h4>
-                    <p className="text-sm truncate" style={{ color: T.textDim }}>
-                      {nextOne.phone || "(sem telefone)"}
-                    </p>
+                    <h4 className="font-semibold truncate" style={{ color: T.sand, fontFamily: T.sora }}>{nextOne.name}</h4>
+                    <p className="text-sm truncate tabular-nums" style={{ color: T.textDim }}>{nextOne.phone || "(sem telefone)"}</p>
                   </div>
                   <span
-                    className="text-[11px] px-2 py-1 rounded-md shrink-0"
-                    style={{ background: T.surface, color: T.textDim }}
+                    className="text-[10px] px-2.5 py-1 rounded-full shrink-0 uppercase tracking-wider"
+                    style={{ background: T.goldDim, color: T.gold, fontFamily: T.sora, fontWeight: 600 }}
                   >
-                    {nextOne.attempt_count >= 1 ? "2ª tent." : "1ª tent."}
+                    {nextOne.attempt_count >= 1 ? "2ª" : "1ª"}
                   </span>
                 </div>
               ) : (
-                <p className="text-sm" style={{ color: T.textDim }}>
-                  Fila vazia por enquanto.
-                </p>
+                <p className="text-sm" style={{ color: T.textDim }}>Fila vazia por enquanto.</p>
               )}
               {next3.length > 1 && (
-                <div className="mt-4 pt-4 space-y-2" style={{ borderTop: `1px solid ${T.border}` }}>
+                <div className="mt-4 pt-4 space-y-2" style={{ borderTop: `1px solid ${T.lineSoft}` }}>
                   {next3.slice(1).map((c) => (
                     <div key={c.id} className="flex justify-between text-xs" style={{ color: T.textDim }}>
                       <span className="truncate">{c.name}</span>
-                      <span className="shrink-0 ml-3">{c.phone}</span>
+                      <span className="shrink-0 ml-3 tabular-nums">{c.phone}</span>
                     </div>
                   ))}
                 </div>
@@ -315,23 +352,32 @@ function RedesignPreview() {
 
           {/* Center: Dialer */}
           <div className="col-span-12 lg:col-span-8">
-            <div className="p-6 sm:p-8 rounded-[24px]" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+            <div
+              className="p-6 sm:p-8 rounded-3xl relative overflow-hidden"
+              style={{
+                background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bgSoft} 100%)`,
+                border: `1px solid ${T.line}`,
+              }}
+            >
+              {/* subtle gold hairline */}
+              <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${T.gold}, transparent)`, opacity: 0.4 }} />
+
               {!hydrated ? (
                 <div className="py-20 text-center" style={{ color: T.textDim }}>Carregando fila…</div>
               ) : error ? (
                 <div className="py-16 text-center">
-                  <p style={{ color: "#9b4a4a" }}>Erro ao carregar: {error}</p>
+                  <p style={{ color: T.red }}>Erro ao carregar: {error}</p>
                   <button
                     onClick={() => refresh()}
-                    className="mt-4 px-5 py-2.5 rounded-[16px] text-sm font-semibold"
-                    style={{ background: T.accent, color: T.bg }}
+                    className="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold uppercase tracking-wider"
+                    style={{ background: T.gold, color: T.bg, fontFamily: T.sora }}
                   >
                     Tentar novamente
                   </button>
                 </div>
               ) : !current ? (
                 <div className="py-16 text-center">
-                  <p style={{ color: T.text, fontFamily: T.sora, fontSize: 20, letterSpacing: "-0.02em" }}>
+                  <p style={{ color: T.sand, fontFamily: T.fraunces, fontSize: 24, letterSpacing: "-0.02em" }}>
                     Nenhum contato pendente
                   </p>
                   <p className="mt-2 text-sm" style={{ color: T.textDim }}>
@@ -341,168 +387,207 @@ function RedesignPreview() {
               ) : (
                 <>
                   {/* Top badge + last call */}
-                  <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
+                  <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
                     <span
-                      className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest"
+                      className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.2em]"
                       style={{
-                        background: isLast ? "rgba(155,74,74,0.10)" : T.surface2,
-                        color: isLast ? "#9b4a4a" : T.accent,
-                        border: `1px solid ${isLast ? "rgba(155,74,74,0.15)" : T.border}`,
+                        background: isLast ? T.redSoft : T.goldDim,
+                        color: isLast ? T.red : T.gold,
+                        border: `1px solid ${isLast ? "rgba(224,122,122,0.25)" : "rgba(201,168,76,0.25)"}`,
+                        fontFamily: T.sora,
                       }}
                     >
                       {attemptLabel(current.attempt_count) ?? "1ª tentativa"}
                     </span>
                     {lastCall && lastResult && (
-                      <p className="text-xs font-medium italic flex items-center gap-2" style={{ color: T.textDim }}>
+                      <p className="text-xs flex items-center gap-2" style={{ color: T.textDim }}>
                         <span>Última: {lastWhen}</span>
                         <span style={{ opacity: 0.4 }}>•</span>
-                        <span style={{ color: lastResult.color, fontWeight: 700, fontStyle: "normal" }}>
-                          {lastResult.text}
-                        </span>
+                        <span style={{ color: lastResult.color, fontWeight: 700 }}>{lastResult.text}</span>
+                        {lastCall.note && (
+                          <>
+                            <span style={{ opacity: 0.4 }}>•</span>
+                            <span className="truncate max-w-[180px] italic" style={{ color: T.textMute }}>"{lastCall.note}"</span>
+                          </>
+                        )}
                       </p>
                     )}
                   </div>
 
                   {/* Contact identity */}
-                  <div className="text-center mb-8 sm:mb-10">
+                  <div className="text-center mb-8">
                     <h2
-                      className="text-3xl sm:text-4xl font-bold mb-1 break-words"
-                      style={{ fontFamily: T.sora, letterSpacing: "-0.03em", color: T.text, lineHeight: 1.1 }}
+                      className="text-4xl sm:text-5xl font-medium mb-2 break-words"
+                      style={{ fontFamily: T.fraunces, letterSpacing: "-0.02em", color: T.sand, lineHeight: 1.05 }}
                     >
                       {current.name}
                     </h2>
-                    <p className="text-lg sm:text-xl font-medium" style={{ color: T.textDim }}>
-                      {current.phone || "(sem telefone)"}
-                    </p>
+                    <div className="inline-flex items-center gap-2">
+                      <p className="text-lg tabular-nums" style={{ color: T.textDim, fontFamily: T.sora }}>
+                        {current.phone || "(sem telefone)"}
+                      </p>
+                      {current.phone && (
+                        <button
+                          type="button"
+                          onClick={copyPhone}
+                          className="p-1.5 rounded-full transition-colors hover:bg-white/5"
+                          style={{ color: T.textMute }}
+                          aria-label="Copiar telefone"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {dialing && (
+                      <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: T.greenSoft, border: `1px solid rgba(111,191,122,0.25)` }}>
+                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: T.green }} />
+                        <span className="text-[11px] uppercase tracking-widest tabular-nums" style={{ color: T.green, fontFamily: T.sora, fontWeight: 600 }}>
+                          Em ligação · {callSecFmt}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-col gap-4 max-w-md mx-auto">
+                  {/* Round dial button */}
+                  <div className="flex flex-col items-center gap-5 mb-8">
                     <a
                       href={dial}
                       target="_top"
-                      className="w-full py-5 rounded-[20px] text-lg font-bold text-center transition-all active:scale-[0.98]"
+                      onClick={startDial}
+                      className="group relative flex items-center justify-center rounded-full transition-all active:scale-95"
                       style={{
-                        background: T.accent,
-                        color: T.bg,
-                        fontFamily: T.sora,
-                        letterSpacing: "-0.01em",
-                        boxShadow: "0 8px 24px -12px rgba(139,115,85,0.35)",
+                        width: 140,
+                        height: 140,
+                        background: `radial-gradient(circle at 30% 30%, ${T.goldSoft}, ${T.gold} 60%, #a68a3a 100%)`,
+                        boxShadow: `0 0 0 8px ${T.goldDim}, 0 20px 60px -20px rgba(201,168,76,0.6), inset 0 -6px 20px rgba(0,0,0,0.25)`,
                       }}
+                      aria-label="Ligar agora"
                     >
-                      LIGAR AGORA
+                      <span className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ background: T.gold, animationDuration: "2.4s" }} />
+                      <Phone className="w-12 h-12 relative z-10" style={{ color: T.bg }} strokeWidth={2.4} />
                     </a>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center">
+                      <p className="text-[11px] uppercase tracking-[0.28em] font-bold" style={{ color: T.gold, fontFamily: T.sora }}>Ligar agora</p>
+                      <p className="text-[10px] mt-1" style={{ color: T.textMute }}>Toque para discar no seu aparelho</p>
+                    </div>
+
+                    {/* WA templates */}
+                    <div className="w-full max-w-md flex items-center gap-2 mt-2">
+                      <div className="flex-1 flex rounded-full p-1" style={{ background: T.bgSoft, border: `1px solid ${T.lineSoft}` }}>
+                        {([1, 2] as const).map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => setWaTemplate(n)}
+                            className="flex-1 py-1.5 text-[10px] uppercase tracking-widest rounded-full transition-all"
+                            style={{
+                              background: waTemplate === n ? T.surface2 : "transparent",
+                              color: waTemplate === n ? T.gold : T.textMute,
+                              fontFamily: T.sora, fontWeight: 600,
+                            }}
+                          >
+                            Msg {n}
+                          </button>
+                        ))}
+                      </div>
                       <a
-                        href={wa1}
+                        href={wa}
                         target="_blank"
                         rel="noreferrer"
-                        className="py-3.5 rounded-[18px] text-sm font-semibold text-center transition-all active:scale-[0.98]"
-                        style={{ background: T.surface2, color: T.textDim, border: `1px solid ${T.border}` }}
+                        className="flex items-center gap-2 py-2.5 px-4 rounded-full text-xs font-semibold uppercase tracking-widest transition-all active:scale-95"
+                        style={{ background: T.greenSoft, color: T.green, border: `1px solid rgba(111,191,122,0.3)`, fontFamily: T.sora }}
                       >
-                        WhatsApp 1
-                      </a>
-                      <a
-                        href={wa2}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="py-3.5 rounded-[18px] text-sm font-semibold text-center transition-all active:scale-[0.98]"
-                        style={{ background: T.surface2, color: T.textDim, border: `1px solid ${T.border}` }}
-                      >
-                        WhatsApp 2
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        WhatsApp
                       </a>
                     </div>
                   </div>
 
                   {/* Notes + chips + outcomes */}
-                  <div className="mt-10 pt-10" style={{ borderTop: `1px solid ${T.borderStrong}` }}>
+                  <div className="pt-6" style={{ borderTop: `1px solid ${T.lineSoft}` }}>
                     <textarea
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="Adicionar observação sobre o lead..."
-                      className="w-full p-4 rounded-[18px] text-sm resize-none focus:outline-none mb-6"
+                      placeholder="Observação sobre o lead (perfil, imóvel, próximo passo)..."
+                      className="w-full p-4 rounded-2xl text-sm resize-none focus:outline-none focus:ring-1 mb-4 transition-all"
                       style={{
-                        background: "rgba(255,255,255,0.6)",
-                        border: `1px solid ${T.border}`,
-                        minHeight: 100,
+                        background: T.bgSoft,
+                        border: `1px solid ${T.lineSoft}`,
+                        minHeight: 90,
                         color: T.text,
                         lineHeight: 1.55,
+                        // @ts-expect-error css var
+                        "--tw-ring-color": T.gold,
                       }}
                     />
 
-                    <div className="flex flex-wrap gap-2 mb-8">
-                      {["Sem interesse", "Investimento", "Primeiro imóvel", "Fora de área", "Preço alto"].map((chip) => (
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      {["Sem interesse", "Investidor", "Primeiro imóvel", "Fora de área", "Preço alto", "Retornar"].map((chip) => (
                         <button
                           key={chip}
                           type="button"
                           onClick={() => setNote((n) => (n ? `${n} · ${chip}` : chip))}
-                          className="px-4 py-2 rounded-full text-xs font-medium transition-colors"
-                          style={{ background: T.surface2, color: T.textDim, border: `1px solid ${T.border}` }}
+                          className="px-3.5 py-1.5 rounded-full text-[11px] font-medium transition-all hover:bg-white/5"
+                          style={{ background: T.bgSoft, color: T.textDim, border: `1px solid ${T.lineSoft}`, fontFamily: T.sora, letterSpacing: "0.02em" }}
                         >
                           {chip}
                         </button>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 mb-6">
+                    <div className="grid grid-cols-3 gap-2.5 mb-4">
                       <button
                         disabled={submitting}
                         onClick={() => registerOutcome("no_answer")}
-                        className="py-4 rounded-[18px] text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-60"
-                        style={{
-                          background: "rgba(239,68,68,0.10)",
-                          color: "#9b4a4a",
-                          border: "1px solid rgba(239,68,68,0.20)",
-                        }}
+                        className="py-3.5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.15em] transition-all active:scale-95 disabled:opacity-60 flex flex-col items-center gap-1"
+                        style={{ background: T.redSoft, color: T.red, border: `1px solid rgba(224,122,122,0.25)`, fontFamily: T.sora }}
                       >
+                        <X className="w-4 h-4" />
                         Não atendeu
                       </button>
                       <button
                         disabled={submitting}
                         onClick={() => registerOutcome("answered")}
-                        className="py-4 rounded-[18px] text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-60"
-                        style={{ background: T.accent, color: T.bg }}
+                        className="py-3.5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.15em] transition-all active:scale-95 disabled:opacity-60 flex flex-col items-center gap-1"
+                        style={{ background: T.gold, color: T.bg, fontFamily: T.sora, boxShadow: `0 8px 24px -12px rgba(201,168,76,0.5)` }}
                       >
+                        <Check className="w-4 h-4" />
                         Atendeu
                       </button>
                       <button
                         disabled={submitting}
                         onClick={() => registerOutcome("scheduled")}
-                        className="py-4 rounded-[18px] text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-60"
-                        style={{
-                          background: "rgba(74,122,78,0.14)",
-                          color: "#3f6b43",
-                          border: "1px solid rgba(74,122,78,0.20)",
-                        }}
+                        className="py-3.5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.15em] transition-all active:scale-95 disabled:opacity-60 flex flex-col items-center gap-1"
+                        style={{ background: T.greenSoft, color: T.green, border: `1px solid rgba(111,191,122,0.25)`, fontFamily: T.sora }}
                       >
+                        <Calendar className="w-4 h-4" />
                         Agendou
                       </button>
                     </div>
 
-                    <div className="flex justify-between items-center flex-wrap gap-3">
+                    <div className="flex justify-between items-center flex-wrap gap-3 pt-2">
                       <button
                         type="button"
                         onClick={() => refresh()}
-                        className="text-xs font-bold uppercase tracking-tighter"
-                        style={{ color: T.textDim }}
+                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:text-white"
+                        style={{ color: T.textMute, fontFamily: T.sora }}
                       >
-                        Retornar
+                        <RefreshCw className="w-3 h-3" /> Recarregar
                       </button>
                       <button
                         type="button"
                         onClick={skip}
-                        className="text-xs font-bold uppercase tracking-tighter"
-                        style={{ color: T.textDim }}
+                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:text-white"
+                        style={{ color: T.textMute, fontFamily: T.sora }}
                       >
-                        Pular
+                        <SkipForward className="w-3 h-3" /> Pular
                       </button>
                       <button
                         type="button"
                         onClick={() => toast.info("Agendar lembrete: use a aba Lembretes na tela atual.")}
-                        className="text-xs font-bold uppercase tracking-tighter"
-                        style={{ color: T.accent, textDecoration: "underline" }}
+                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"
+                        style={{ color: T.gold, fontFamily: T.sora }}
                       >
-                        Agendar Lembrete
+                        <Bell className="w-3 h-3" /> Agendar lembrete
                       </button>
                     </div>
                   </div>
@@ -514,34 +599,28 @@ function RedesignPreview() {
 
         {/* Footer KPIs */}
         <footer
-          className="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 rounded-[24px]"
-          style={{ background: T.surface, border: `1px solid ${T.border}` }}
+          className="grid grid-cols-4 gap-0 p-0 rounded-3xl overflow-hidden"
+          style={{ background: T.surface, border: `1px solid ${T.line}` }}
         >
           {[
-            { label: "Ligações", value: k.total, color: T.text },
-            { label: "Atendidas", value: k.attended, color: T.accent },
-            { label: "Não atend.", value: k.noAnswer, color: T.text },
-            { label: "Agendadas", value: k.scheduled, color: "#4a7a4e" },
-          ].map((s) => (
-            <div key={s.label} className="text-center">
-              <p
-                className="text-[10px] font-bold uppercase tracking-widest mb-1"
-                style={{ color: T.textDim }}
-              >
+            { label: "Ligações", value: k.total, color: T.sand },
+            { label: "Atendidas", value: k.attended, color: T.green },
+            { label: "Não atend.", value: k.noAnswer, color: T.red },
+            { label: "Agendadas", value: k.scheduled, color: T.gold },
+          ].map((s, i) => (
+            <div key={s.label} className="text-center py-5" style={{ borderLeft: i === 0 ? "none" : `1px solid ${T.lineSoft}` }}>
+              <p className="text-[9px] font-bold uppercase tracking-[0.24em] mb-1.5" style={{ color: T.textMute, fontFamily: T.sora }}>
                 {s.label}
               </p>
-              <p
-                className="text-2xl font-bold tabular-nums"
-                style={{ fontFamily: T.sora, letterSpacing: "-0.02em", color: s.color }}
-              >
+              <p className="text-2xl sm:text-3xl font-semibold tabular-nums" style={{ fontFamily: T.sora, letterSpacing: "-0.02em", color: s.color }}>
                 {String(s.value).padStart(2, "0")}
               </p>
             </div>
           ))}
         </footer>
 
-        <div className="text-center text-xs" style={{ color: T.textDim }}>
-          <Link to="/" style={{ color: T.accent, textDecoration: "underline" }}>← Voltar para o discador atual</Link>
+        <div className="text-center text-xs" style={{ color: T.textMute }}>
+          <Link to="/" style={{ color: T.gold, textDecoration: "underline" }}>← Voltar para o discador atual</Link>
         </div>
       </div>
 
