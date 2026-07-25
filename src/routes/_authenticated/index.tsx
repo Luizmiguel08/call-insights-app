@@ -1058,6 +1058,47 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
   const current = prioritizedQueue[0];
   const next = prioritizedQueue[1];
 
+  // Última ligação registrada para o contato atual (fallback via DB quando não estiver no cache)
+  type LastCallInfo = { createdAt: number; attended: boolean; scheduled: boolean; note: string | null };
+  const [lastCallForCurrent, setLastCallForCurrent] = useState<LastCallInfo | null>(null);
+  useEffect(() => {
+    if (!current || current.attempts < 1) { setLastCallForCurrent(null); return; }
+    // 1) Tenta pelo cache local
+    const local = state.calls
+      .filter((c) => c.contactId === current.id)
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
+    if (local) {
+      setLastCallForCurrent({
+        createdAt: local.createdAt,
+        attended: local.attended,
+        scheduled: local.scheduled,
+        note: local.note || null,
+      });
+      return;
+    }
+    // 2) Fallback: consulta o banco (ligação anterior pode estar fora da janela de 7d)
+    let cancelled = false;
+    setLastCallForCurrent(null);
+    (async () => {
+      const { data, error } = await supabase
+        .from("calls")
+        .select("created_at, attended, scheduled, notes")
+        .eq("contact_id", current.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled || error || !data) return;
+      setLastCallForCurrent({
+        createdAt: new Date(data.created_at as string).getTime(),
+        attended: !!data.attended,
+        scheduled: !!data.scheduled,
+        note: (data.notes as string | null) ?? null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [current?.id, current?.attempts, state.calls]);
+
+
   useEffect(() => {
     if (!brokerId) return;
     let cancelled = false;
@@ -1654,11 +1695,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               const badgeStyle = isLast
                 ? { background: "var(--amber-dim)", color: "var(--amber)", border: "0.5px solid #f59e0b33" }
                 : { background: "var(--gold-dim)", color: "var(--gold)", border: "0.5px solid var(--gold-border)" };
-              const lastCall = isLast
-                ? state.calls
-                    .filter((c) => c.contactId === current.id)
-                    .sort((a, b) => b.createdAt - a.createdAt)[0]
-                : null;
+              const lastCall = isLast ? lastCallForCurrent : null;
               const lastResult = lastCall
                 ? lastCall.attended && lastCall.scheduled
                   ? { text: "Agendou", color: "var(--gold)" }
