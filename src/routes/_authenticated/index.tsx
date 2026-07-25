@@ -24,6 +24,7 @@ const HistoricoTab = lazy(() => import("@/components/dialer/HistoricoTab"));
 const DashboardTab = lazy(() => import("@/components/dialer/DashboardTab"));
 const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
+const DiscadorTab = lazy(() => import("@/components/dialer/DiscadorTab"));
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
