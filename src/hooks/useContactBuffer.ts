@@ -35,33 +35,14 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
       inflightRef.current = true;
       if (replace) setLoading(true);
       try {
-        let query: any = supabase
-          .from("contacts_queue")
-          .select("id,name,phone,list_name,broker_id,call_attempts,priority,created_at,last_called_at")
-          .eq("status", "pending")
-          .lt("call_attempts", 2)
-          .or(`broker_id.eq.${brokerId},broker_id.is.null`)
-          .order("broker_id", { ascending: false, nullsFirst: false })
-          .order("call_attempts", { ascending: true })
-          .order("priority", { ascending: false })
-          .order("created_at", { ascending: true })
-          .order("id", { ascending: true })
-          .limit(BUFFER_SIZE);
-        if (listName) query = query.eq("list_name", listName);
-        const { data, error: queryError } = await query;
-        if (queryError) throw queryError;
-        const rows = ((data ?? []) as any[]).map((row) => ({
-          id: row.id,
-          name: row.name,
-          phone: row.phone,
-          list_name: row.list_name ?? "Geral",
-          broker_id: row.broker_id ?? null,
-          attempt_count: row.call_attempts ?? 0,
-          priority: row.priority ?? 0,
-          created_at: row.created_at,
-          last_attempt_result: null,
-          last_attempt_at: row.last_called_at ?? null,
-        })) as BufferedContact[];
+        // A função do backend aplica a identidade autenticada, a organização,
+        // prioridade e limite de tentativas de forma consistente entre devices.
+        const { data, error: rpcError } = await (supabase as any).rpc("dialer_prefetch_queue", {
+          _limit: BUFFER_SIZE,
+          _list_name: listName,
+        });
+        if (rpcError) throw rpcError;
+        const rows = (data ?? []) as BufferedContact[];
         setBuffer((prev) => {
           if (replace) return rows;
           const seen = new Set(prev.map((c) => c.id));
