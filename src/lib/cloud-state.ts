@@ -822,7 +822,7 @@ export function useCloudState() {
       alive = false;
       if (refetchTimerRef.current) clearTimeout(refetchTimerRef.current);
       if (currentChannel) void supabase.removeChannel(currentChannel);
-      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
 
