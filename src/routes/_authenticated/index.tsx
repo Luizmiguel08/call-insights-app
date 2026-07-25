@@ -793,10 +793,16 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
           applyRow(payload.new);
         })
       .subscribe();
-    // Fallback: re-sincroniza periodicamente caso algum evento se perca
-    const poll = window.setInterval(() => { void load(); }, 2000);
-    return () => { cancelled = true; window.clearInterval(poll); supabase.removeChannel(channel); };
-  }, [brokerId]);
+    // Realtime já cobre INSERT/UPDATE/DELETE de active_calls em tempo real.
+    // O poll aqui é só watchdog para quando a conexão degrada (offline / aba
+    // volta do background). Em regime normal fica desligado — antes era um
+    // poll fixo de 2s que ficava batendo mesmo com WS OK.
+    const shouldPoll = connMode === "degraded";
+    const poll = shouldPoll
+      ? window.setInterval(() => { void load(); }, 15_000)
+      : null;
+    return () => { cancelled = true; if (poll) window.clearInterval(poll); supabase.removeChannel(channel); };
+  }, [brokerId, connMode]);
 
   const refreshServerNext = useCallback(async (reason = "manual") => {
     if (!brokerId) {
