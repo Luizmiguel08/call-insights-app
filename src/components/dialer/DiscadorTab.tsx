@@ -50,8 +50,29 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     .join("")
     .toUpperCase();
 
+  type ListRow = { list_name: string; total: number; pending: number; done: number; skipped: number };
+  const [lists, setLists] = useState<ListRow[]>([]);
+  const [selectedList, setSelectedList] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem("dialer:selected_list");
+  });
+  const [listsOpen, setListsOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedList) window.localStorage.setItem("dialer:selected_list", selectedList);
+    else window.localStorage.removeItem("dialer:selected_list");
+  }, [selectedList]);
+
+  const loadLists = async () => {
+    if (!brokerId) return;
+    const { data, error: e } = await (supabase as any).rpc("broker_contact_lists", { _broker: brokerId });
+    if (!e && data) setLists(data as ListRow[]);
+  };
+  useEffect(() => { void loadLists(); }, [brokerId]);
+
   const { current, peekNext, advance, incrementAttempt, refresh, loading, error } =
-    useContactBuffer(brokerId, null);
+    useContactBuffer(brokerId, selectedList);
 
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
