@@ -1646,7 +1646,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
                 : "animate-slide-in-x opacity-100 translate-x-0"
             }`}
           >
-            {/* Badge de tentativa */}
+            {/* Badge de tentativa + histórico da última ligação */}
             {(() => {
               const label = attemptLabel(current.attempts);
               if (!label) return null;
@@ -1654,18 +1654,70 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               const badgeStyle = isLast
                 ? { background: "var(--amber-dim)", color: "var(--amber)", border: "0.5px solid #f59e0b33" }
                 : { background: "var(--gold-dim)", color: "var(--gold)", border: "0.5px solid var(--gold-border)" };
+              const lastCall = isLast
+                ? state.calls
+                    .filter((c) => c.contactId === current.id)
+                    .sort((a, b) => b.createdAt - a.createdAt)[0]
+                : null;
+              const lastResult = lastCall
+                ? lastCall.attended && lastCall.scheduled
+                  ? { text: "Agendou", color: "var(--gold)" }
+                  : lastCall.attended
+                  ? { text: "Atendeu", color: "var(--green)" }
+                  : { text: "Não atendeu", color: "var(--red)" }
+                : null;
+              const lastWhen = lastCall
+                ? new Date(lastCall.createdAt).toLocaleString("pt-BR", {
+                    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+                  })
+                : null;
               return (
-                <span
-                  className="inline-block"
-                  style={{
-                    padding: "3px 10px", borderRadius: 20,
-                    fontSize: 10, letterSpacing: ".06em", marginBottom: 10,
-                    fontWeight: 600,
-                    ...badgeStyle,
-                  }}
-                >
-                  {isLast ? "2ª E ÚLTIMA TENTATIVA" : "1ª TENTATIVA"}
-                </span>
+                <div style={{ marginBottom: 10, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                  <span
+                    className="inline-block"
+                    style={{
+                      padding: "3px 10px", borderRadius: 20,
+                      fontSize: 10, letterSpacing: ".06em",
+                      fontWeight: 600,
+                      ...badgeStyle,
+                    }}
+                  >
+                    {isLast ? "2ª E ÚLTIMA TENTATIVA" : "1ª TENTATIVA"}
+                  </span>
+                  {lastCall && lastResult && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-dim)",
+                        letterSpacing: ".02em",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <span>Última: {lastWhen}</span>
+                      <span style={{ opacity: 0.4 }}>•</span>
+                      <span style={{ color: lastResult.color, fontWeight: 600 }}>{lastResult.text}</span>
+                      {lastCall.note && (
+                        <>
+                          <span style={{ opacity: 0.4 }}>•</span>
+                          <span
+                            style={{
+                              maxWidth: 220,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              fontStyle: "italic",
+                            }}
+                            title={lastCall.note}
+                          >
+                            "{lastCall.note}"
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
               );
             })()}
 
