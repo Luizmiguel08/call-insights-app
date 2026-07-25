@@ -1100,17 +1100,23 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
       })
       .subscribe();
 
-    const poll = window.setInterval(() => {
-      scheduleHeadRefresh("head-poll");
-    }, 1200);
+      .subscribe();
+
+    // Realtime cobre INSERT/UPDATE/DELETE em calls + contacts_queue e chama
+    // scheduleHeadRefresh acima. O poll aqui é só watchdog para modo degraded
+    // (offline/aba escondida). Antes: setInterval(1200ms) = ~50 chamadas/min
+    // por corretor. Agora: 0 em regime live.
+    const poll = connMode === "degraded"
+      ? window.setInterval(() => scheduleHeadRefresh("head-poll-degraded"), 15_000)
+      : null;
 
     return () => {
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
-      window.clearInterval(poll);
+      if (poll) window.clearInterval(poll);
       void supabase.removeChannel(channel);
     };
-  }, [brokerId, selectedList, refreshServerNext]);
+  }, [brokerId, selectedList, refreshServerNext, connMode]);
 
   useEffect(() => {
     if (!forcedCurrentContactId) return;
