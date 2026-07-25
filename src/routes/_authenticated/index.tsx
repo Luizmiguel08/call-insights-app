@@ -1695,11 +1695,7 @@ function DiscadorTab({ state, setState, goFila, refetchCloud, userId, dialerSess
               const badgeStyle = isLast
                 ? { background: "var(--amber-dim)", color: "var(--amber)", border: "0.5px solid #f59e0b33" }
                 : { background: "var(--gold-dim)", color: "var(--gold)", border: "0.5px solid var(--gold-border)" };
-              const lastCall = isLast
-                ? state.calls
-                    .filter((c) => c.contactId === current.id)
-                    .sort((a, b) => b.createdAt - a.createdAt)[0]
-                : null;
+              const lastCall = isLast ? lastCallForCurrent : null;
               const lastResult = lastCall
                 ? lastCall.attended && lastCall.scheduled
                   ? { text: "Agendou", color: "var(--gold)" }
