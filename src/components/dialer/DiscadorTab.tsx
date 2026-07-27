@@ -170,13 +170,23 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
         attemptNumber: nextAttempt,
         observation: note.trim() || null,
       });
-      const done = (data as any)?.inserted !== false || nextAttempt >= 2 || kind !== "no_answer";
-      if (done) advance();
+      // "Não atendeu" na 1ª tentativa mantém o mesmo cliente na tela;
+      // só avança após a 2ª tentativa (ou em atendeu/agendou).
+      const stayOnContact = kind === "no_answer" && nextAttempt < 2;
+      if (!stayOnContact) advance();
       setNote("");
       setDialing(false);
       dialStartRef.current = null;
       setCallSeconds(0);
-      toast.success(kind === "scheduled" ? "Agendou!" : kind === "answered" ? "Registrado" : "Sem atendimento — registrado");
+      toast.success(
+        kind === "scheduled"
+          ? "Agendou!"
+          : kind === "answered"
+            ? "Registrado"
+            : stayOnContact
+              ? "1ª tentativa registrada — ligue de novo"
+              : "Sem atendimento — registrado",
+      );
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao registrar");
       void refresh();
