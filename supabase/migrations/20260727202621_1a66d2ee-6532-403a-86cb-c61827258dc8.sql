@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS sync_contact_queue_from_calls_trg ON public.calls;
