@@ -13,6 +13,8 @@ import {
   renderWaMessage,
   waHrefFromMessage,
   todayISO,
+  uniqueContactCount,
+  uniqueContactCountWhere,
 } from "@/lib/dialer-shared";
 
 // Paleta Fortal — navy profundo + dourado editorial + areia quente para respiro.
