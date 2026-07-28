@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar, Copy, ListFilter } from "lucide-react";
+import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar, Copy, ListFilter, Pencil, RotateCcw } from "lucide-react";
 import { useCloudState } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useContactBuffer, recordContactAttempt } from "@/hooks/useContactBuffer";
