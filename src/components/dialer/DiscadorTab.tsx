@@ -225,7 +225,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     );
   }
 
-  const waMsg = current ? renderWaMessage(waTemplate === 1 ? DEFAULT_WA_TEMPLATE : DEFAULT_WA_TEMPLATE_2, current.name) : "";
+  const waMsg = current ? renderWaMessage(waTexts[waTemplate], current.name) : "";
   const wa = current ? waHrefFromMessage(current.phone, waMsg) : "#";
   const dial = current ? telHref(current.phone) : "#";
 
