@@ -541,34 +541,92 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
                   </div>
 
                   {/* WA templates */}
-                  <div className="w-full max-w-md flex items-center gap-2 mt-2">
-                    <div className="flex-1 flex rounded-full p-1" style={{ background: T.bgSoft, border: `1px solid ${T.lineSoft}` }}>
-                      {([1, 2] as const).map((n) => (
-                        <button
-                          key={n}
-                          onClick={() => setWaTemplate(n)}
-                          className="flex-1 py-1.5 text-[10px] uppercase tracking-widest rounded-full transition-all"
-                          style={{
-                            background: waTemplate === n ? T.surface2 : "transparent",
-                            color: waTemplate === n ? T.gold : T.textMute,
-                            fontFamily: T.sora, fontWeight: 600,
-                          }}
-                        >
-                          Msg {n}
-                        </button>
-                      ))}
+                  <div className="w-full max-w-md mt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 flex rounded-full p-1" style={{ background: T.bgSoft, border: `1px solid ${T.lineSoft}` }}>
+                        {([1, 2] as const).map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => setWaTemplate(n)}
+                            className="flex-1 py-1.5 text-[10px] uppercase tracking-widest rounded-full transition-all"
+                            style={{
+                              background: waTemplate === n ? T.surface2 : "transparent",
+                              color: waTemplate === n ? T.gold : T.textMute,
+                              fontFamily: T.sora, fontWeight: 600,
+                            }}
+                          >
+                            Msg {n}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWaEditing((v) => !v)}
+                        title={`Editar mensagem ${waTemplate}`}
+                        aria-label={`Editar mensagem ${waTemplate}`}
+                        className="flex items-center justify-center rounded-full transition-all active:scale-95"
+                        style={{
+                          width: 38, height: 38,
+                          background: waEditing ? T.goldDim : T.bgSoft,
+                          border: `1px solid ${waEditing ? T.gold : T.lineSoft}`,
+                          color: waEditing ? T.gold : T.textMute,
+                        }}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <a
+                        href={wa}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 py-2.5 px-4 rounded-full text-xs font-semibold uppercase tracking-widest transition-all active:scale-95"
+                        style={{ background: T.greenSoft, color: T.green, border: `1px solid rgba(111,191,122,0.3)`, fontFamily: T.sora }}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        WhatsApp
+                      </a>
                     </div>
-                    <a
-                      href={wa}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 py-2.5 px-4 rounded-full text-xs font-semibold uppercase tracking-widest transition-all active:scale-95"
-                      style={{ background: T.greenSoft, color: T.green, border: `1px solid rgba(111,191,122,0.3)`, fontFamily: T.sora }}
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      WhatsApp
-                    </a>
+
+                    {waEditing && (
+                      <div className="mt-3 p-3 rounded-2xl text-left" style={{ background: T.bgSoft, border: `1px solid ${T.lineSoft}` }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] uppercase tracking-widest" style={{ color: T.textMute, fontFamily: T.sora, fontWeight: 600 }}>
+                            Editando Msg {waTemplate}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setWaTexts((t) => ({ ...t, [waTemplate]: waTemplate === 1 ? DEFAULT_WA_TEMPLATE : DEFAULT_WA_TEMPLATE_2 }))
+                            }
+                            className="flex items-center gap-1 text-[10px] uppercase tracking-widest"
+                            style={{ color: T.textMute, fontFamily: T.sora }}
+                          >
+                            <RotateCcw className="w-3 h-3" /> Restaurar
+                          </button>
+                        </div>
+                        <textarea
+                          value={waTexts[waTemplate]}
+                          onChange={(e) => setWaTexts((t) => ({ ...t, [waTemplate]: e.target.value }))}
+                          className="w-full p-3 rounded-xl text-sm resize-none focus:outline-none focus:ring-1"
+                          style={{
+                            background: T.surface,
+                            border: `1px solid ${T.lineSoft}`,
+                            minHeight: 80,
+                            color: T.text,
+                            lineHeight: 1.5,
+                            // @ts-expect-error css var
+                            "--tw-ring-color": T.gold,
+                          }}
+                        />
+                        <p className="mt-2 text-[10px]" style={{ color: T.textMute }}>
+                          Use <span style={{ color: T.gold }}>{"{nome}"}</span> para inserir o primeiro nome do cliente. Salvo automaticamente neste aparelho.
+                        </p>
+                        <p className="mt-2 text-[11px] italic" style={{ color: T.textDim }}>
+                          Prévia: {waMsg || renderWaMessage(waTexts[waTemplate], "Cliente")}
+                        </p>
+                      </div>
+                    )}
                   </div>
+
                 </div>
 
                 {/* Notes + chips + outcomes */}
