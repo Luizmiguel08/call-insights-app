@@ -79,6 +79,19 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [waTemplate, setWaTemplate] = useState<1 | 2>(1);
+  const [waEditing, setWaEditing] = useState(false);
+  const [waTexts, setWaTexts] = useState<{ 1: string; 2: string }>(() => {
+    if (typeof window === "undefined") return { 1: DEFAULT_WA_TEMPLATE, 2: DEFAULT_WA_TEMPLATE_2 };
+    return {
+      1: window.localStorage.getItem("dialer:wa_msg_1") || DEFAULT_WA_TEMPLATE,
+      2: window.localStorage.getItem("dialer:wa_msg_2") || DEFAULT_WA_TEMPLATE_2,
+    };
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("dialer:wa_msg_1", waTexts[1]);
+    window.localStorage.setItem("dialer:wa_msg_2", waTexts[2]);
+  }, [waTexts]);
   const [dialing, setDialing] = useState(false);
   const dialStartRef = useRef<number | null>(null);
   const [callSeconds, setCallSeconds] = useState(0);
