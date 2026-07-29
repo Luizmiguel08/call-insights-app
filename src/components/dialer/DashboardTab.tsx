@@ -209,8 +209,13 @@ export default function DashboardTab({ state }: { state: State }) {
     const lastCallAt = own.reduce((m, c) => Math.max(m, c.createdAt || 0), 0);
     const idleMinutes = lastCallAt ? Math.floor((now - lastCallAt) / 60000) : Infinity;
     const isTodayView = !date || date === todayISO();
+    // Presença ao vivo (tabela active_calls) tem prioridade sobre o histórico:
+    // mostra quem está literalmente em ligação neste momento, em qualquer aparelho.
+    const live = isTodayView ? presence.get(b.id) : null;
     const status: "online" | "idle" | "offline" =
-      !isTodayView || !lastCallAt
+      live
+        ? "online"
+        : !isTodayView || !lastCallAt
         ? "offline"
         : idleMinutes <= 5
         ? "online"
@@ -223,8 +228,10 @@ export default function DashboardTab({ state }: { state: State }) {
       calls: totBroker, answered: attBroker, meta,
       idleMinutes: Number.isFinite(idleMinutes) ? idleMinutes : 0,
       status,
+      live: live ? { contact: live.contact_name, device: live.device_label } : null,
     };
   }).sort((a, b) => b.calls - a.calls);
+
 
   const idleCount = team.filter((c) => c.status === "idle").length;
 
