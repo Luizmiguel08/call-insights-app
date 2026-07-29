@@ -71,6 +71,71 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
     void load(false);
   }, [buffer.length, brokerId, load]);
 
+  // ── Sincronização em tempo real entre dispositivos ────────────────────────
+  // Se o mesmo corretor (ou um admin) mexe na fila em outro aparelho, o buffer
+  // local precisa refletir na hora: contato resolvido some, contato novo entra.
+  useEffect(() => {
+    if (!brokerId) return;
+    let refillTimer: number | null = null;
+    const scheduleRefill = () => {
+      if (refillTimer) window.clearTimeout(refillTimer);
+      refillTimer = window.setTimeout(() => { void load(false); }, 400);
+    };
+
+    const applyQueueRow = (row: any) => {
+      if (!row?.id) return;
+      const resolved = row.status !== "pending" || (row.call_attempts ?? 0) >= 2;
+      const mine = row.broker_id === brokerId || row.broker_id === null;
+      setBuffer((prev) => {
+        const idx = prev.findIndex((c) => c.id === row.id);
+        if (idx === -1) {
+          if (!resolved && mine) scheduleRefill();
+          return prev;
+        }
+        if (resolved || !mine) return prev.filter((c) => c.id !== row.id);
+        const arr = prev.slice();
+        arr[idx] = { ...arr[idx], attempt_count: row.call_attempts ?? arr[idx].attempt_count, name: row.name ?? arr[idx].name, phone: row.phone ?? arr[idx].phone };
+        return arr;
+      });
+    };
+
+    const channel = supabase
+      .channel(`dialer-queue-sync-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, (payload: any) => {
+        if (payload.eventType === "DELETE") {
+          const id = payload.old?.id;
+          if (id) setBuffer((prev) => prev.filter((c) => c.id !== id));
+          return;
+        }
+        if (payload.eventType === "INSERT") { scheduleRefill(); return; }
+        applyQueueRow(payload.new);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "calls" }, (payload: any) => {
+        const contactId = payload.new?.contact_id;
+        if (!contactId) return;
+        setBuffer((prev) =>
+          prev.map((c) => (c.id === contactId ? { ...c, attempt_count: Math.max(c.attempt_count, 1) } : c)),
+        );
+      })
+      .subscribe();
+
+    // Mobile derruba o WebSocket em segundo plano: revalida ao voltar.
+    const onWake = () => {
+      if (document.visibilityState !== "visible") return;
+      void load(true);
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("online", onWake);
+
+    return () => {
+      if (refillTimer) window.clearTimeout(refillTimer);
+      void supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("online", onWake);
+    };
+  }, [brokerId, load]);
+
+
   const advance = useCallback(() => {
     setBuffer((prev) => prev.slice(1));
   }, []);
