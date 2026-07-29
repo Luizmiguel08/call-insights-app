@@ -85,6 +85,29 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   const { current, peekNext, advance, incrementAttempt, refresh, loading, error } =
     useContactBuffer(brokerId, selectedList);
 
+  // Presença ao vivo: espelha "estou ligando para X" entre celular e computador.
+  const { publish, clear, deviceLabel: thisDevice } = usePresencePublisher();
+  const { get: getPresence } = useTeamPresence();
+  const myPresence = getPresence(brokerId);
+  const otherDeviceCall =
+    myPresence && myPresence.device_label !== thisDevice ? myPresence : null;
+
+  // As listas dependem da fila: quando outro aparelho conclui contatos,
+  // os contadores precisam acompanhar.
+  useEffect(() => {
+    if (!brokerId) return;
+    const ch = supabase
+      .channel(`lists-sync-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, () => {
+        window.clearTimeout((window as any).__listsSyncT);
+        (window as any).__listsSyncT = window.setTimeout(() => void loadLists(), 1200);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [brokerId]);
+
+
+
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [waTemplate, setWaTemplate] = useState<1 | 2>(1);
