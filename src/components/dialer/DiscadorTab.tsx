@@ -5,6 +5,8 @@ import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar,
 import { useCloudState } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useContactBuffer, recordContactAttempt } from "@/hooks/useContactBuffer";
+import { usePresencePublisher, useTeamPresence } from "@/hooks/useLivePresence";
+
 import {
   attemptLabel,
   telHref,
