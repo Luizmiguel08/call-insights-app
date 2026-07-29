@@ -73,6 +73,13 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   };
   useEffect(() => { void loadLists(); }, [brokerId]);
 
+  // Se a lista salva no aparelho não existe mais, volta para "todas" em vez de mostrar fila vazia
+  useEffect(() => {
+    if (!selectedList || lists.length === 0) return;
+    if (!lists.some((l) => l.list_name === selectedList)) setSelectedList(null);
+  }, [lists, selectedList]);
+
+
   const { current, peekNext, advance, incrementAttempt, refresh, loading, error } =
     useContactBuffer(brokerId, selectedList);
 
