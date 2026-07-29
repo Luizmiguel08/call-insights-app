@@ -768,6 +768,16 @@ export type Database = {
           priority: number
         }[]
       }
+      dialer_presence_clear: { Args: never; Returns: undefined }
+      dialer_presence_set: {
+        Args: {
+          _contact_id: string
+          _contact_name: string
+          _device_label?: string
+          _phone?: string
+        }
+        Returns: undefined
+      }
       get_idle_gaps: {
         Args: { p_date: string; p_user_id: string }
         Returns: {

@@ -5,6 +5,8 @@ import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar,
 import { useCloudState } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useContactBuffer, recordContactAttempt } from "@/hooks/useContactBuffer";
+import { usePresencePublisher, useTeamPresence } from "@/hooks/useLivePresence";
+
 import {
   attemptLabel,
   telHref,
@@ -82,6 +84,29 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
 
   const { current, peekNext, advance, incrementAttempt, refresh, loading, error } =
     useContactBuffer(brokerId, selectedList);
+
+  // Presença ao vivo: espelha "estou ligando para X" entre celular e computador.
+  const { publish, clear, deviceLabel: thisDevice } = usePresencePublisher();
+  const { get: getPresence } = useTeamPresence();
+  const myPresence = getPresence(brokerId);
+  const otherDeviceCall =
+    myPresence && myPresence.device_label !== thisDevice ? myPresence : null;
+
+  // As listas dependem da fila: quando outro aparelho conclui contatos,
+  // os contadores precisam acompanhar.
+  useEffect(() => {
+    if (!brokerId) return;
+    const ch = supabase
+      .channel(`lists-sync-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, () => {
+        window.clearTimeout((window as any).__listsSyncT);
+        (window as any).__listsSyncT = window.setTimeout(() => void loadLists(), 1200);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [brokerId]);
+
+
 
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -198,6 +223,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       setDialing(false);
       dialStartRef.current = null;
       setCallSeconds(0);
+      void clear();
       toast.success(
         kind === "scheduled"
           ? "Agendou!"
@@ -215,14 +241,16 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     }
   }
 
-  function skip() { if (current) advance(); }
+  function skip() { if (current) { void clear(); advance(); } }
 
   function startDial() {
     if (!current?.phone) return;
     dialStartRef.current = Date.now();
     setDialing(true);
     setCallSeconds(0);
+    void publish({ id: current.id, name: current.name, phone: current.phone });
   }
+
 
   function copyPhone() {
     if (!current?.phone) return;
@@ -326,7 +354,27 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
         )}
       </div>
 
+      {/* Espelho ao vivo: ligação em andamento em outro aparelho */}
+      {otherDeviceCall && (
+        <div
+          className="flex items-center gap-3 rounded-2xl px-4 py-3"
+          style={{ background: T.greenSoft, border: `1px solid rgba(111,191,122,0.3)` }}
+        >
+          <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: T.green }} />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: T.green, fontFamily: T.sora }}>
+              Em ligação no {otherDeviceCall.device_label.toLowerCase()}
+            </p>
+            <p className="truncate text-sm" style={{ color: T.sand }}>
+              {otherDeviceCall.contact_name}
+              {otherDeviceCall.phone ? ` · ${otherDeviceCall.phone}` : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Bento */}
+
       <div className="grid grid-cols-12 gap-5 items-start">
 
         {/* Left col */}

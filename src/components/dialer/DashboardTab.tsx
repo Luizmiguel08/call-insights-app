@@ -4,6 +4,8 @@ import {
   todayISO, uniqueContactCount, uniqueContactCountWhere,
   normalizedContactKey,
 } from "@/lib/dialer-shared";
+import { useTeamPresence } from "@/hooks/useLivePresence";
+
 
 // Paleta Fortal — navy profundo + dourado editorial + areia quente.
 const T = {
@@ -201,6 +203,8 @@ export default function DashboardTab({ state }: { state: State }) {
 
   const palette = [T.gold, T.blue, T.green, T.amber, "#d597b8", "#a79ae0", T.red, "#6fc4b0"];
   const now = Date.now();
+  const presence = useTeamPresence();
+
 
   const team = state.brokers.map((b, i) => {
     const own = calls.filter((c) => c.brokerId === b.id);
@@ -209,8 +213,13 @@ export default function DashboardTab({ state }: { state: State }) {
     const lastCallAt = own.reduce((m, c) => Math.max(m, c.createdAt || 0), 0);
     const idleMinutes = lastCallAt ? Math.floor((now - lastCallAt) / 60000) : Infinity;
     const isTodayView = !date || date === todayISO();
+    // Presença ao vivo (tabela active_calls) tem prioridade sobre o histórico:
+    // mostra quem está literalmente em ligação neste momento, em qualquer aparelho.
+    const live = isTodayView ? presence.get(b.id) : null;
     const status: "online" | "idle" | "offline" =
-      !isTodayView || !lastCallAt
+      live
+        ? "online"
+        : !isTodayView || !lastCallAt
         ? "offline"
         : idleMinutes <= 5
         ? "online"
@@ -223,8 +232,10 @@ export default function DashboardTab({ state }: { state: State }) {
       calls: totBroker, answered: attBroker, meta,
       idleMinutes: Number.isFinite(idleMinutes) ? idleMinutes : 0,
       status,
+      live: live ? { contact: live.contact_name, device: live.device_label } : null,
     };
   }).sort((a, b) => b.calls - a.calls);
+
 
   const idleCount = team.filter((c) => c.status === "idle").length;
 
@@ -379,14 +390,20 @@ export default function DashboardTab({ state }: { state: State }) {
                       {c.status === "idle" && c.idleMinutes > 0 && (
                         <span className="tabular-nums" style={{ color: T.red }}>parado {c.idleMinutes}min</span>
                       )}
+                      {c.live && (
+                        <span className="truncate normal-case tracking-normal" style={{ color: T.green }}>
+                          ● {c.live.contact} · {c.live.device.toLowerCase()}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span
                     className="shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em]"
                     style={{ background: `${sc}1a`, color: sc, border: `1px solid ${sc}33`, fontFamily: T.sora }}
                   >
-                    {c.status === "online" ? "Ligando" : c.status === "idle" ? "Parado" : "Offline"}
+                    {c.live ? "Em ligação" : c.status === "online" ? "Ligando" : c.status === "idle" ? "Parado" : "Offline"}
                   </span>
+
                 </div>
               );
             })}
