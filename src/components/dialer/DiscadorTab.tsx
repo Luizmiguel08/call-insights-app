@@ -354,7 +354,27 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
         )}
       </div>
 
+      {/* Espelho ao vivo: ligação em andamento em outro aparelho */}
+      {otherDeviceCall && (
+        <div
+          className="flex items-center gap-3 rounded-2xl px-4 py-3"
+          style={{ background: T.greenSoft, border: `1px solid rgba(111,191,122,0.3)` }}
+        >
+          <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: T.green }} />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: T.green, fontFamily: T.sora }}>
+              Em ligação no {otherDeviceCall.device_label.toLowerCase()}
+            </p>
+            <p className="truncate text-sm" style={{ color: T.sand }}>
+              {otherDeviceCall.contact_name}
+              {otherDeviceCall.phone ? ` · ${otherDeviceCall.phone}` : ""}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Bento */}
+
       <div className="grid grid-cols-12 gap-5 items-start">
 
         {/* Left col */}
