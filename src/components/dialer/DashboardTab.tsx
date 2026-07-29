@@ -203,6 +203,8 @@ export default function DashboardTab({ state }: { state: State }) {
 
   const palette = [T.gold, T.blue, T.green, T.amber, "#d597b8", "#a79ae0", T.red, "#6fc4b0"];
   const now = Date.now();
+  const presence = useTeamPresence();
+
 
   const team = state.brokers.map((b, i) => {
     const own = calls.filter((c) => c.brokerId === b.id);
