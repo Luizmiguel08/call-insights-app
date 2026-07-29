@@ -4,6 +4,8 @@ import {
   todayISO, uniqueContactCount, uniqueContactCountWhere,
   normalizedContactKey,
 } from "@/lib/dialer-shared";
+import { useTeamPresence } from "@/hooks/useLivePresence";
+
 
 // Paleta Fortal — navy profundo + dourado editorial + areia quente.
 const T = {
