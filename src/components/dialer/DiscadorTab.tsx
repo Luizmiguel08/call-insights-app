@@ -223,6 +223,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       setDialing(false);
       dialStartRef.current = null;
       setCallSeconds(0);
+      void clear();
       toast.success(
         kind === "scheduled"
           ? "Agendou!"
@@ -240,14 +241,16 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     }
   }
 
-  function skip() { if (current) advance(); }
+  function skip() { if (current) { void clear(); advance(); } }
 
   function startDial() {
     if (!current?.phone) return;
     dialStartRef.current = Date.now();
     setDialing(true);
     setCallSeconds(0);
+    void publish({ id: current.id, name: current.name, phone: current.phone });
   }
+
 
   function copyPhone() {
     if (!current?.phone) return;
