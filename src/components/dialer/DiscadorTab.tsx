@@ -447,12 +447,26 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
             ) : !current ? (
               <div className="py-16 text-center">
                 <p style={{ color: T.sand, fontFamily: T.fraunces, fontSize: 24, letterSpacing: "-0.02em" }}>
-                  Nenhum contato pendente
+                  {selectedList ? "Esta lista não tem contatos pendentes" : "Nenhum contato pendente"}
                 </p>
                 <p className="mt-2 text-sm" style={{ color: T.textDim }}>
-                  {loading ? "Buscando novos leads…" : "Volte mais tarde ou importe uma lista nova."}
+                  {loading
+                    ? "Buscando novos leads…"
+                    : selectedList
+                      ? `A lista "${selectedList}" está sem pendentes para você. Veja as outras listas.`
+                      : "Volte mais tarde ou importe uma lista nova."}
                 </p>
+                {!loading && selectedList && (
+                  <button
+                    onClick={() => { setSelectedList(null); void loadLists(); void refresh(); }}
+                    className="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold uppercase tracking-wider"
+                    style={{ background: T.gold, color: T.bg, fontFamily: T.sora }}
+                  >
+                    Ver todas as listas
+                  </button>
+                )}
               </div>
+
             ) : (
               <>
                 {/* Top badge + last call */}
