@@ -390,14 +390,20 @@ export default function DashboardTab({ state }: { state: State }) {
                       {c.status === "idle" && c.idleMinutes > 0 && (
                         <span className="tabular-nums" style={{ color: T.red }}>parado {c.idleMinutes}min</span>
                       )}
+                      {c.live && (
+                        <span className="truncate normal-case tracking-normal" style={{ color: T.green }}>
+                          ● {c.live.contact} · {c.live.device.toLowerCase()}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span
                     className="shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em]"
                     style={{ background: `${sc}1a`, color: sc, border: `1px solid ${sc}33`, fontFamily: T.sora }}
                   >
-                    {c.status === "online" ? "Ligando" : c.status === "idle" ? "Parado" : "Offline"}
+                    {c.live ? "Em ligação" : c.status === "online" ? "Ligando" : c.status === "idle" ? "Parado" : "Offline"}
                   </span>
+
                 </div>
               );
             })}
