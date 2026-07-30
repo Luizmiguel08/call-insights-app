@@ -107,6 +107,20 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     return () => { void supabase.removeChannel(ch); };
   }, [brokerId]);
 
+  // Faxina leve: apaga "ligando agora" preso de aparelhos que fecharam de
+  // forma abrupta, sessões abandonadas e lembretes vencidos. No máximo 1x a
+  // cada 10 minutos por aparelho.
+  useEffect(() => {
+    if (!brokerId) return;
+    const KEY = "dialer.housekeeping.at";
+    const last = Number(localStorage.getItem(KEY) ?? 0);
+    if (Date.now() - last < 10 * 60 * 1000) return;
+    localStorage.setItem(KEY, String(Date.now()));
+    void (supabase as any).rpc("dialer_housekeeping");
+  }, [brokerId]);
+
+
+
 
 
   const [note, setNote] = useState("");
