@@ -12,7 +12,7 @@ import { useConnectionWatchdog } from "@/hooks/useConnectionWatchdog";
 import { ConnectionIndicator } from "@/components/dialer/ConnectionIndicator";
 import {
   type Broker, type Call, type Contact, type State, type Tab,
-  todayISO, normalizedContactKey, callContactKey, uniqueContactCount, uniqueContactCountWhere,
+  todayISO, normalizedContactKey, callContactKey, uniqueContactCountWhere,
   normalizePhone, telHref, DEFAULT_WA_TEMPLATE, DEFAULT_WA_TEMPLATE_2, renderWaMessage, waHrefFromMessage, logDialerError,
   fontDisplay, fontNumeric, inputCls, attemptLabel,
   Field, YesNo, Kpi, Badge, Th, Td,
@@ -300,13 +300,13 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
   const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const attendedUnique = uniqueContactCountWhere(today, (c) => c.attended);
-  const totalUnique = uniqueContactCount(today);
   const k = {
-    total: totalUnique,
+    total: today.length,
     attended: attendedUnique,
-    notAttended: Math.max(0, totalUnique - attendedUnique),
+    notAttended: today.filter((c) => !c.attended).length,
     scheduled: uniqueContactCountWhere(today, (c) => c.scheduled),
   };
+
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
 
   return (
@@ -559,7 +559,7 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
           <div className="mt-1 text-sm text-zinc-500">{me?.email}</div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Kpi label="Total ligações" value={uniqueContactCount(myCalls)} color="#c9a84c" />
+          <Kpi label="Total ligações" value={myCalls.length} color="#c9a84c" />
           <Kpi label="Agendamentos" value={sch} color="#eab308" />
           <Kpi label="Meta diária" value={state.metaDaily} color="#22c55e" />
         </div>
@@ -644,7 +644,7 @@ function CorretoresTab({ state, fullState, setState, isAdmin, me }: { state: Sta
           <tbody>
             {approved.map((b) => {
               const own = fullState.calls.filter((c) => c.brokerId === b.id);
-              const tot = uniqueContactCount(own);
+              const tot = own.length;
               const sch = uniqueContactCountWhere(own, (c) => c.scheduled);
               return (
                 <tr key={b.id} className="border-t border-zinc-800/80 hover:bg-zinc-900/40">

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   type State,
-  todayISO, uniqueContactCount, uniqueContactCountWhere,
+  todayISO, uniqueContactCountWhere,
   normalizedContactKey,
 } from "@/lib/dialer-shared";
 import { useTeamPresence } from "@/hooks/useLivePresence";
@@ -154,23 +154,25 @@ export default function DashboardTab({ state }: { state: State }) {
 
   const calls = filteredCalls;
 
-  const totalUnique = uniqueContactCount(calls);
+  // Ligações = tentativas registradas (inclui 2ª tentativa do mesmo contato).
+  const totalCalls = calls.length;
   const attendedUnique = uniqueContactCountWhere(calls, (c) => c.attended);
   const k = {
-    total: totalUnique,
+    total: totalCalls,
     attended: attendedUnique,
-    notAttended: Math.max(0, totalUnique - attendedUnique),
+    notAttended: calls.filter((c) => !c.attended).length,
     scheduled: uniqueContactCountWhere(calls, (c) => c.scheduled),
   };
   const rate = k.total ? Math.round((k.scheduled / k.total) * 100) : 0;
 
   const ranking = state.brokers.map((b) => {
     const own = calls.filter((c) => c.brokerId === b.id);
-    const tot = uniqueContactCount(own);
+    const tot = own.length;
     const att = uniqueContactCountWhere(own, (c) => c.attended);
     const sch = uniqueContactCountWhere(own, (c) => c.scheduled);
     return { broker: b, total: tot, attended: att, scheduled: sch, rate: tot ? Math.round((sch / tot) * 100) : 0 };
   }).sort((a, b) => b.total - a.total);
+
 
   const max = Math.max(1, ...ranking.map((r) => r.total));
 
@@ -196,7 +198,7 @@ export default function DashboardTab({ state }: { state: State }) {
     return d.toISOString().slice(0, 10);
   })();
   const prevCalls = prevDate ? state.calls.filter((c) => c.date === prevDate) : [];
-  const prevTotal = uniqueContactCount(prevCalls);
+  const prevTotal = prevCalls.length;
   const pctVsYesterday = prevTotal > 0
     ? Math.round(((k.total - prevTotal) / prevTotal) * 100)
     : (k.total > 0 ? 100 : 0);
@@ -208,7 +210,7 @@ export default function DashboardTab({ state }: { state: State }) {
 
   const team = state.brokers.map((b, i) => {
     const own = calls.filter((c) => c.brokerId === b.id);
-    const totBroker = uniqueContactCount(own);
+    const totBroker = own.length;
     const attBroker = uniqueContactCountWhere(own, (c) => c.attended);
     const lastCallAt = own.reduce((m, c) => Math.max(m, c.createdAt || 0), 0);
     const idleMinutes = lastCallAt ? Math.floor((now - lastCallAt) / 60000) : Infinity;
