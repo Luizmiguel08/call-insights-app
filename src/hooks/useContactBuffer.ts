@@ -149,11 +149,21 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
   }, [brokerId, load]);
 
 
+  const pin = useCallback((contactId: string) => {
+    pinnedRef.current = contactId;
+  }, []);
+
+  const unpin = useCallback(() => {
+    pinnedRef.current = null;
+  }, []);
+
   const advance = useCallback(() => {
+    pinnedRef.current = null;
     setBuffer((prev) => prev.slice(1));
   }, []);
 
   const remove = useCallback((contactId: string) => {
+    if (pinnedRef.current === contactId) pinnedRef.current = null;
     setBuffer((prev) => prev.filter((contact) => contact.id !== contactId));
   }, []);
 
@@ -172,8 +182,11 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
     advance,
     remove,
     incrementAttempt,
+    pin,
+    unpin,
     retry: () => load(true),
     refresh: () => load(true),
+
   };
 }
 
