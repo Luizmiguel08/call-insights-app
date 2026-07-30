@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   type State,
-  todayISO, uniqueContactCount, uniqueContactCountWhere,
+  todayISO, uniqueContactCountWhere,
   normalizedContactKey,
 } from "@/lib/dialer-shared";
 import { useTeamPresence } from "@/hooks/useLivePresence";
