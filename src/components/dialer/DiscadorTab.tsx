@@ -82,8 +82,9 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   }, [lists, selectedList]);
 
 
-  const { current, peekNext, advance, incrementAttempt, refresh, loading, error } =
+  const { current, peekNext, advance, incrementAttempt, pin, unpin, refresh, loading, error } =
     useContactBuffer(brokerId, selectedList);
+
 
   // Presença ao vivo: espelha "estou ligando para X" entre celular e computador.
   const { publish, clear, deviceLabel: thisDevice } = usePresencePublisher();
