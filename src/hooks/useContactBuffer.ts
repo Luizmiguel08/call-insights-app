@@ -216,21 +216,28 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
 
   const pin = useCallback((contactId: string) => {
     pinnedRef.current = contactId;
+    writeStoredPin(contactId);
   }, []);
 
   const unpin = useCallback(() => {
     pinnedRef.current = null;
+    writeStoredPin(null);
   }, []);
 
   const advance = useCallback(() => {
     pinnedRef.current = null;
+    writeStoredPin(null);
     setBuffer((prev) => prev.slice(1));
   }, []);
 
   const remove = useCallback((contactId: string) => {
-    if (pinnedRef.current === contactId) pinnedRef.current = null;
+    if (pinnedRef.current === contactId) {
+      pinnedRef.current = null;
+      writeStoredPin(null);
+    }
     setBuffer((prev) => prev.filter((contact) => contact.id !== contactId));
   }, []);
+
 
   const incrementAttempt = useCallback((contactId: string) => {
     setBuffer((prev) =>
