@@ -82,8 +82,9 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   }, [lists, selectedList]);
 
 
-  const { current, peekNext, advance, incrementAttempt, refresh, loading, error } =
+  const { current, peekNext, advance, incrementAttempt, pin, unpin, refresh, loading, error } =
     useContactBuffer(brokerId, selectedList);
+
 
   // Presença ao vivo: espelha "estou ligando para X" entre celular e computador.
   const { publish, clear, deviceLabel: thisDevice } = usePresencePublisher();
@@ -218,7 +219,9 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       // "Não atendeu" na 1ª tentativa mantém o mesmo cliente na tela;
       // só avança após a 2ª tentativa (ou em atendeu/agendou).
       const stayOnContact = kind === "no_answer" && nextAttempt < 2;
-      if (!stayOnContact) advance();
+      if (stayOnContact) pin(current.id);
+      else advance();
+
       setNote("");
       setDialing(false);
       dialStartRef.current = null;
@@ -241,15 +244,19 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     }
   }
 
-  function skip() { if (current) { void clear(); advance(); } }
+  function skip() { if (current) { unpin(); void clear(); advance(); } }
 
   function startDial() {
     if (!current?.phone) return;
+    // Trava o contato no topo da fila: sair do app para discar (iOS/Android)
+    // dispara um recarregamento, e sem o pin outro cliente tomaria a tela.
+    pin(current.id);
     dialStartRef.current = Date.now();
     setDialing(true);
     setCallSeconds(0);
     void publish({ id: current.id, name: current.name, phone: current.phone });
   }
+
 
 
   function copyPhone() {
