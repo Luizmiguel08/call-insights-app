@@ -219,7 +219,9 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       // "Não atendeu" na 1ª tentativa mantém o mesmo cliente na tela;
       // só avança após a 2ª tentativa (ou em atendeu/agendou).
       const stayOnContact = kind === "no_answer" && nextAttempt < 2;
-      if (!stayOnContact) advance();
+      if (stayOnContact) pin(current.id);
+      else advance();
+
       setNote("");
       setDialing(false);
       dialStartRef.current = null;
