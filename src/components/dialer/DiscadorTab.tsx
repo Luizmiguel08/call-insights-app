@@ -284,6 +284,9 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   const waMsg = current ? renderWaMessage(waTexts[waTemplate], current.name) : "";
   const wa = current ? waHrefFromMessage(current.phone, waMsg) : "#";
   const dial = current ? telHref(current.phone) : "#";
+  // Contato sem telefone discável: nunca oferecer um botão de ligar quebrado.
+  const phoneValid = !!current && (current.phone ?? "").replace(/\D/g, "").length >= 10;
+
 
   const isLast = (current?.attempt_count ?? 0) >= 1;
   const lastWhen = lastCall
