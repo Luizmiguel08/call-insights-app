@@ -955,6 +955,27 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
 
   const preview = useMemo(() => parseLines(bulk), [bulk]);
 
+  // Relatório da sincronização: se o banco recusou alguma linha, o corretor
+  // precisa saber quantas entraram de fato (antes o lote inteiro sumia calado).
+  useEffect(() => {
+    const onReport = (e: Event) => {
+      const d = (e as CustomEvent).detail ?? {};
+      if (d.table !== "contacts_queue") return;
+      if (d.error) {
+        toast.error("Parte da importação falhou", {
+          description: `${d.inserted} salvo(s), ${d.skipped} repetido(s). ${d.error}`,
+        });
+      } else if (d.skipped > 0) {
+        toast.warning(`${d.skipped} contato(s) repetido(s) não foram salvos`, {
+          description: `${d.inserted} contato(s) salvos com sucesso`,
+        });
+      }
+    };
+    window.addEventListener("dialer:import-report", onReport);
+    return () => window.removeEventListener("dialer:import-report", onReport);
+  }, []);
+
+
   function importContacts() {
     if (preview.length === 0) { toast.error("Cole pelo menos um contato"); return; }
     const brokerId = assignTo || null;
