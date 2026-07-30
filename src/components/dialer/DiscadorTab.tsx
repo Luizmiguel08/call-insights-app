@@ -173,6 +173,9 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
 
   type LastCallInfo = { createdAt: number; attended: boolean; scheduled: boolean; note: string | null };
   const [lastCall, setLastCall] = useState<LastCallInfo | null>(null);
+  // Trava síncrona: o state `submitting` só atualiza no próximo render e não
+  // impede dois toques muito rápidos (comum ao voltar do discador no celular).
+  const outcomeInFlightRef = useRef(false);
   useEffect(() => {
     if (!current || current.attempt_count < 1) { setLastCall(null); return; }
     const local = state.calls
@@ -206,14 +209,16 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   const nextOne = next3[0] ?? null;
 
   async function registerOutcome(kind: "no_answer" | "answered" | "scheduled") {
-    if (!current || submitting) return;
+    if (!current || submitting || outcomeInFlightRef.current) return;
+    outcomeInFlightRef.current = true;
     setSubmitting(true);
-    const nextAttempt = (current.attempt_count ?? 0) + 1;
+    const submittedContact = current;
+    const nextAttempt = (submittedContact.attempt_count ?? 0) + 1;
     const durationSeconds = dialStartRef.current ? Math.floor((Date.now() - dialStartRef.current) / 1000) : 0;
-    incrementAttempt(current.id);
+    incrementAttempt(submittedContact.id);
     try {
       const { data, error: rpcError } = await (supabase as any).rpc("record_call_outcome", {
-        _contact_id: current.id,
+        _contact_id: submittedContact.id,
         _attended: kind !== "no_answer",
         _scheduled: kind === "scheduled",
         _notes: note.trim() || null,
@@ -223,7 +228,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       });
       if (rpcError) throw rpcError;
       void recordContactAttempt({
-        contactId: current.id,
+        contactId: submittedContact.id,
         userId: me?.userId ?? "",
         brokerId: brokerId,
         result: kind === "scheduled" ? "scheduled" : kind === "answered" ? "answered" : "no_answer",
@@ -233,8 +238,14 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       // "Não atendeu" na 1ª tentativa mantém o mesmo cliente na tela;
       // só avança após a 2ª tentativa (ou em atendeu/agendou).
       const stayOnContact = kind === "no_answer" && nextAttempt < 2;
-      if (stayOnContact) pin(current.id);
-      else advance();
+      if (stayOnContact) {
+        pin(submittedContact.id);
+      } else {
+        // O Realtime pode já ter removido o contato concluído enquanto o RPC
+        // estava em andamento. Remover pelo ID é idempotente; usar advance()
+        // aqui removia também o próximo cliente e causava o salto relatado.
+        remove(submittedContact.id);
+      }
 
       setNote("");
       setDialing(false);
@@ -254,6 +265,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       toast.error(e?.message ?? "Erro ao registrar");
       void refresh();
     } finally {
+      outcomeInFlightRef.current = false;
       setSubmitting(false);
     }
   }
