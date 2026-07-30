@@ -959,7 +959,32 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     if (preview.length === 0) { toast.error("Cole pelo menos um contato"); return; }
     const brokerId = assignTo || null;
     const cleanList = (listName.trim() || "Geral").slice(0, 80);
-    const newContacts: Contact[] = preview.map((p, i) => ({
+    const digits = (p: string) => (p || "").replace(/\D/g, "");
+
+    // O banco só aceita 1 pendente por corretor + telefone. Filtramos aqui
+    // para o lote nunca ser rejeitado por causa de um número repetido.
+    const existing = new Set(
+      state.contacts
+        .filter((c) => c.status === "pendente" && (c.brokerId ?? null) === brokerId)
+        .map((c) => digits(c.phone)),
+    );
+    const seen = new Set<string>();
+    const kept: typeof preview = [];
+    let duplicates = 0;
+    for (const p of preview) {
+      const d = digits(p.phone);
+      if (d && (existing.has(d) || seen.has(d))) { duplicates += 1; continue; }
+      if (d) seen.add(d);
+      kept.push(p);
+    }
+    if (kept.length === 0) {
+      toast.error("Todos os contatos colados já estão na fila", {
+        description: `${duplicates} número(s) repetido(s) ignorado(s)`,
+      });
+      return;
+    }
+
+    const newContacts: Contact[] = kept.map((p, i) => ({
       id: uid(),
       name: p.name,
       phone: p.phone,
@@ -971,10 +996,14 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     }));
     setState((s) => ({ ...s, contacts: [...s.contacts, ...newContacts] }));
     toast.success(`${newContacts.length} contato(s) importado(s) na lista "${cleanList}"`, {
-      description: brokerId ? `Atribuído a ${state.brokers.find(b => b.id === brokerId)?.name}` : "Fila geral",
+      description: [
+        brokerId ? `Atribuído a ${state.brokers.find(b => b.id === brokerId)?.name}` : "Fila geral",
+        duplicates > 0 ? `${duplicates} repetido(s) ignorado(s)` : null,
+      ].filter(Boolean).join(" · "),
     });
     setBulk("");
   }
+
 
   function removeContact(id: string) {
     setState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.id !== id) }));
