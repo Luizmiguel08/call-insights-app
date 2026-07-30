@@ -329,13 +329,54 @@ function diff<T extends { id: string }>(prev: T[], next: T[]) {
   return { added, removed, changed };
 }
 
-async function insertInChunks(table: "contacts_queue" | "calls", rows: any[], chunkSize = 300) {
+function isDuplicateError(error: any) {
+  const code = error?.code ?? "";
+  const msg = String(error?.message ?? "");
+  return code === "23505" || msg.includes("duplicate key") || msg.includes("uniq_contacts_queue_pending_broker_phone");
+}
+
+/**
+ * Insere em lotes tolerando colisões. Um único telefone repetido não pode
+ * derrubar o lote inteiro (era o motivo de importações de 200+ contatos
+ * "sumirem"): quando o lote falha, reprocessamos linha a linha e apenas os
+ * repetidos são ignorados.
+ */
+async function insertInChunks(table: "contacts_queue" | "calls", rows: any[], chunkSize = 200) {
+  let inserted = 0;
+  let skipped = 0;
+  let lastError: any = null;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
     const { error } = await (supabase.from(table) as any).insert(chunk);
-    if (error) throw error;
+    if (!error) {
+      inserted += chunk.length;
+      continue;
+    }
+    if (!isDuplicateError(error) && chunk.length === 1) {
+      lastError = error;
+      continue;
+    }
+    // fallback linha a linha
+    for (const row of chunk) {
+      const { error: rowError } = await (supabase.from(table) as any).insert(row);
+      if (!rowError) {
+        inserted += 1;
+      } else if (isDuplicateError(rowError)) {
+        skipped += 1;
+      } else {
+        lastError = rowError;
+      }
+    }
   }
+  if (inserted === 0 && skipped === 0 && lastError) throw lastError;
+  if (typeof window !== "undefined" && (skipped > 0 || lastError)) {
+    window.dispatchEvent(
+      new CustomEvent("dialer:import-report", { detail: { table, inserted, skipped, error: lastError?.message ?? null } }),
+    );
+  }
+  return { inserted, skipped, lastError };
 }
+
 
 async function syncTo(prev: State, next: State, me: Me) {
   // brokers — apenas admin pode mexer (RLS bloqueia os demais; ainda assim filtramos client-side)
