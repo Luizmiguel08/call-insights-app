@@ -27,6 +27,9 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inflightRef = useRef(false);
+  // Contato "travado" na frente da fila: o corretor está no meio da ligação
+  // (ou entre a 1ª e a 2ª tentativa). Nenhum recarregamento pode trocá-lo.
+  const pinnedRef = useRef<string | null>(null);
 
   const load = useCallback(
     async (replace: boolean) => {
@@ -44,10 +47,19 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
         if (rpcError) throw rpcError;
         const rows = (data ?? []) as BufferedContact[];
         setBuffer((prev) => {
-          if (replace) return rows;
+          const pinnedId = pinnedRef.current;
+          const reorder = (list: BufferedContact[]) => {
+            if (!pinnedId) return list;
+            const idx = list.findIndex((c) => c.id === pinnedId);
+            if (idx <= 0) return list;
+            const copy = list.slice();
+            const [p] = copy.splice(idx, 1);
+            return [p, ...copy];
+          };
+          if (replace) return reorder(rows);
           const seen = new Set(prev.map((c) => c.id));
           const merged = [...prev, ...rows.filter((r) => !seen.has(r.id))];
-          return merged.slice(0, BUFFER_SIZE);
+          return reorder(merged.slice(0, BUFFER_SIZE));
         });
         setError(null);
       } catch (e: any) {
@@ -59,6 +71,7 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
     },
     [brokerId, listName],
   );
+
 
   useEffect(() => {
     void load(true);
