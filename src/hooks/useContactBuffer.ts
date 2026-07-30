@@ -160,13 +160,16 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
       if (!row?.id) return;
       const resolved = row.status !== "pending" || (row.call_attempts ?? 0) >= 2;
       const mine = row.broker_id === brokerId || row.broker_id === null;
+      // O contato travado só sai da tela por ação do corretor (registrar
+      // resultado ou pular). Eventos de tempo real não podem removê-lo.
+      const isPinned = pinnedRef.current === row.id;
       setBuffer((prev) => {
         const idx = prev.findIndex((c) => c.id === row.id);
         if (idx === -1) {
           if (!resolved && mine) scheduleRefill();
           return prev;
         }
-        if (resolved || !mine) return prev.filter((c) => c.id !== row.id);
+        if ((resolved || !mine) && !isPinned) return prev.filter((c) => c.id !== row.id);
         const arr = prev.slice();
         arr[idx] = { ...arr[idx], attempt_count: row.call_attempts ?? arr[idx].attempt_count, name: row.name ?? arr[idx].name, phone: row.phone ?? arr[idx].phone };
         return arr;
@@ -178,7 +181,7 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
       .on("postgres_changes", { event: "*", schema: "public", table: "contacts_queue" }, (payload: any) => {
         if (payload.eventType === "DELETE") {
           const id = payload.old?.id;
-          if (id) setBuffer((prev) => prev.filter((c) => c.id !== id));
+          if (id && pinnedRef.current !== id) setBuffer((prev) => prev.filter((c) => c.id !== id));
           return;
         }
         if (payload.eventType === "INSERT") { scheduleRefill(); return; }
@@ -192,6 +195,7 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
         );
       })
       .subscribe();
+
 
     // Mobile derruba o WebSocket em segundo plano: revalida ao voltar.
     const onWake = () => {
