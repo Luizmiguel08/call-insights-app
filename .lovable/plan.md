@@ -1,39 +1,45 @@
-## Promover o redesign para a página principal
+## Varredura do discador — o que encontrei
 
-Vou tornar o design "Soft Bento Minimal / Fortal" o discador oficial, substituindo a tela atual em `/` (rota `_authenticated/index.tsx`), preservando toda a lógica de negócio que já funciona.
+Rodei auditorias no banco. As correções da rodada anterior estão firmes:
 
-### O que muda
+| Verificação | Resultado |
+|---|---|
+| Ligações creditadas ao corretor errado | 0 ✅ |
+| Ligações sem corretor | 0 ✅ |
+| Contatos travados (pendentes com 2 tentativas) | 0 ✅ |
+| Corretores sem usuário / sem permissão | 0 ✅ |
 
-1. **Substituir o conteúdo de `src/routes/_authenticated/index.tsx`**
-   - Mover a UI completa de `src/routes/_authenticated/redesign.tsx` para dentro de `index.tsx`.
-   - Manter o `head()` atual (título/meta) do index — não copiar o do redesign.
-   - Preservar todos os hooks já integrados no redesign: `useCloudState`, `useContactBuffer`, `useReminderNotifier`, `record_call_outcome`, timer de ligação, template switcher WhatsApp, histórico da 1ª tentativa, etc.
+Mas achei 4 instabilidades reais ainda ativas:
 
-2. **Remover a rota `/redesign`**
-   - Apagar `src/routes/_authenticated/redesign.tsx` (não faz mais sentido manter duplicado).
-   - Remover qualquer link de navegação apontando para `/redesign` (verificar navbar/menu).
+### 1. Números repetidos na fila (o maior problema)
+Existem **7.057 linhas duplicadas** — mesmo corretor, mesmo telefone, todas pendentes (4.922 números afetados). É por isso que o corretor liga para o mesmo cliente mais de uma vez: são registros diferentes na fila, então o sistema não os reconhece como o mesmo lead. Vem de listas importadas várias vezes ou com repetição interna.
 
-3. **Verificar dependências compartilhadas**
-   - Confirmar que fontes Sora + Manrope continuam carregadas no `__root.tsx` (já estão).
-   - Confirmar que tokens de cor Fortal (navy + gold) usados no redesign existem em `src/styles.css` — se estiverem inline no arquivo do redesign, promovê-los para tokens globais para manter consistência com as outras abas (Dashboard, Lembretes, Rápido).
+### 2. Contatos sem telefone válido (496 pendentes)
+413 contatos têm o campo de telefone em branco e outros têm menos de 10 dígitos. Eles entram na fila normalmente, o corretor recebe o lead, mas o botão de ligar não funciona — obriga a pular manualmente e polui a contagem de pendentes.
 
-4. **Sanidade das abas irmãs**
-   - `DashboardTab`, `LembretesTab`, `RapidoTab` continuam sendo renderizadas pelo index — validar que a nova moldura (header/tabs) do redesign as acomoda corretamente e que nada quebrou visualmente.
+### 3. Presença "fantasma" (3 corretores)
+Quando o app é fechado bruscamente (celular travando, aba morta), a linha de "está ligando agora" não é apagada. A tela já esconde depois de 90s, mas o registro fica no banco para sempre e pode reaparecer em relatórios.
 
-### O que NÃO muda
+### 4. Sessões e lembretes antigos acumulando
+19 sessões de discagem paradas há mais de 1 dia e 2 lembretes vencidos ainda como "pendentes".
 
-- Schema do banco, RPCs, RLS, migrações — nada.
-- Lógica de fila, contagem de tentativas, deferimento, realtime, cache local.
-- Rotas de convite, auth, admin.
+---
 
-### Riscos e mitigação
+## Plano de correção
 
-- **Estado/hook duplicado**: garantir que só existe uma instância de `useCloudState`/`useContactBuffer` na árvore após a fusão.
-- **Divergências sutis**: o index atual pode ter correções recentes (ex.: `forcedCurrentContactId`, fallback de myQueue, badges de lembrete) que o redesign não tem. Vou reconciliar essas ao migrar, não simplesmente sobrescrever.
-- **Tokens hardcoded**: se o redesign usa cores literais, movê-las para `styles.css` antes de promover.
+**Banco de dados (migração)**
+1. Limpeza de duplicatas: manter apenas 1 registro pendente por corretor + telefone (fica o mais antigo, ou o que já tem tentativas registradas); os demais viram `status = 'duplicado'` — não somem do banco, só saem da fila.
+2. Índice único parcial impedindo que novas importações criem pendentes duplicados para o mesmo corretor + telefone, para o problema não voltar.
+3. Contatos com telefone inválido passam para `status = 'invalido'` e são excluídos da fila nas funções `dialer_prefetch_queue`, `next_contact_for_broker` e `broker_contact_lists` — assim as contagens por lista passam a refletir só o que é realmente discável.
+4. Nova função de limpeza automática que apaga presença sem sinal há mais de 5 minutos, sessões paradas há mais de 1 dia e marca lembretes vencidos como expirados.
 
-### Entregável
+**Frontend**
+5. `DiscadorTab`: se algum contato inválido escapar, o cartão mostra aviso e o botão de pular fica em destaque em vez do "Ligar" quebrado.
+6. Chamada da limpeza automática ao abrir o discador (barata, no máximo 1x a cada poucos minutos) para a presença entre celular e computador nunca ficar presa.
 
-- `/` renderiza o novo design como discador principal.
-- `/redesign` deixa de existir (404 ou redirect para `/`).
-- Todas as funcionalidades atuais continuam operando sem regressão.
+**Verificação depois de aplicar**
+- Reconferir contagens: duplicatas = 0, pendentes inválidos = 0, presença fantasma = 0.
+- Relatório por corretor mostrando quantos pendentes reais cada um ficou, para confirmar que ninguém perdeu lead legítimo.
+
+### Detalhes técnicos
+Nenhuma linha é deletada — a limpeza é feita por mudança de status, então tudo é reversível. O índice único será `CREATE UNIQUE INDEX ... ON contacts_queue (broker_id, phone) WHERE status = 'pending'`, com tratamento para `broker_id` nulo (fila geral). As funções RPC mantêm a assinatura atual, só ganham o filtro de telefone válido — nenhuma mudança de contrato com o app.
