@@ -244,15 +244,19 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     }
   }
 
-  function skip() { if (current) { void clear(); advance(); } }
+  function skip() { if (current) { unpin(); void clear(); advance(); } }
 
   function startDial() {
     if (!current?.phone) return;
+    // Trava o contato no topo da fila: sair do app para discar (iOS/Android)
+    // dispara um recarregamento, e sem o pin outro cliente tomaria a tela.
+    pin(current.id);
     dialStartRef.current = Date.now();
     setDialing(true);
     setCallSeconds(0);
     void publish({ id: current.id, name: current.name, phone: current.phone });
   }
+
 
 
   function copyPhone() {
