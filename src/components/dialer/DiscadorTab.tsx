@@ -156,15 +156,16 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   const today = todayISO();
   const k = useMemo(() => {
     const myCalls = state.calls.filter((c) => c.brokerId === brokerId && c.date === today);
-    // Mesma contagem do Painel: contatos únicos, não tentativas.
-    const total = uniqueContactCount(myCalls);
+    // Cada tentativa registrada conta como uma ligação (1ª e 2ª tentativa somam).
+    const total = myCalls.length;
     const attended = uniqueContactCountWhere(myCalls, (c) => c.attended);
     return {
       total,
       attended,
-      noAnswer: Math.max(0, total - attended),
+      noAnswer: Math.max(0, myCalls.filter((c) => !c.attended).length),
       scheduled: uniqueContactCountWhere(myCalls, (c) => c.scheduled),
     };
+
   }, [state.calls, brokerId, today]);
   const meta = state.metaDaily || 50;
   const pct = Math.min(100, Math.round((k.total / Math.max(1, meta)) * 100));

@@ -300,13 +300,13 @@ function RapidoTab({ state, setState }: { state: State; setState: React.Dispatch
 
   const today = state.calls.filter((c) => c.brokerId === brokerId && c.date === date);
   const attendedUnique = uniqueContactCountWhere(today, (c) => c.attended);
-  const totalUnique = uniqueContactCount(today);
   const k = {
-    total: totalUnique,
+    total: today.length,
     attended: attendedUnique,
-    notAttended: Math.max(0, totalUnique - attendedUnique),
+    notAttended: today.filter((c) => !c.attended).length,
     scheduled: uniqueContactCountWhere(today, (c) => c.scheduled),
   };
+
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? "—";
 
   return (
