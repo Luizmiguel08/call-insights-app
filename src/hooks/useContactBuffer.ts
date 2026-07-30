@@ -16,6 +16,26 @@ export type BufferedContact = {
 
 const BUFFER_SIZE = 10;
 const REFILL_THRESHOLD = 3;
+const PIN_KEY = "dialer:pinned_contact_id";
+
+function readStoredPin(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PIN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredPin(id: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (id) window.localStorage.setItem(PIN_KEY, id);
+    else window.localStorage.removeItem(PIN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Local prefetch buffer of upcoming contacts.
@@ -29,7 +49,9 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
   const inflightRef = useRef(false);
   // Contato "travado" na frente da fila: o corretor está no meio da ligação
   // (ou entre a 1ª e a 2ª tentativa). Nenhum recarregamento pode trocá-lo.
-  const pinnedRef = useRef<string | null>(null);
+  // Persiste no aparelho: sair para o discador nativo do iPhone pode
+  // descarregar o app inteiro, e ao voltar o mesmo cliente precisa estar lá.
+  const pinnedRef = useRef<string | null>(readStoredPin());
 
   const load = useCallback(
     async (replace: boolean) => {
@@ -46,20 +68,58 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
         });
         if (rpcError) throw rpcError;
         const rows = (data ?? []) as BufferedContact[];
+
+        // O contato travado é soberano: se a nova leva não o trouxe (ele cai
+        // no fim da ordenação depois da 1ª tentativa), buscamos pelo id para
+        // ele nunca sumir da tela no meio da ligação.
+        const pinnedId = pinnedRef.current;
+        let pinnedRow: BufferedContact | null = null;
+        if (pinnedId && !rows.some((r) => r.id === pinnedId)) {
+          const { data: pinData } = await supabase
+            .from("contacts_queue")
+            .select("id, name, phone, list_name, broker_id, call_attempts, priority, created_at, status")
+            .eq("id", pinnedId)
+            .maybeSingle();
+          const p: any = pinData;
+          if (p && p.status === "pending" && (p.call_attempts ?? 0) < 2) {
+            pinnedRow = {
+              id: p.id,
+              name: p.name,
+              phone: p.phone,
+              list_name: p.list_name,
+              broker_id: p.broker_id,
+              attempt_count: p.call_attempts ?? 0,
+              priority: p.priority ?? 0,
+              created_at: p.created_at,
+              last_attempt_result: null,
+              last_attempt_at: null,
+            };
+          } else if (p) {
+            // Já concluído em outro aparelho: solta a trava.
+            pinnedRef.current = null;
+            writeStoredPin(null);
+          }
+        }
+
         setBuffer((prev) => {
-          const pinnedId = pinnedRef.current;
+          const pid = pinnedRef.current;
+          const pinnedFromPrev = pid ? prev.find((c) => c.id === pid) ?? null : null;
           const reorder = (list: BufferedContact[]) => {
-            if (!pinnedId) return list;
-            const idx = list.findIndex((c) => c.id === pinnedId);
-            if (idx <= 0) return list;
-            const copy = list.slice();
-            const [p] = copy.splice(idx, 1);
-            return [p, ...copy];
+            if (!pid) return list;
+            const idx = list.findIndex((c) => c.id === pid);
+            if (idx > 0) {
+              const copy = list.slice();
+              const [p] = copy.splice(idx, 1);
+              return [p, ...copy];
+            }
+            if (idx === 0) return list;
+            const recovered = pinnedRow ?? pinnedFromPrev;
+            return recovered ? [recovered, ...list] : list;
           };
-          if (replace) return reorder(rows);
+          if (replace) return reorder(rows).slice(0, BUFFER_SIZE);
           const seen = new Set(prev.map((c) => c.id));
           const merged = [...prev, ...rows.filter((r) => !seen.has(r.id))];
-          return reorder(merged.slice(0, BUFFER_SIZE));
+          return reorder(merged).slice(0, BUFFER_SIZE);
         });
         setError(null);
       } catch (e: any) {
@@ -76,6 +136,7 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
   useEffect(() => {
     void load(true);
   }, [load]);
+
 
   // background refill
   useEffect(() => {
