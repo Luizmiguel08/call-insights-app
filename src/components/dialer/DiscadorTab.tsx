@@ -107,6 +107,20 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     return () => { void supabase.removeChannel(ch); };
   }, [brokerId]);
 
+  // Faxina leve: apaga "ligando agora" preso de aparelhos que fecharam de
+  // forma abrupta, sessões abandonadas e lembretes vencidos. No máximo 1x a
+  // cada 10 minutos por aparelho.
+  useEffect(() => {
+    if (!brokerId) return;
+    const KEY = "dialer.housekeeping.at";
+    const last = Number(localStorage.getItem(KEY) ?? 0);
+    if (Date.now() - last < 10 * 60 * 1000) return;
+    localStorage.setItem(KEY, String(Date.now()));
+    void (supabase as any).rpc("dialer_housekeeping");
+  }, [brokerId]);
+
+
+
 
 
   const [note, setNote] = useState("");
@@ -270,6 +284,9 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   const waMsg = current ? renderWaMessage(waTexts[waTemplate], current.name) : "";
   const wa = current ? waHrefFromMessage(current.phone, waMsg) : "#";
   const dial = current ? telHref(current.phone) : "#";
+  // Contato sem telefone discável: nunca oferecer um botão de ligar quebrado.
+  const phoneValid = !!current && (current.phone ?? "").replace(/\D/g, "").length >= 10;
+
 
   const isLast = (current?.attempt_count ?? 0) >= 1;
   const lastWhen = lastCall
@@ -595,26 +612,52 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
 
                 {/* Round dial button */}
                 <div className="flex flex-col items-center gap-5 mb-8">
-                  <a
-                    href={dial}
-                    target="_top"
-                    onClick={startDial}
-                    className="group relative flex items-center justify-center rounded-full transition-all active:scale-95"
-                    style={{
-                      width: 140,
-                      height: 140,
-                      background: `radial-gradient(circle at 30% 30%, ${T.goldSoft}, ${T.gold} 60%, #a68a3a 100%)`,
-                      boxShadow: `0 0 0 8px ${T.goldDim}, 0 20px 60px -20px rgba(201,168,76,0.6), inset 0 -6px 20px rgba(0,0,0,0.25)`,
-                    }}
-                    aria-label="Ligar agora"
-                  >
-                    <span className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ background: T.gold, animationDuration: "2.4s" }} />
-                    <Phone className="w-12 h-12 relative z-10" style={{ color: T.bg }} strokeWidth={2.4} />
-                  </a>
-                  <div className="text-center">
-                    <p className="text-[11px] uppercase tracking-[0.28em] font-bold" style={{ color: T.gold, fontFamily: T.sora }}>Ligar agora</p>
-                    <p className="text-[10px] mt-1" style={{ color: T.textMute }}>Toque para discar no seu aparelho</p>
-                  </div>
+                  {!phoneValid ? (
+                    <>
+                      <div
+                        className="flex items-center justify-center rounded-full"
+                        style={{ width: 140, height: 140, background: T.bgSoft, border: `1px dashed ${T.line}` }}
+                      >
+                        <Phone className="w-12 h-12" style={{ color: T.textMute }} strokeWidth={2} />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[11px] uppercase tracking-[0.28em] font-bold" style={{ color: T.red, fontFamily: T.sora }}>Telefone inválido</p>
+                        <p className="text-[10px] mt-1" style={{ color: T.textMute }}>Este contato não tem número discável</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={skip}
+                        className="rounded-full px-6 py-3 text-[12px] uppercase tracking-[0.2em] font-bold transition active:scale-95"
+                        style={{ background: T.gold, color: T.bg, fontFamily: T.sora }}
+                      >
+                        Pular contato
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <a
+                        href={dial}
+                        target="_top"
+                        onClick={startDial}
+                        className="group relative flex items-center justify-center rounded-full transition-all active:scale-95"
+                        style={{
+                          width: 140,
+                          height: 140,
+                          background: `radial-gradient(circle at 30% 30%, ${T.goldSoft}, ${T.gold} 60%, #a68a3a 100%)`,
+                          boxShadow: `0 0 0 8px ${T.goldDim}, 0 20px 60px -20px rgba(201,168,76,0.6), inset 0 -6px 20px rgba(0,0,0,0.25)`,
+                        }}
+                        aria-label="Ligar agora"
+                      >
+                        <span className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ background: T.gold, animationDuration: "2.4s" }} />
+                        <Phone className="w-12 h-12 relative z-10" style={{ color: T.bg }} strokeWidth={2.4} />
+                      </a>
+                      <div className="text-center">
+                        <p className="text-[11px] uppercase tracking-[0.28em] font-bold" style={{ color: T.gold, fontFamily: T.sora }}>Ligar agora</p>
+                        <p className="text-[10px] mt-1" style={{ color: T.textMute }}>Toque para discar no seu aparelho</p>
+                      </div>
+                    </>
+                  )}
+
 
                   {/* WA templates */}
                   <div className="w-full max-w-md mt-2">

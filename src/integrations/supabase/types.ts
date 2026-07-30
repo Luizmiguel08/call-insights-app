@@ -753,6 +753,7 @@ export type Database = {
       claim_corretor_role_if_eligible: { Args: never; Returns: Json }
       current_broker_id: { Args: never; Returns: string }
       current_org_id: { Args: never; Returns: string }
+      dialer_housekeeping: { Args: never; Returns: Json }
       dialer_prefetch_queue: {
         Args: { _limit?: number; _list_name?: string }
         Returns: {
