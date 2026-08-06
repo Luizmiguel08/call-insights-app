@@ -160,7 +160,7 @@ async function loadAll(me: Me | null): Promise<State> {
         .order("updated_at", { ascending: false })
         .order("id", { ascending: true })
         .limit(200);
-      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+      if (scoped) q = q.eq("broker_id", scoped);
       const r = await q;
       if (r.error) throw r.error;
       return (r.data ?? []) as any[];
@@ -175,7 +175,7 @@ async function loadAll(me: Me | null): Promise<State> {
         .order("updated_at", { ascending: false })
         .order("id", { ascending: true })
         .limit(200);
-      if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+      if (scoped) q = q.eq("broker_id", scoped);
       const r = await q;
       if (r.error) throw r.error;
       return (r.data ?? []) as any[];
@@ -274,7 +274,7 @@ async function loadDeltaContactsSince(sinceIso: string | null, me: Me | null): P
       .order("id", { ascending: true })
       .limit(pageSize);
     if (cursor) q = q.gt("updated_at", cursor);
-    if (scoped) q = q.or(`broker_id.eq.${scoped},broker_id.is.null`);
+    if (scoped) q = q.eq("broker_id", scoped);
     const r = await q;
     if (r.error) throw r.error;
     const rows = (r.data ?? []) as any[];

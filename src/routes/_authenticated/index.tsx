@@ -946,7 +946,7 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
       const base = () => {
         let q: any = (supabase.from("contacts_queue") as any).select("id", { count: "exact", head: true });
         if (!isAdmin) {
-          q = me?.brokerId ? q.or(`broker_id.eq.${me.brokerId},broker_id.is.null`) : q.is("broker_id", null);
+          q = me?.brokerId ? q.eq("broker_id", me.brokerId) : q.is("broker_id", null);
         } else if (filterBroker === "geral") {
           q = q.is("broker_id", null);
         } else if (filterBroker !== "all") {
