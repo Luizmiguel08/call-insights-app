@@ -919,6 +919,13 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
   const [filterList, setFilterList] = useState<string>("all");
   const [listName, setListName] = useState<string>("Geral");
   const [metaInput, setMetaInput] = useState(String(state.metaDaily || 50));
+  // Contagem REAL vinda do banco. O estado local guarda só uma amostra (200
+  // linhas) para não baixar dezenas de milhares de contatos no bootstrap —
+  // por isso uma lista de 1.000 aparecia com número menor na tela.
+  const [dbCounts, setDbCounts] = useState<{ pending: number; done: number; skipped: number } | null>(null);
+  const [countsLoading, setCountsLoading] = useState(false);
+
+
 
   // Corretor: sempre força auto-atribuição pra ele mesmo
   useEffect(() => {
@@ -931,6 +938,39 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     for (const c of state.contacts) set.add(c.listName || "Geral");
     return Array.from(set).sort();
   }, [state.contacts]);
+
+  // Contagem exata no banco, respeitando os filtros da tela.
+  const refreshCounts = useCallback(async () => {
+    setCountsLoading(true);
+    try {
+      const base = () => {
+        let q: any = (supabase.from("contacts_queue") as any).select("id", { count: "exact", head: true });
+        if (!isAdmin) {
+          q = me?.brokerId ? q.or(`broker_id.eq.${me.brokerId},broker_id.is.null`) : q.is("broker_id", null);
+        } else if (filterBroker === "geral") {
+          q = q.is("broker_id", null);
+        } else if (filterBroker !== "all") {
+          q = q.eq("broker_id", filterBroker);
+        }
+        if (filterList !== "all") q = q.eq("list_name", filterList);
+        return q;
+      };
+      const [p, d, s] = await Promise.all([
+        base().eq("status", "pending"),
+        base().eq("status", "done"),
+        base().eq("status", "skipped"),
+      ]);
+      setDbCounts({ pending: p.count ?? 0, done: d.count ?? 0, skipped: s.count ?? 0 });
+    } catch {
+      setDbCounts(null);
+    } finally {
+      setCountsLoading(false);
+    }
+  }, [isAdmin, me?.brokerId, filterBroker, filterList]);
+
+  useEffect(() => { void refreshCounts(); }, [refreshCounts]);
+
+
 
   // Parser tolerante: aceita "Nome; telefone", "Nome telefone", "telefone Nome",
   // telefone sozinho e também nome numa linha com o telefone na linha seguinte
@@ -998,7 +1038,7 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
   }, []);
 
 
-  function importContacts() {
+  async function importContacts() {
     if (preview.length === 0) {
       toast.error("Nenhum contato com telefone válido", {
         description: invalidRows.length
@@ -1012,13 +1052,26 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     const cleanList = (listName.trim() || "Geral").slice(0, 80);
     const digits = (p: string) => (p || "").replace(/\D/g, "");
 
-    // O banco só aceita 1 pendente por corretor + telefone. Filtramos aqui
-    // para o lote nunca ser rejeitado por causa de um número repetido.
-    const existing = new Set(
-      state.contacts
-        .filter((c) => c.status === "pendente" && (c.brokerId ?? null) === brokerId)
-        .map((c) => digits(c.phone)),
-    );
+    // O banco só aceita 1 pendente por corretor + telefone. Consultamos o
+    // BANCO (não a amostra local de 200 linhas) para saber quais já existem —
+    // antes, uma lista grande perdia linhas silenciosamente no insert.
+    const existing = new Set<string>();
+    try {
+      const phones = Array.from(new Set(preview.map((p) => p.phone).filter(Boolean)));
+      for (let i = 0; i < phones.length; i += 300) {
+        const slice = phones.slice(i, i + 300);
+        let q: any = (supabase.from("contacts_queue") as any)
+          .select("phone")
+          .eq("status", "pending")
+          .in("phone", slice);
+        q = brokerId ? q.eq("broker_id", brokerId) : q.is("broker_id", null);
+        const { data } = await q;
+        for (const row of (data ?? []) as any[]) existing.add(digits(row.phone));
+      }
+    } catch {
+      /* sem checagem prévia: o insert linha-a-linha ainda protege o lote */
+    }
+
     const seen = new Set<string>();
     const kept: typeof preview = [];
     let duplicates = 0;
@@ -1046,16 +1099,19 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
       listName: cleanList,
     }));
     setState((s) => ({ ...s, contacts: [...s.contacts, ...newContacts] }));
-    toast.success(`${newContacts.length} contato(s) importado(s) na lista "${cleanList}"`, {
+    toast.success(`${newContacts.length} contato(s) enviado(s) para a lista "${cleanList}"`, {
       description: [
         brokerId ? `Atribuído a ${state.brokers.find(b => b.id === brokerId)?.name}` : "Fila geral",
-        duplicates > 0 ? `${duplicates} repetido(s) ignorado(s)` : null,
+        duplicates > 0 ? `${duplicates} já estavam na fila` : null,
         invalidRows.length > 0 ? `${invalidRows.length} sem telefone válido` : null,
       ].filter(Boolean).join(" · "),
 
     });
     setBulk("");
+    // Confere no banco quantos realmente entraram (evita "sumiço" silencioso).
+    window.setTimeout(() => { void refreshCounts(); }, 2500);
   }
+
 
 
   function removeContact(id: string) {
@@ -1140,9 +1196,11 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     return true;
   });
 
-  const pending = visible.filter((c) => c.status === "pendente").length;
-  const done = visible.filter((c) => c.status === "feito").length;
-  const skipped = visible.filter((c) => c.status === "pulado").length;
+  // Números reais do banco quando disponíveis; a amostra local é só fallback.
+  const pending = dbCounts?.pending ?? visible.filter((c) => c.status === "pendente").length;
+  const done = dbCounts?.done ?? visible.filter((c) => c.status === "feito").length;
+  const skipped = dbCounts?.skipped ?? visible.filter((c) => c.status === "pulado").length;
+
 
   return (
     <div className="space-y-5">
@@ -1164,12 +1222,19 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
             >Salvar</button>
           </div>
         </Field>
-        <div className="flex flex-1 gap-3 justify-end">
+        <div className="flex flex-1 items-end gap-3 justify-end">
           <Kpi label="Pendentes" value={pending} color="#c9a84c" />
           <Kpi label="Feitos" value={done} color="#22c55e" />
           <Kpi label="Pulados" value={skipped} color="#71717a" />
+          <button
+            onClick={() => { void refreshCounts(); }}
+            disabled={countsLoading}
+            className="h-10 rounded-md border border-zinc-700 px-3 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+            style={fontDisplay}
+          >{countsLoading ? "Contando…" : "Atualizar"}</button>
         </div>
       </div>
+
 
       {/* Importar */}
       <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-5">
