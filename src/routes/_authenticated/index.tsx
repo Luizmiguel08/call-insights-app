@@ -919,6 +919,13 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
   const [filterList, setFilterList] = useState<string>("all");
   const [listName, setListName] = useState<string>("Geral");
   const [metaInput, setMetaInput] = useState(String(state.metaDaily || 50));
+  // Contagem REAL vinda do banco. O estado local guarda só uma amostra (200
+  // linhas) para não baixar dezenas de milhares de contatos no bootstrap —
+  // por isso uma lista de 1.000 aparecia com número menor na tela.
+  const [dbCounts, setDbCounts] = useState<{ pending: number; done: number; skipped: number } | null>(null);
+  const [countsLoading, setCountsLoading] = useState(false);
+
+
 
   // Corretor: sempre força auto-atribuição pra ele mesmo
   useEffect(() => {
