@@ -939,6 +939,39 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     return Array.from(set).sort();
   }, [state.contacts]);
 
+  // Contagem exata no banco, respeitando os filtros da tela.
+  const refreshCounts = useCallback(async () => {
+    setCountsLoading(true);
+    try {
+      const base = () => {
+        let q: any = (supabase.from("contacts_queue") as any).select("id", { count: "exact", head: true });
+        if (!isAdmin) {
+          q = me?.brokerId ? q.or(`broker_id.eq.${me.brokerId},broker_id.is.null`) : q.is("broker_id", null);
+        } else if (filterBroker === "geral") {
+          q = q.is("broker_id", null);
+        } else if (filterBroker !== "all") {
+          q = q.eq("broker_id", filterBroker);
+        }
+        if (filterList !== "all") q = q.eq("list_name", filterList);
+        return q;
+      };
+      const [p, d, s] = await Promise.all([
+        base().eq("status", "pending"),
+        base().eq("status", "done"),
+        base().eq("status", "skipped"),
+      ]);
+      setDbCounts({ pending: p.count ?? 0, done: d.count ?? 0, skipped: s.count ?? 0 });
+    } catch {
+      setDbCounts(null);
+    } finally {
+      setCountsLoading(false);
+    }
+  }, [isAdmin, me?.brokerId, filterBroker, filterList]);
+
+  useEffect(() => { void refreshCounts(); }, [refreshCounts]);
+
+
+
   // Parser tolerante: aceita "Nome; telefone", "Nome telefone", "telefone Nome",
   // telefone sozinho e também nome numa linha com o telefone na linha seguinte
   // (formato comum ao copiar contatos do celular/WhatsApp).
