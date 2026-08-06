@@ -932,28 +932,50 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     return Array.from(set).sort();
   }, [state.contacts]);
 
-  function parseLines(text: string): { name: string; phone: string }[] {
-    const out: { name: string; phone: string }[] = [];
-    for (const raw of text.split(/\r?\n/)) {
-      const line = raw.trim();
-      if (!line) continue;
-      let name = "", phone = "";
-      const sep = line.match(/[;,\t|]/);
-      if (sep) {
-        const parts = line.split(/[;,\t|]/).map((p) => p.trim());
-        name = parts[0] || "";
-        phone = parts.slice(1).find((p) => /\d/.test(p)) || "";
-      } else {
-        const m = line.match(/^(.*?)\s+([+()\d\s-]{8,})$/);
-        if (m) { name = m[1].trim(); phone = m[2].trim(); }
-        else { name = line; phone = ""; }
+  // Parser tolerante: aceita "Nome; telefone", "Nome telefone", "telefone Nome",
+  // telefone sozinho e também nome numa linha com o telefone na linha seguinte
+  // (formato comum ao copiar contatos do celular/WhatsApp).
+  // Só entra na fila quem tem telefone com pelo menos 10 dígitos — números
+  // quebrados (ex.: "+021") eram salvos e travavam a fila inteira.
+  type ParsedRow = { name: string; phone: string; raw: string; valid: boolean };
+  function parseLines(text: string): ParsedRow[] {
+    const out: ParsedRow[] = [];
+    const digitsOf = (s: string) => (s || "").replace(/\D/g, "");
+    const extract = (line: string) => {
+      const candidates = line.match(/\+?\d[\d\s().\-]{7,}\d/g) ?? [];
+      let best = "";
+      for (const c of candidates) if (digitsOf(c).length > digitsOf(best).length) best = c;
+      if (!best) return null;
+      const name = line.replace(best, " ").replace(/[;,\t|]+/g, " ").replace(/\s+/g, " ").trim();
+      return { name, phone: best.trim() };
+    };
+
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    let pendingName: string | null = null;
+
+    for (const line of lines) {
+      const hit = extract(line);
+      if (!hit) {
+        // Linha sem telefone: guarda como nome para casar com a próxima linha.
+        if (pendingName) out.push({ name: pendingName, phone: "", raw: pendingName, valid: false });
+        pendingName = line.replace(/[;,\t|]+/g, " ").replace(/\s+/g, " ").trim();
+        continue;
       }
-      if (name) out.push({ name, phone: normalizePhone(phone) });
+      let name = hit.name;
+      if (!name && pendingName) name = pendingName;
+      pendingName = null;
+      const phone = normalizePhone(hit.phone);
+      const valid = digitsOf(phone).length >= 10;
+      out.push({ name: name || digitsOf(hit.phone), phone, raw: line, valid });
     }
+    if (pendingName) out.push({ name: pendingName, phone: "", raw: pendingName, valid: false });
     return out;
   }
 
-  const preview = useMemo(() => parseLines(bulk), [bulk]);
+  const parsed = useMemo(() => parseLines(bulk), [bulk]);
+  const preview = useMemo(() => parsed.filter((p) => p.valid), [parsed]);
+  const invalidRows = useMemo(() => parsed.filter((p) => !p.valid), [parsed]);
+
 
   // Relatório da sincronização: se o banco recusou alguma linha, o corretor
   // precisa saber quantas entraram de fato (antes o lote inteiro sumia calado).
