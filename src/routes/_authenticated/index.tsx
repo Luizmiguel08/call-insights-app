@@ -1050,7 +1050,9 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
       description: [
         brokerId ? `Atribuído a ${state.brokers.find(b => b.id === brokerId)?.name}` : "Fila geral",
         duplicates > 0 ? `${duplicates} repetido(s) ignorado(s)` : null,
+        invalidRows.length > 0 ? `${invalidRows.length} sem telefone válido` : null,
       ].filter(Boolean).join(" · "),
+
     });
     setBulk("");
   }
