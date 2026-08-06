@@ -1222,12 +1222,19 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
             >Salvar</button>
           </div>
         </Field>
-        <div className="flex flex-1 gap-3 justify-end">
+        <div className="flex flex-1 items-end gap-3 justify-end">
           <Kpi label="Pendentes" value={pending} color="#c9a84c" />
           <Kpi label="Feitos" value={done} color="#22c55e" />
           <Kpi label="Pulados" value={skipped} color="#71717a" />
+          <button
+            onClick={() => { void refreshCounts(); }}
+            disabled={countsLoading}
+            className="h-10 rounded-md border border-zinc-700 px-3 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+            style={fontDisplay}
+          >{countsLoading ? "Contando…" : "Atualizar"}</button>
         </div>
       </div>
+
 
       {/* Importar */}
       <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-5">
