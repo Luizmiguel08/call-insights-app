@@ -1196,9 +1196,11 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
     return true;
   });
 
-  const pending = visible.filter((c) => c.status === "pendente").length;
-  const done = visible.filter((c) => c.status === "feito").length;
-  const skipped = visible.filter((c) => c.status === "pulado").length;
+  // Números reais do banco quando disponíveis; a amostra local é só fallback.
+  const pending = dbCounts?.pending ?? visible.filter((c) => c.status === "pendente").length;
+  const done = dbCounts?.done ?? visible.filter((c) => c.status === "feito").length;
+  const skipped = dbCounts?.skipped ?? visible.filter((c) => c.status === "pulado").length;
+
 
   return (
     <div className="space-y-5">
