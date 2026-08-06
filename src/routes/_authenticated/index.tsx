@@ -1229,6 +1229,12 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
                 {preview.length}
               </div>
               <div className="text-xs text-zinc-500">contato(s) válido(s)</div>
+              {invalidRows.length > 0 && (
+                <div className="mt-1 text-xs text-amber-400">
+                  {invalidRows.length} linha(s) sem telefone válido serão ignoradas
+                </div>
+              )}
+
             </div>
             <button
               onClick={importContacts}
