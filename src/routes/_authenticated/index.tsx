@@ -999,7 +999,15 @@ function FilaTab({ state, setState, isAdmin, me, refetchCloud }: { state: State;
 
 
   function importContacts() {
-    if (preview.length === 0) { toast.error("Cole pelo menos um contato"); return; }
+    if (preview.length === 0) {
+      toast.error("Nenhum contato com telefone válido", {
+        description: invalidRows.length
+          ? `${invalidRows.length} linha(s) sem telefone com pelo menos 10 dígitos`
+          : "Cole pelo menos um contato",
+      });
+      return;
+    }
+
     const brokerId = assignTo || null;
     const cleanList = (listName.trim() || "Geral").slice(0, 80);
     const digits = (p: string) => (p || "").replace(/\D/g, "");
