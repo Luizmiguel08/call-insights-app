@@ -19,6 +19,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
+import { Route as ApiPublicExportMetricasDiariasRouteImport } from './routes/api/public/export-metricas-diarias'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -69,6 +70,12 @@ const ConviteTokenRoute = ConviteTokenRouteImport.update({
   path: '/convite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicExportMetricasDiariasRoute =
+  ApiPublicExportMetricasDiariasRouteImport.update({
+    id: '/api/public/export-metricas-diarias',
+    path: '/api/public/export-metricas-diarias',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/convite/$token': typeof ConviteTokenRoute
+  '/api/public/export-metricas-diarias': typeof ApiPublicExportMetricasDiariasRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -91,6 +99,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/': typeof AuthenticatedIndexRoute
+  '/api/public/export-metricas-diarias': typeof ApiPublicExportMetricasDiariasRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +113,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/api/public/export-metricas-diarias': typeof ApiPublicExportMetricasDiariasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/sessoes'
     | '/sitemap.xml'
     | '/convite/$token'
+    | '/api/public/export-metricas-diarias'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/convite/$token'
     | '/'
+    | '/api/public/export-metricas-diarias'
   id:
     | '__root__'
     | '/_authenticated'
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/convite/$token'
     | '/_authenticated/'
+    | '/api/public/export-metricas-diarias'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,6 +165,7 @@ export interface RootRouteChildren {
   SessoesRoute: typeof SessoesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ConviteTokenRoute: typeof ConviteTokenRoute
+  ApiPublicExportMetricasDiariasRoute: typeof ApiPublicExportMetricasDiariasRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -226,6 +240,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/export-metricas-diarias': {
+      id: '/api/public/export-metricas-diarias'
+      path: '/api/public/export-metricas-diarias'
+      fullPath: '/api/public/export-metricas-diarias'
+      preLoaderRoute: typeof ApiPublicExportMetricasDiariasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -250,6 +271,7 @@ const rootRouteChildren: RootRouteChildren = {
   SessoesRoute: SessoesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ConviteTokenRoute: ConviteTokenRoute,
+  ApiPublicExportMetricasDiariasRoute: ApiPublicExportMetricasDiariasRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
