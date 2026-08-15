@@ -2,10 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const CORS_HEADERS: Record<string, string> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "authorization, content-type, x-sync-secret",
+};
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    headers: {
+      ...CORS_HEADERS,
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
   });
 }
 
@@ -21,20 +31,13 @@ function localDay(iso: string) {
 
 const MIN_DATE = "2026-08-14"; // não expõe dados anteriores a 14/08/2026
 
-type Registro = {
+type Agregado = {
   data: string;
-  corretor_id: string;
+  broker_id: string;
   fonte_nome: string;
-  fonte: "discador";
-  leads: number;
   ligacoes: number;
-  agendamentos: number;
-  visitas: number;
-  visitas_desmarcadas: number;
-  negociacoes: number;
-  documentacoes: number;
-  vendas: number;
-  vgv: number;
+  atendidas: number;
+  agendou: number;
 };
 
 function authorized(request: Request) {
@@ -46,7 +49,7 @@ function authorized(request: Request) {
   return bearer === secret || legacy === secret;
 }
 
-async function buildRegistros(de: string, ate: string) {
+async function aggregate(de: string, ate: string): Promise<Agregado[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   // Janela em UTC cobrindo os dias locais solicitados (BRT = UTC-3)
@@ -61,7 +64,7 @@ async function buildRegistros(de: string, ate: string) {
   if (brokersError) throw new Error("falha_consulta");
   const nomes = new Map((brokers ?? []).map((b) => [b.id, b.name]));
 
-  const registros = new Map<string, Registro>();
+  const registros = new Map<string, Agregado>();
   const pageSize = 1000;
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabaseAdmin
@@ -82,23 +85,17 @@ async function buildRegistros(de: string, ate: string) {
       if (!acc) {
         acc = {
           data: dia,
-          corretor_id: row.broker_id,
+          broker_id: row.broker_id,
           fonte_nome: nomes.get(row.broker_id) ?? "",
-          fonte: "discador",
-          leads: 0,
           ligacoes: 0,
-          agendamentos: 0,
-          visitas: 0,
-          visitas_desmarcadas: 0,
-          negociacoes: 0,
-          documentacoes: 0,
-          vendas: 0,
-          vgv: 0,
+          atendidas: 0,
+          agendou: 0,
         };
         registros.set(key, acc);
       }
       acc.ligacoes += 1;
-      if (row.scheduled) acc.agendamentos += 1;
+      if (row.attended) acc.atendidas += 1;
+      if (row.scheduled) acc.agendou += 1;
     }
     if (rows.length < pageSize) break;
   }
@@ -108,64 +105,94 @@ async function buildRegistros(de: string, ate: string) {
   );
 }
 
+// Formato BI: { desde, data: [{ data, fonte_id, fonte_nome, ligacoes, atendidas, agendou }] }
+function biPayload(desde: string, linhas: Agregado[]) {
+  return {
+    desde,
+    data: linhas.map((l) => ({
+      data: l.data,
+      fonte_id: l.broker_id,
+      fonte_nome: l.fonte_nome,
+      ligacoes: l.ligacoes,
+      atendidas: l.atendidas,
+      agendou: l.agendou,
+    })),
+  };
+}
+
+// Formato legado (CRM): { fonte: "discador", registros: [...] }
+function crmPayload(linhas: Agregado[]) {
+  return {
+    fonte: "discador" as const,
+    registros: linhas.map((l) => ({
+      data: l.data,
+      corretor_id: l.broker_id,
+      fonte_nome: l.fonte_nome,
+      fonte: "discador" as const,
+      leads: 0,
+      ligacoes: l.ligacoes,
+      agendamentos: l.agendou,
+      visitas: 0,
+      visitas_desmarcadas: 0,
+      negociacoes: 0,
+      documentacoes: 0,
+      vendas: 0,
+      vgv: 0,
+    })),
+  };
+}
+
 function resolveRange(deRaw: string | null | undefined, ateRaw: string | null | undefined) {
   const hoje = localDay(new Date().toISOString());
   const de = deRaw && DATE_RE.test(deRaw) ? deRaw : MIN_DATE;
   const ate = ateRaw && DATE_RE.test(ateRaw) ? ateRaw : hoje;
-  if (deRaw && !DATE_RE.test(deRaw)) return { erro: "de invalido (use YYYY-MM-DD)" } as const;
+  if (deRaw && !DATE_RE.test(deRaw)) return { erro: "de/desde invalido (use YYYY-MM-DD)" } as const;
   if (ateRaw && !DATE_RE.test(ateRaw)) return { erro: "ate invalido (use YYYY-MM-DD)" } as const;
   const deFinal = de < MIN_DATE ? MIN_DATE : de;
   if (deFinal > ate) return { erro: "de deve ser <= ate" } as const;
   return { de: deFinal, ate } as const;
 }
 
+async function handle(request: Request) {
+  if (!authorized(request)) return jsonResponse({ erro: "nao_autorizado" }, 401);
+
+  const url = new URL(request.url);
+  let body: Record<string, unknown> = {};
+  if (request.method === "POST") {
+    try {
+      const text = await request.text();
+      if (text.trim()) body = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return jsonResponse({ erro: "json_invalido" }, 400);
+    }
+  }
+
+  const desdeRaw =
+    (body["desde"] as string | undefined) ??
+    url.searchParams.get("desde") ??
+    undefined;
+  const deRaw = desdeRaw ?? (body["de"] as string | undefined) ?? url.searchParams.get("de");
+  const ateRaw = (body["ate"] as string | undefined) ?? url.searchParams.get("ate");
+
+  const range = resolveRange(deRaw, ateRaw);
+  if ("erro" in range) return jsonResponse({ erro: "parametros_invalidos", detalhe: range.erro }, 400);
+
+  try {
+    const linhas = await aggregate(range.de, range.ate);
+    const formato = (body["formato"] as string | undefined) ?? url.searchParams.get("formato");
+    if (formato === "crm") return jsonResponse(crmPayload(linhas));
+    return jsonResponse(biPayload(range.de, linhas));
+  } catch {
+    return jsonResponse({ erro: "falha_consulta" }, 500);
+  }
+}
+
 export const Route = createFileRoute("/api/public/export-metricas-diarias")({
   server: {
     handlers: {
-      OPTIONS: async () =>
-        new Response(null, {
-          status: 204,
-          headers: {
-            "access-control-allow-origin": "*",
-            "access-control-allow-methods": "GET, POST, OPTIONS",
-            "access-control-allow-headers": "authorization, content-type, x-sync-secret",
-          },
-        }),
-
-      POST: async ({ request }) => {
-        if (!authorized(request)) return jsonResponse({ erro: "nao_autorizado" }, 401);
-
-        let body: Record<string, unknown> = {};
-        try {
-          const text = await request.text();
-          if (text.trim()) body = JSON.parse(text) as Record<string, unknown>;
-        } catch {
-          return jsonResponse({ erro: "json_invalido" }, 400);
-        }
-
-        const range = resolveRange(body["de"] as string | undefined, body["ate"] as string | undefined);
-        if ("erro" in range) return jsonResponse({ erro: "parametros_invalidos", detalhe: range.erro }, 400);
-
-        try {
-          return jsonResponse({ fonte: "discador", registros: await buildRegistros(range.de, range.ate) });
-        } catch {
-          return jsonResponse({ erro: "falha_consulta" }, 500);
-        }
-      },
-
-      GET: async ({ request }) => {
-        if (!authorized(request)) return jsonResponse({ erro: "nao_autorizado" }, 401);
-
-        const url = new URL(request.url);
-        const range = resolveRange(url.searchParams.get("de"), url.searchParams.get("ate"));
-        if ("erro" in range) return jsonResponse({ erro: "parametros_invalidos", detalhe: range.erro }, 400);
-
-        try {
-          return jsonResponse({ fonte: "discador", registros: await buildRegistros(range.de, range.ate) });
-        } catch {
-          return jsonResponse({ erro: "falha_consulta" }, 500);
-        }
-      },
+      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
+      POST: async ({ request }) => handle(request),
+      GET: async ({ request }) => handle(request),
     },
   },
 });
