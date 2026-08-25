@@ -57,6 +57,7 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
+  const [focus, setFocus] = useState<"todos" | "falta_manha" | "falta_tarde" | "sem_resposta" | "pendentes_anteriores">("todos");
   const [brokerFilter, setBrokerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
