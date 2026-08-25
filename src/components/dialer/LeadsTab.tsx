@@ -4,6 +4,8 @@ import { Flame, Link2, PhoneCall, RefreshCw, Snowflake, Sun, Sunset, Check, X } 
 import { supabase } from "@/integrations/supabase/client";
 import type { Me } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
+import { syncC2sNow } from "@/lib/c2s.functions";
+
 
 const db = supabase as any;
 
@@ -58,6 +60,8 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   const [brokerFilter, setBrokerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
 
   const today = spToday();
   const period = currentPeriod();
@@ -121,7 +125,22 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
     [visible, attemptsByLead, period],
   );
 
+  async function syncNow() {
+    setSyncing(true);
+    try {
+      const r = await syncC2sNow({ data: { sinceHours: 72 } });
+      toast.success(`C2S sincronizado: ${r.saved} lead(s) atualizados`);
+      if (r.unmapped.length > 0) toast.warning(`Sem vínculo de corretor: ${r.unmapped.join(", ")}`);
+      void load();
+    } catch (e) {
+      toast.error(`Falha ao sincronizar C2S: ${(e as Error).message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function register(lead: Lead, attended: boolean) {
+
     setBusy(lead.id);
     const { error } = await db.rpc("crm_register_lead_attempt", {
       _lead_id: lead.id,
@@ -149,13 +168,26 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
               Cada lead novo precisa de 1 ligação na manhã (9h–12h) e 1 na tarde (14h–19h). Sai daqui só quando atender; após 7 dias vai para Fria.
             </p>
           </div>
-          <button
-            onClick={() => void load()}
-            className="flex h-9 items-center gap-2 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:border-[#c9a84c]/60 hover:text-[#c9a84c]"
-            style={fontDisplay}
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                onClick={() => void syncNow()}
+                disabled={syncing}
+                className="flex h-9 items-center gap-2 rounded-md bg-[#c9a84c] px-3 text-xs font-bold uppercase tracking-wider text-[#0c0e14] disabled:opacity-60"
+                style={fontDisplay}
+              >
+                <Link2 className="h-3.5 w-3.5" /> {syncing ? "Sincronizando…" : "Sincronizar C2S"}
+              </button>
+            )}
+            <button
+              onClick={() => void load()}
+              className="flex h-9 items-center gap-2 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:border-[#c9a84c]/60 hover:text-[#c9a84c]"
+              style={fontDisplay}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+            </button>
+          </div>
+
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
