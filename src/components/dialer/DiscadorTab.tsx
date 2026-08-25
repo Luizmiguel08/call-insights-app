@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar, Copy, ListFilter, Pencil, RotateCcw } from "lucide-react";
+import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar, Copy, ListFilter, Pencil, RotateCcw, ChevronDown, Sliders } from "lucide-react";
 import { useCloudState } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useContactBuffer, recordContactAttempt } from "@/hooks/useContactBuffer";
@@ -21,26 +21,24 @@ import {
 
 // Paleta Fortal — navy profundo + dourado editorial + areia quente para respiro.
 const T = {
-  bg: "#0b0d13",
-  bgSoft: "#10131c",
-  surface: "#161a25",
-  surface2: "#1d2231",
-  line: "rgba(201,168,76,0.12)",
-  lineSoft: "rgba(255,255,255,0.06)",
-  gold: "#c9a84c",
-  goldSoft: "#e2c46e",
-  goldDim: "rgba(201,168,76,0.15)",
-  sand: "#e8dcc0",
-  text: "#f2ede1",
-  textDim: "rgba(242,237,225,0.55)",
-  textMute: "rgba(242,237,225,0.35)",
-  green: "#6fbf7a",
-  greenSoft: "rgba(111,191,122,0.15)",
-  red: "#e07a7a",
-  redSoft: "rgba(224,122,122,0.15)",
-  sora: "'Sora', ui-sans-serif, system-ui, sans-serif",
-  manrope: "'Manrope', ui-sans-serif, system-ui, sans-serif",
-  fraunces: "'Fraunces', ui-serif, Georgia, serif",
+  bg: "#fafbfc",
+  surface: "#ffffff",
+  soft: "#f3f6f9",
+  line: "#e8ecf1",
+  lineSoft: "#eef1f5",
+  ink: "#101725",
+  dim: "#64748b",
+  mute: "#94a3b8",
+  blue: "#3b82f6",
+  blueDeep: "#1d4ed8",
+  blueSoft: "#eff4ff",
+  green: "#16a34a",
+  greenSoft: "#ecfdf5",
+  red: "#dc2626",
+  redSoft: "#fef2f2",
+  gold: "#b98a1e",
+  grotesk: "'Space Grotesk', ui-sans-serif, system-ui, sans-serif",
+  sans: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
 };
 
 export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
@@ -124,6 +122,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
 
 
   const [note, setNote] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [waTemplate, setWaTemplate] = useState<1 | 2>(1);
   const [waEditing, setWaEditing] = useState(false);
@@ -307,7 +306,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
     : null;
   const lastResult = lastCall
     ? lastCall.attended && lastCall.scheduled
-      ? { text: "Agendou", color: T.gold }
+      ? { text: "Agendou", color: T.blueDeep }
       : lastCall.attended
       ? { text: "Atendeu", color: T.green }
       : { text: "Não atendeu", color: T.red }
@@ -316,545 +315,336 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
   const callSecFmt = `${String(Math.floor(callSeconds / 60)).padStart(2, "0")}:${String(callSeconds % 60).padStart(2, "0")}`;
 
   return (
-    <div className="flex flex-col gap-5" style={{ fontFamily: T.manrope, color: T.text }}>
-      {/* List selector */}
-      <div className="rounded-3xl p-4 sm:p-5" style={{ background: T.surface, border: `1px solid ${T.line}` }}>
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: T.goldDim, color: T.gold, border: `1px solid ${T.gold}` }}>
-              <ListFilter className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: T.textMute, fontFamily: T.sora }}>Lista ativa</p>
-              <p className="text-sm font-semibold truncate" style={{ color: T.sand, fontFamily: T.sora }}>
-                {selectedList ?? "Todas as listas"}
-                {selectedList && (() => {
-                  const info = lists.find((l) => l.list_name === selectedList);
-                  return info ? <span className="ml-2 text-[11px] tabular-nums" style={{ color: T.textDim }}>({info.pending} pendentes · {info.total} total)</span> : null;
-                })()}
-              </p>
-            </div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8" style={{ fontFamily: T.sans, color: T.ink }}>
+
+      {/* Linha de contexto: corretor, meta e lista — texto, não caixas */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-[0.22em]" style={{ color: T.mute, fontFamily: T.grotesk }}>
+              {brokerInitials} · {brokerName}
+            </p>
+            <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.02em]" style={{ fontFamily: T.grotesk }}>
+              {k.total}<span style={{ color: T.mute, fontWeight: 500 }}> / {meta} ligações hoje</span>
+            </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => { void loadLists(); setListsOpen((o) => !o); }}
-              className="px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-[0.18em] transition-all"
-              style={{ background: listsOpen ? T.gold : T.bgSoft, color: listsOpen ? T.bg : T.gold, border: `1px solid ${T.gold}`, fontFamily: T.sora }}
-            >
-              {listsOpen ? "Fechar" : "Trocar lista"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => { void loadLists(); setListsOpen((o) => !o); }}
+            className="flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors"
+            style={{ border: `1px solid ${T.line}`, background: listsOpen ? T.blueSoft : T.surface, color: listsOpen ? T.blueDeep : T.dim }}
+          >
+            <ListFilter className="h-3.5 w-3.5" />
+            <span className="max-w-[160px] truncate">{selectedList ?? "Todas as listas"}</span>
+          </button>
         </div>
+        <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: T.lineSoft }}>
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${pct}%`, background: reached ? T.green : T.blue }}
+          />
+        </div>
+
         {listsOpen && (
-          <div className="mt-4 pt-4 grid grid-cols-2 sm:grid-cols-3 gap-2" style={{ borderTop: `1px solid ${T.lineSoft}` }}>
+          <div className="grid grid-cols-1 gap-1 rounded-2xl p-1.5 sm:grid-cols-2" style={{ background: T.surface, border: `1px solid ${T.line}` }}>
             <button
               onClick={() => { setSelectedList(null); setListsOpen(false); void refresh(); }}
-              className="text-left p-3 rounded-xl transition-all"
-              style={{
-                background: selectedList === null ? T.goldDim : T.bgSoft,
-                border: `1px solid ${selectedList === null ? T.gold : T.lineSoft}`,
-                color: T.text,
-              }}
+              className="rounded-xl px-3 py-2.5 text-left text-sm"
+              style={{ background: selectedList === null ? T.blueSoft : "transparent", color: selectedList === null ? T.blueDeep : T.ink }}
             >
-              <p className="text-[10px] uppercase tracking-widest font-bold" style={{ color: selectedList === null ? T.gold : T.textMute, fontFamily: T.sora }}>Todas</p>
-              <p className="text-sm font-semibold mt-0.5" style={{ color: T.sand }}>Fila completa</p>
-              <p className="text-[11px] mt-1 tabular-nums" style={{ color: T.textDim }}>
+              Todas as listas
+              <span className="ml-2 text-xs tabular-nums" style={{ color: T.mute }}>
                 {lists.reduce((a, l) => a + l.pending, 0)} pendentes
-              </p>
+              </span>
             </button>
-            {lists.length === 0 && (
-              <p className="col-span-full text-xs" style={{ color: T.textDim }}>Nenhuma lista encontrada.</p>
-            )}
             {lists.map((l) => {
               const active = selectedList === l.list_name;
               return (
                 <button
                   key={l.list_name}
                   onClick={() => { setSelectedList(l.list_name); setListsOpen(false); void refresh(); }}
-                  className="text-left p-3 rounded-xl transition-all"
-                  style={{
-                    background: active ? T.goldDim : T.bgSoft,
-                    border: `1px solid ${active ? T.gold : T.lineSoft}`,
-                  }}
+                  className="truncate rounded-xl px-3 py-2.5 text-left text-sm"
+                  style={{ background: active ? T.blueSoft : "transparent", color: active ? T.blueDeep : T.ink }}
                 >
-                  <p className="text-[10px] uppercase tracking-widest font-bold truncate" style={{ color: active ? T.gold : T.textMute, fontFamily: T.sora }}>
-                    {l.list_name}
-                  </p>
-                  <p className="text-[11px] mt-1 tabular-nums" style={{ color: T.textDim }}>
-                    {l.pending} pend. · {l.done} feitas · {l.total} total
-                  </p>
+                  {l.list_name}
+                  <span className="ml-2 text-xs tabular-nums" style={{ color: T.mute }}>{l.pending} pend.</span>
                 </button>
               );
             })}
+            {lists.length === 0 && <p className="px-3 py-2 text-sm" style={{ color: T.mute }}>Nenhuma lista encontrada.</p>}
           </div>
         )}
       </div>
 
-      {/* Espelho ao vivo: ligação em andamento em outro aparelho */}
       {otherDeviceCall && (
-        <div
-          className="flex items-center gap-3 rounded-2xl px-4 py-3"
-          style={{ background: T.greenSoft, border: `1px solid rgba(111,191,122,0.3)` }}
-        >
-          <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: T.green }} />
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: T.green, fontFamily: T.sora }}>
-              Em ligação no {otherDeviceCall.device_label.toLowerCase()}
-            </p>
-            <p className="truncate text-sm" style={{ color: T.sand }}>
-              {otherDeviceCall.contact_name}
-              {otherDeviceCall.phone ? ` · ${otherDeviceCall.phone}` : ""}
-            </p>
-          </div>
-        </div>
+        <p className="flex items-center gap-2 text-[13px]" style={{ color: T.green }}>
+          <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: T.green }} />
+          Em ligação no {otherDeviceCall.device_label.toLowerCase()} · {otherDeviceCall.contact_name}
+        </p>
       )}
 
-      {/* Bento */}
+      {/* Contato atual */}
+      {!hydrated ? (
+        <p className="py-24 text-center text-sm" style={{ color: T.mute }}>Carregando fila…</p>
+      ) : error ? (
+        <div className="py-20 text-center">
+          <p style={{ color: T.red }}>Erro ao carregar: {error}</p>
+          <button
+            onClick={() => refresh()}
+            className="mt-4 rounded-full px-5 py-2.5 text-sm font-semibold"
+            style={{ background: T.blue, color: "#fff", fontFamily: T.grotesk }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : !current ? (
+        <div className="py-20 text-center">
+          <p className="text-2xl font-semibold tracking-[-0.02em]" style={{ fontFamily: T.grotesk }}>
+            {selectedList ? "Esta lista não tem contatos pendentes" : "Nenhum contato pendente"}
+          </p>
+          <p className="mx-auto mt-2 max-w-sm text-sm" style={{ color: T.dim }}>
+            {loading ? "Buscando novos leads…" : selectedList ? `A lista "${selectedList}" está sem pendentes para você.` : "Volte mais tarde ou importe uma lista nova."}
+          </p>
+          {!loading && selectedList && (
+            <button
+              onClick={() => { setSelectedList(null); void loadLists(); void refresh(); }}
+              className="mt-5 rounded-full px-5 py-2.5 text-sm font-semibold"
+              style={{ background: T.blue, color: "#fff", fontFamily: T.grotesk }}
+            >
+              Ver todas as listas
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="text-center">
+            <span
+              className="inline-block rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]"
+              style={{ background: isLast ? T.redSoft : T.blueSoft, color: isLast ? T.red : T.blueDeep, fontFamily: T.grotesk }}
+            >
+              {attemptLabel(current.attempt_count) ?? "1ª tentativa"}
+            </span>
 
-      <div className="grid grid-cols-12 gap-5 items-start">
+            <h2
+              className="mt-5 break-words text-[34px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[44px]"
+              style={{ fontFamily: T.grotesk }}
+            >
+              {current.name}
+            </h2>
 
-        {/* Left col */}
-        <div className="col-span-12 lg:col-span-4 flex flex-col gap-5">
-          {/* Corretor + meta */}
-          <div className="p-6 rounded-3xl" style={{ background: T.surface, border: `1px solid ${T.line}` }}>
-            <div className="flex items-center gap-4 mb-6">
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0"
-                style={{ background: T.goldDim, color: T.gold, fontFamily: T.sora, border: `1px solid ${T.gold}` }}
-              >
-                {brokerInitials}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: T.textMute }}>Corretor</p>
-                <h3 className="text-lg font-semibold truncate" style={{ fontFamily: T.sora, letterSpacing: "-0.01em", color: T.sand }}>
-                  {brokerName}
-                </h3>
-              </div>
-            </div>
-            <div className="space-y-2.5">
-              <div className="flex justify-between items-baseline text-sm">
-                <span className="text-[10px] uppercase tracking-[0.2em]" style={{ color: T.textMute }}>Meta diária</span>
-                <span className="font-bold tabular-nums text-lg" style={{ fontFamily: T.sora, color: reached ? T.green : T.gold }}>
-                  {k.total}<span style={{ color: T.textMute, fontSize: 13 }}>/{meta}</span>
-                </span>
-              </div>
-              <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%`, background: reached ? T.green : `linear-gradient(90deg, ${T.gold}, ${T.goldSoft})` }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] uppercase tracking-[0.2em]" style={{ color: T.textMute }}>
-                <span>{pct}% concluído</span>
-                <span>Taxa atend. {attendRate}%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* A seguir */}
-          <div className="p-6 rounded-3xl" style={{ background: T.bgSoft, border: `1px dashed ${T.line}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em]" style={{ color: T.textMute }}>A seguir</p>
-              {goFila && (
-                <button
-                  onClick={goFila}
-                  className="text-[10px] uppercase tracking-widest transition-colors hover:text-white"
-                  style={{ color: T.gold, fontFamily: T.sora }}
-                >
-                  Ver fila
+            <div className="mt-2 inline-flex items-center gap-1.5">
+              <p className="text-lg tabular-nums" style={{ color: T.dim }}>{current.phone || "(sem telefone)"}</p>
+              {current.phone && (
+                <button type="button" onClick={copyPhone} aria-label="Copiar telefone" className="rounded-full p-1.5" style={{ color: T.mute }}>
+                  <Copy className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
-            {nextOne ? (
-              <div className="flex justify-between items-center gap-3">
-                <div className="min-w-0">
-                  <h4 className="font-semibold truncate" style={{ color: T.sand, fontFamily: T.sora }}>{nextOne.name}</h4>
-                  <p className="text-sm truncate tabular-nums" style={{ color: T.textDim }}>{nextOne.phone || "(sem telefone)"}</p>
-                </div>
-                <span
-                  className="text-[10px] px-2.5 py-1 rounded-full shrink-0 uppercase tracking-wider"
-                  style={{ background: T.goldDim, color: T.gold, fontFamily: T.sora, fontWeight: 600 }}
-                >
-                  {nextOne.attempt_count >= 1 ? "2ª" : "1ª"}
-                </span>
-              </div>
-            ) : (
-              <p className="text-sm" style={{ color: T.textDim }}>Fila vazia por enquanto.</p>
-            )}
-            {next3.length > 1 && (
-              <div className="mt-4 pt-4 space-y-2" style={{ borderTop: `1px solid ${T.lineSoft}` }}>
-                {next3.slice(1).map((c) => (
-                  <div key={c.id} className="flex justify-between text-xs" style={{ color: T.textDim }}>
-                    <span className="truncate">{c.name}</span>
-                    <span className="shrink-0 ml-3 tabular-nums">{c.phone}</span>
-                  </div>
-                ))}
-              </div>
+
+            {lastCall && lastResult && (
+              <p className="mt-2 text-[12px]" style={{ color: T.mute }}>
+                Última: {lastWhen} · <span style={{ color: lastResult.color, fontWeight: 600 }}>{lastResult.text}</span>
+                {lastCall.note ? ` · "${lastCall.note}"` : ""}
+              </p>
             )}
           </div>
 
-          {/* KPIs de hoje */}
-          <div className="grid grid-cols-4 gap-0 rounded-3xl overflow-hidden" style={{ background: T.surface, border: `1px solid ${T.line}` }}>
-            {[
-              { label: "Total", value: k.total, color: T.sand },
-              { label: "Atend.", value: k.attended, color: T.green },
-              { label: "N.At.", value: k.noAnswer, color: T.red },
-              { label: "Agend.", value: k.scheduled, color: T.gold },
-            ].map((s, i) => (
-              <div key={s.label} className="text-center py-4" style={{ borderLeft: i === 0 ? "none" : `1px solid ${T.lineSoft}` }}>
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] mb-1" style={{ color: T.textMute, fontFamily: T.sora }}>{s.label}</p>
-                <p className="text-xl font-semibold tabular-nums" style={{ fontFamily: T.sora, color: s.color }}>
-                  {String(s.value).padStart(2, "0")}
-                </p>
-              </div>
-            ))}
+          {/* Ação principal */}
+          {!phoneValid ? (
+            <div className="text-center">
+              <p className="text-sm font-semibold" style={{ color: T.red }}>Telefone inválido</p>
+              <button
+                type="button"
+                onClick={skip}
+                className="mt-3 rounded-full px-6 py-3.5 text-sm font-semibold"
+                style={{ background: T.ink, color: "#fff", fontFamily: T.grotesk }}
+              >
+                Pular contato
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <a
+                href={dial}
+                target="_top"
+                onClick={startDial}
+                className="flex w-full items-center justify-center gap-2.5 rounded-2xl py-5 text-[15px] font-semibold tracking-[0.02em] transition-all active:scale-[0.99]"
+                style={{
+                  background: dialing ? T.green : T.blue,
+                  color: "#fff",
+                  fontFamily: T.grotesk,
+                  boxShadow: `0 14px 30px -14px ${dialing ? "rgba(22,163,74,0.6)" : "rgba(59,130,246,0.65)"}`,
+                }}
+              >
+                <Phone className="h-5 w-5" strokeWidth={2.4} />
+                {dialing ? `Em ligação · ${callSecFmt}` : "Ligar agora"}
+              </a>
+              <a
+                href={wa}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-[13px] font-semibold"
+                style={{ background: T.surface, border: `1px solid ${T.line}`, color: T.green, fontFamily: T.grotesk }}
+              >
+                <MessageCircle className="h-4 w-4" /> WhatsApp (Msg {waTemplate})
+              </a>
+            </div>
+          )}
+
+          {/* Desfecho */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              disabled={submitting}
+              onClick={() => registerOutcome("no_answer")}
+              className="flex flex-col items-center gap-1.5 rounded-2xl py-4 text-[12px] font-semibold disabled:opacity-50"
+              style={{ background: T.surface, border: `1px solid ${T.line}`, color: T.red, fontFamily: T.grotesk }}
+            >
+              <X className="h-4 w-4" /> Não atendeu
+            </button>
+            <button
+              disabled={submitting}
+              onClick={() => registerOutcome("answered")}
+              className="flex flex-col items-center gap-1.5 rounded-2xl py-4 text-[12px] font-semibold disabled:opacity-50"
+              style={{ background: T.surface, border: `1px solid ${T.line}`, color: T.green, fontFamily: T.grotesk }}
+            >
+              <Check className="h-4 w-4" /> Atendeu
+            </button>
+            <button
+              disabled={submitting}
+              onClick={() => registerOutcome("scheduled")}
+              className="flex flex-col items-center gap-1.5 rounded-2xl py-4 text-[12px] font-semibold disabled:opacity-50"
+              style={{ background: T.blueSoft, border: `1px solid #dbe6ff`, color: T.blueDeep, fontFamily: T.grotesk }}
+            >
+              <Calendar className="h-4 w-4" /> Agendou
+            </button>
           </div>
-        </div>
 
-        {/* Center: Dialer */}
-        <div className="col-span-12 lg:col-span-8">
-          <div
-            className="p-6 sm:p-8 rounded-3xl relative overflow-hidden"
-            style={{
-              background: `linear-gradient(180deg, ${T.surface} 0%, ${T.bgSoft} 100%)`,
-              border: `1px solid ${T.line}`,
-            }}
-          >
-            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${T.gold}, transparent)`, opacity: 0.4 }} />
+          {/* Tudo o resto fica escondido aqui */}
+          <div className="flex flex-col gap-4">
+            <button
+              type="button"
+              onClick={() => setDetailsOpen((o) => !o)}
+              className="mx-auto flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.16em]"
+              style={{ color: T.mute, fontFamily: T.grotesk }}
+            >
+              <Sliders className="h-3.5 w-3.5" />
+              {detailsOpen ? "Ocultar detalhes" : "Observação, mensagens e fila"}
+              <ChevronDown className="h-3.5 w-3.5" style={{ transform: detailsOpen ? "rotate(180deg)" : "none" }} />
+            </button>
 
-            {!hydrated ? (
-              <div className="py-20 text-center" style={{ color: T.textDim }}>Carregando fila…</div>
-            ) : error ? (
-              <div className="py-16 text-center">
-                <p style={{ color: T.red }}>Erro ao carregar: {error}</p>
-                <button
-                  onClick={() => refresh()}
-                  className="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold uppercase tracking-wider"
-                  style={{ background: T.gold, color: T.bg, fontFamily: T.sora }}
-                >
-                  Tentar novamente
-                </button>
-              </div>
-            ) : !current ? (
-              <div className="py-16 text-center">
-                <p style={{ color: T.sand, fontFamily: T.fraunces, fontSize: 24, letterSpacing: "-0.02em" }}>
-                  {selectedList ? "Esta lista não tem contatos pendentes" : "Nenhum contato pendente"}
-                </p>
-                <p className="mt-2 text-sm" style={{ color: T.textDim }}>
-                  {loading
-                    ? "Buscando novos leads…"
-                    : selectedList
-                      ? `A lista "${selectedList}" está sem pendentes para você. Veja as outras listas.`
-                      : "Volte mais tarde ou importe uma lista nova."}
-                </p>
-                {!loading && selectedList && (
-                  <button
-                    onClick={() => { setSelectedList(null); void loadLists(); void refresh(); }}
-                    className="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold uppercase tracking-wider"
-                    style={{ background: T.gold, color: T.bg, fontFamily: T.sora }}
-                  >
-                    Ver todas as listas
-                  </button>
-                )}
-              </div>
-
-            ) : (
-              <>
-                {/* Top badge + last call */}
-                <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
-                  <span
-                    className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.2em]"
-                    style={{
-                      background: isLast ? T.redSoft : T.goldDim,
-                      color: isLast ? T.red : T.gold,
-                      border: `1px solid ${isLast ? "rgba(224,122,122,0.25)" : "rgba(201,168,76,0.25)"}`,
-                      fontFamily: T.sora,
-                    }}
-                  >
-                    {attemptLabel(current.attempt_count) ?? "1ª tentativa"}
-                  </span>
-                  {lastCall && lastResult && (
-                    <p className="text-xs flex items-center gap-2" style={{ color: T.textDim }}>
-                      <span>Última: {lastWhen}</span>
-                      <span style={{ opacity: 0.4 }}>•</span>
-                      <span style={{ color: lastResult.color, fontWeight: 700 }}>{lastResult.text}</span>
-                      {lastCall.note && (
-                        <>
-                          <span style={{ opacity: 0.4 }}>•</span>
-                          <span className="truncate max-w-[180px] italic" style={{ color: T.textMute }}>"{lastCall.note}"</span>
-                        </>
-                      )}
-                    </p>
-                  )}
+            {detailsOpen && (
+              <div className="flex flex-col gap-5 rounded-3xl p-5" style={{ background: T.surface, border: `1px solid ${T.line}` }}>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Observação sobre o lead (perfil, imóvel, próximo passo)..."
+                  className="w-full resize-none rounded-2xl p-4 text-sm focus:outline-none"
+                  style={{ background: T.soft, border: `1px solid ${T.line}`, minHeight: 84, color: T.ink, lineHeight: 1.55 }}
+                />
+                <div className="flex flex-wrap gap-2">
+                  {["Sem interesse", "Investidor", "Primeiro imóvel", "Fora de área", "Preço alto", "Retornar"].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setNote((n) => (n ? `${n} · ${chip}` : chip))}
+                      className="rounded-full px-3 py-1.5 text-[12px]"
+                      style={{ background: T.soft, color: T.dim, border: `1px solid ${T.line}` }}
+                    >
+                      {chip}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Contact identity */}
-                <div className="text-center mb-8">
-                  <h2
-                    className="text-4xl sm:text-5xl font-medium mb-2 break-words"
-                    style={{ fontFamily: T.fraunces, letterSpacing: "-0.02em", color: T.sand, lineHeight: 1.05 }}
-                  >
-                    {current.name}
-                  </h2>
-                  <div className="inline-flex items-center gap-2">
-                    <p className="text-lg tabular-nums" style={{ color: T.textDim, fontFamily: T.sora }}>
-                      {current.phone || "(sem telefone)"}
-                    </p>
-                    {current.phone && (
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-1 rounded-full p-1" style={{ background: T.soft }}>
+                    {([1, 2] as const).map((n) => (
                       <button
-                        type="button"
-                        onClick={copyPhone}
-                        className="p-1.5 rounded-full transition-colors hover:bg-white/5"
-                        style={{ color: T.textMute }}
-                        aria-label="Copiar telefone"
+                        key={n}
+                        onClick={() => setWaTemplate(n)}
+                        className="flex-1 rounded-full py-1.5 text-[12px] font-semibold"
+                        style={{ background: waTemplate === n ? T.surface : "transparent", color: waTemplate === n ? T.blueDeep : T.mute, fontFamily: T.grotesk }}
                       >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  {dialing && (
-                    <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: T.greenSoft, border: `1px solid rgba(111,191,122,0.25)` }}>
-                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: T.green }} />
-                      <span className="text-[11px] uppercase tracking-widest tabular-nums" style={{ color: T.green, fontFamily: T.sora, fontWeight: 600 }}>
-                        Em ligação · {callSecFmt}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Round dial button */}
-                <div className="flex flex-col items-center gap-5 mb-8">
-                  {!phoneValid ? (
-                    <>
-                      <div
-                        className="flex items-center justify-center rounded-full"
-                        style={{ width: 140, height: 140, background: T.bgSoft, border: `1px dashed ${T.line}` }}
-                      >
-                        <Phone className="w-12 h-12" style={{ color: T.textMute }} strokeWidth={2} />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[11px] uppercase tracking-[0.28em] font-bold" style={{ color: T.red, fontFamily: T.sora }}>Telefone inválido</p>
-                        <p className="text-[10px] mt-1" style={{ color: T.textMute }}>Este contato não tem número discável</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={skip}
-                        className="rounded-full px-6 py-3 text-[12px] uppercase tracking-[0.2em] font-bold transition active:scale-95"
-                        style={{ background: T.gold, color: T.bg, fontFamily: T.sora }}
-                      >
-                        Pular contato
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <a
-                        href={dial}
-                        target="_top"
-                        onClick={startDial}
-                        className="group relative flex items-center justify-center rounded-full transition-all active:scale-95"
-                        style={{
-                          width: 140,
-                          height: 140,
-                          background: `radial-gradient(circle at 30% 30%, ${T.goldSoft}, ${T.gold} 60%, #a68a3a 100%)`,
-                          boxShadow: `0 0 0 8px ${T.goldDim}, 0 20px 60px -20px rgba(201,168,76,0.6), inset 0 -6px 20px rgba(0,0,0,0.25)`,
-                        }}
-                        aria-label="Ligar agora"
-                      >
-                        <span className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ background: T.gold, animationDuration: "2.4s" }} />
-                        <Phone className="w-12 h-12 relative z-10" style={{ color: T.bg }} strokeWidth={2.4} />
-                      </a>
-                      <div className="text-center">
-                        <p className="text-[11px] uppercase tracking-[0.28em] font-bold" style={{ color: T.gold, fontFamily: T.sora }}>Ligar agora</p>
-                        <p className="text-[10px] mt-1" style={{ color: T.textMute }}>Toque para discar no seu aparelho</p>
-                      </div>
-                    </>
-                  )}
-
-
-                  {/* WA templates */}
-                  <div className="w-full max-w-md mt-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 flex rounded-full p-1" style={{ background: T.bgSoft, border: `1px solid ${T.lineSoft}` }}>
-                        {([1, 2] as const).map((n) => (
-                          <button
-                            key={n}
-                            onClick={() => setWaTemplate(n)}
-                            className="flex-1 py-1.5 text-[10px] uppercase tracking-widest rounded-full transition-all"
-                            style={{
-                              background: waTemplate === n ? T.surface2 : "transparent",
-                              color: waTemplate === n ? T.gold : T.textMute,
-                              fontFamily: T.sora, fontWeight: 600,
-                            }}
-                          >
-                            Msg {n}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setWaEditing((v) => !v)}
-                        title={`Editar mensagem ${waTemplate}`}
-                        aria-label={`Editar mensagem ${waTemplate}`}
-                        className="flex items-center justify-center rounded-full transition-all active:scale-95"
-                        style={{
-                          width: 38, height: 38,
-                          background: waEditing ? T.goldDim : T.bgSoft,
-                          border: `1px solid ${waEditing ? T.gold : T.lineSoft}`,
-                          color: waEditing ? T.gold : T.textMute,
-                        }}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <a
-                        href={wa}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 py-2.5 px-4 rounded-full text-xs font-semibold uppercase tracking-widest transition-all active:scale-95"
-                        style={{ background: T.greenSoft, color: T.green, border: `1px solid rgba(111,191,122,0.3)`, fontFamily: T.sora }}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        WhatsApp
-                      </a>
-                    </div>
-
-                    {waEditing && (
-                      <div className="mt-3 p-3 rounded-2xl text-left" style={{ background: T.bgSoft, border: `1px solid ${T.lineSoft}` }}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] uppercase tracking-widest" style={{ color: T.textMute, fontFamily: T.sora, fontWeight: 600 }}>
-                            Editando Msg {waTemplate}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setWaTexts((t) => ({ ...t, [waTemplate]: waTemplate === 1 ? DEFAULT_WA_TEMPLATE : DEFAULT_WA_TEMPLATE_2 }))
-                            }
-                            className="flex items-center gap-1 text-[10px] uppercase tracking-widest"
-                            style={{ color: T.textMute, fontFamily: T.sora }}
-                          >
-                            <RotateCcw className="w-3 h-3" /> Restaurar
-                          </button>
-                        </div>
-                        <textarea
-                          value={waTexts[waTemplate]}
-                          onChange={(e) => setWaTexts((t) => ({ ...t, [waTemplate]: e.target.value }))}
-                          className="w-full p-3 rounded-xl text-sm resize-none focus:outline-none focus:ring-1"
-                          style={{
-                            background: T.surface,
-                            border: `1px solid ${T.lineSoft}`,
-                            minHeight: 80,
-                            color: T.text,
-                            lineHeight: 1.5,
-                            // @ts-expect-error css var
-                            "--tw-ring-color": T.gold,
-                          }}
-                        />
-                        <p className="mt-2 text-[10px]" style={{ color: T.textMute }}>
-                          Use <span style={{ color: T.gold }}>{"{nome}"}</span> para inserir o primeiro nome do cliente. Salvo automaticamente neste aparelho.
-                        </p>
-                        <p className="mt-2 text-[11px] italic" style={{ color: T.textDim }}>
-                          Prévia: {waMsg || renderWaMessage(waTexts[waTemplate], "Cliente")}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-
-                {/* Notes + chips + outcomes */}
-                <div className="pt-6" style={{ borderTop: `1px solid ${T.lineSoft}` }}>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Observação sobre o lead (perfil, imóvel, próximo passo)..."
-                    className="w-full p-4 rounded-2xl text-sm resize-none focus:outline-none focus:ring-1 mb-4 transition-all"
-                    style={{
-                      background: T.bgSoft,
-                      border: `1px solid ${T.lineSoft}`,
-                      minHeight: 90,
-                      color: T.text,
-                      lineHeight: 1.55,
-                      // @ts-expect-error css var
-                      "--tw-ring-color": T.gold,
-                    }}
-                  />
-
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    {["Sem interesse", "Investidor", "Primeiro imóvel", "Fora de área", "Preço alto", "Retornar"].map((chip) => (
-                      <button
-                        key={chip}
-                        type="button"
-                        onClick={() => setNote((n) => (n ? `${n} · ${chip}` : chip))}
-                        className="px-3.5 py-1.5 rounded-full text-[11px] font-medium transition-all hover:bg-white/5"
-                        style={{ background: T.bgSoft, color: T.textDim, border: `1px solid ${T.lineSoft}`, fontFamily: T.sora, letterSpacing: "0.02em" }}
-                      >
-                        {chip}
+                        Msg {n}
                       </button>
                     ))}
                   </div>
-
-                  <div className="grid grid-cols-3 gap-2.5 mb-4">
-                    <button
-                      disabled={submitting}
-                      onClick={() => registerOutcome("no_answer")}
-                      className="py-3.5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.15em] transition-all active:scale-95 disabled:opacity-60 flex flex-col items-center gap-1"
-                      style={{ background: T.redSoft, color: T.red, border: `1px solid rgba(224,122,122,0.25)`, fontFamily: T.sora }}
-                    >
-                      <X className="w-4 h-4" />
-                      Não atendeu
-                    </button>
-                    <button
-                      disabled={submitting}
-                      onClick={() => registerOutcome("answered")}
-                      className="py-3.5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.15em] transition-all active:scale-95 disabled:opacity-60 flex flex-col items-center gap-1"
-                      style={{ background: T.gold, color: T.bg, fontFamily: T.sora, boxShadow: `0 8px 24px -12px rgba(201,168,76,0.5)` }}
-                    >
-                      <Check className="w-4 h-4" />
-                      Atendeu
-                    </button>
-                    <button
-                      disabled={submitting}
-                      onClick={() => registerOutcome("scheduled")}
-                      className="py-3.5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.15em] transition-all active:scale-95 disabled:opacity-60 flex flex-col items-center gap-1"
-                      style={{ background: T.greenSoft, color: T.green, border: `1px solid rgba(111,191,122,0.25)`, fontFamily: T.sora }}
-                    >
-                      <Calendar className="w-4 h-4" />
-                      Agendou
-                    </button>
-                  </div>
-
-                  <div className="flex justify-between items-center flex-wrap gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => refresh()}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:text-white"
-                      style={{ color: T.textMute, fontFamily: T.sora }}
-                    >
-                      <RefreshCw className="w-3 h-3" /> Recarregar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={skip}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:text-white"
-                      style={{ color: T.textMute, fontFamily: T.sora }}
-                    >
-                      <SkipForward className="w-3 h-3" /> Pular
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toast.info("Abra a aba Lembretes para agendar.")}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"
-                      style={{ color: T.gold, fontFamily: T.sora }}
-                    >
-                      <Bell className="w-3 h-3" /> Agendar lembrete
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWaEditing((v) => !v)}
+                    aria-label={`Editar mensagem ${waTemplate}`}
+                    className="flex h-9 w-9 items-center justify-center rounded-full"
+                    style={{ background: waEditing ? T.blueSoft : T.soft, color: waEditing ? T.blueDeep : T.mute, border: `1px solid ${T.line}` }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              </>
+
+                {waEditing && (
+                  <div className="rounded-2xl p-3" style={{ background: T.soft, border: `1px solid ${T.line}` }}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.mute, fontFamily: T.grotesk }}>
+                        Editando Msg {waTemplate}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setWaTexts((t) => ({ ...t, [waTemplate]: waTemplate === 1 ? DEFAULT_WA_TEMPLATE : DEFAULT_WA_TEMPLATE_2 }))}
+                        className="flex items-center gap-1 text-[11px] uppercase tracking-widest"
+                        style={{ color: T.mute }}
+                      >
+                        <RotateCcw className="h-3 w-3" /> Restaurar
+                      </button>
+                    </div>
+                    <textarea
+                      value={waTexts[waTemplate]}
+                      onChange={(e) => setWaTexts((t) => ({ ...t, [waTemplate]: e.target.value }))}
+                      className="w-full resize-none rounded-xl p-3 text-sm focus:outline-none"
+                      style={{ background: T.surface, border: `1px solid ${T.line}`, minHeight: 76, color: T.ink }}
+                    />
+                    <p className="mt-2 text-[11px]" style={{ color: T.mute }}>
+                      Use <span style={{ color: T.blueDeep }}>{"{nome}"}</span> para inserir o primeiro nome. Salvo neste aparelho.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3 border-t pt-4 text-[12px]" style={{ borderColor: T.lineSoft, color: T.dim }}>
+                  <span className="min-w-0 truncate">
+                    A seguir: {nextOne ? `${nextOne.name} · ${nextOne.phone || "sem telefone"}` : "fila vazia"}
+                  </span>
+                  {goFila && (
+                    <button onClick={goFila} className="shrink-0 font-semibold" style={{ color: T.blueDeep }}>Ver fila</button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  {[
+                    { label: "Total", value: k.total, color: T.ink },
+                    { label: "Atendeu", value: k.attended, color: T.green },
+                    { label: "Não at.", value: k.noAnswer, color: T.red },
+                    { label: "Agendou", value: k.scheduled, color: T.blueDeep },
+                  ].map((s) => (
+                    <div key={s.label}>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: T.mute, fontFamily: T.grotesk }}>{s.label}</p>
+                      <p className="text-xl font-semibold tabular-nums" style={{ color: s.color, fontFamily: T.grotesk }}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 text-[12px] font-semibold uppercase tracking-[0.14em]" style={{ color: T.mute, fontFamily: T.grotesk }}>
+                  <button type="button" onClick={() => refresh()} className="flex items-center gap-1.5">
+                    <RefreshCw className="h-3 w-3" /> Recarregar
+                  </button>
+                  <button type="button" onClick={skip} className="flex items-center gap-1.5">
+                    <SkipForward className="h-3 w-3" /> Pular
+                  </button>
+                  <button type="button" onClick={() => toast.info("Abra o menu › Lembretes para agendar.")} className="flex items-center gap-1.5">
+                    <Bell className="h-3 w-3" /> Lembrete
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
