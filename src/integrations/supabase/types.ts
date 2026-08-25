@@ -656,6 +656,27 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_config: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       organization_invites: {
         Row: {
           accepted_at: string | null
