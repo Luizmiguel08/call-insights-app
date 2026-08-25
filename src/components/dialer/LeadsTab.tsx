@@ -149,13 +149,26 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
               Cada lead novo precisa de 1 ligação na manhã (9h–12h) e 1 na tarde (14h–19h). Sai daqui só quando atender; após 7 dias vai para Fria.
             </p>
           </div>
-          <button
-            onClick={() => void load()}
-            className="flex h-9 items-center gap-2 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:border-[#c9a84c]/60 hover:text-[#c9a84c]"
-            style={fontDisplay}
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <button
+                onClick={() => void syncNow()}
+                disabled={syncing}
+                className="flex h-9 items-center gap-2 rounded-md bg-[#c9a84c] px-3 text-xs font-bold uppercase tracking-wider text-[#0c0e14] disabled:opacity-60"
+                style={fontDisplay}
+              >
+                <Link2 className="h-3.5 w-3.5" /> {syncing ? "Sincronizando…" : "Sincronizar C2S"}
+              </button>
+            )}
+            <button
+              onClick={() => void load()}
+              className="flex h-9 items-center gap-2 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:border-[#c9a84c]/60 hover:text-[#c9a84c]"
+              style={fontDisplay}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+            </button>
+          </div>
+
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
