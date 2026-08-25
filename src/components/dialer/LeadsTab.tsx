@@ -289,12 +289,18 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
       ) : (
         <div className="space-y-3">
           {visible.map((lead) => {
-            const a = attemptsByLead.get(lead.id) ?? { manha: 0, tarde: 0 };
+            const p = progressOf(lead.id);
             const broker = brokers.find((b) => b.id === lead.broker_id);
             const age = daysSince(lead.received_at);
             const phoneOk = normalizePhone(lead.phone).length >= 10;
+            const semResposta = p.manha === "nao_atendeu" && p.tarde === "nao_atendeu";
+            const borderCls = semResposta
+              ? "border-red-600/50"
+              : p.manha === "atendeu" || p.tarde === "atendeu"
+                ? "border-emerald-600/50"
+                : "border-zinc-800";
             return (
-              <div key={lead.id} className="rounded-2xl border border-zinc-800 bg-[#13151e] p-4">
+              <div key={lead.id} className={`rounded-2xl border ${borderCls} bg-[#13151e] p-4`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -320,11 +326,22 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
                       )}
                       <span>{age === 0 ? "recebido hoje" : `há ${age} dia(s)`}</span>
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <PeriodPill label="Manhã" done={a.manha > 0} icon={Sun} active={period === "manha"} />
-                      <PeriodPill label="Tarde" done={a.tarde > 0} icon={Sunset} active={period === "tarde"} />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <PeriodPill label="Manhã" state={p.manha} icon={Sun} active={period === "manha"} />
+                      <PeriodPill label="Tarde" state={p.tarde} icon={Sunset} active={period === "tarde"} />
+                      {semResposta && (
+                        <span className="rounded-full border border-red-600/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
+                          Não atendeu em nenhum período
+                        </span>
+                      )}
+                      {p.triedBefore > 0 && (
+                        <span className="rounded-full border border-amber-600/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">
+                          {p.triedBefore} tentativa(s) em dias anteriores
+                        </span>
+                      )}
                     </div>
                   </div>
+
 
                   {lead.status === "novo" && (
                     <div className="flex flex-wrap items-center gap-2">
