@@ -579,16 +579,16 @@ function AliasManager({ brokers, leads, onChange }: { brokers: Broker[]; leads: 
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#13151e] p-4 sm:p-5">
-      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#c9a84c]" style={fontDisplay}>
+    <div className="rounded-2xl bg-white p-4 sm:p-5" style={{ border: "1px solid #e8ecf1" }}>
+      <h3 className="flex items-center gap-2 text-sm font-semibold" style={{ ...fontDisplay, color: "#0f172a" }}>
         <Link2 className="h-4 w-4" /> Apelidos do C2S → corretores
       </h3>
-      <p className="mt-1 text-xs text-zinc-500">
+      <p className="mt-1 text-xs" style={{ color: "#64748b" }}>
         O vínculo é automático pelo e-mail do corretor. Use esta tabela apenas quando o e-mail do C2S for diferente do cadastrado aqui.
       </p>
 
       {unmapped.length > 0 && (
-        <div className="mt-3 rounded-lg border border-amber-600/40 bg-amber-500/5 p-3 text-xs text-amber-300">
+        <div className="mt-3 rounded-xl p-3 text-xs" style={{ background: "#fff7ed", color: "#b45309" }}>
           Sem vínculo: {unmapped.map(([, label]) => label).join(", ")}
         </div>
       )}
