@@ -4,6 +4,8 @@ import { Flame, Link2, PhoneCall, RefreshCw, Snowflake, Sun, Sunset, Check, X } 
 import { supabase } from "@/integrations/supabase/client";
 import type { Me } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
+import { syncC2sNow } from "@/lib/c2s.functions";
+
 
 const db = supabase as any;
 
