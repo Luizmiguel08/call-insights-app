@@ -20,6 +20,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
 import { Route as ApiPublicExportMetricasDiariasRouteImport } from './routes/api/public/export-metricas-diarias'
+import { Route as ApiPublicC2sWebhookRouteImport } from './routes/api/public/c2s-webhook'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -76,6 +77,11 @@ const ApiPublicExportMetricasDiariasRoute =
     path: '/api/public/export-metricas-diarias',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicC2sWebhookRoute = ApiPublicC2sWebhookRouteImport.update({
+  id: '/api/public/c2s-webhook',
+  path: '/api/public/c2s-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/convite/$token': typeof ConviteTokenRoute
+  '/api/public/c2s-webhook': typeof ApiPublicC2sWebhookRoute
   '/api/public/export-metricas-diarias': typeof ApiPublicExportMetricasDiariasRoute
 }
 export interface FileRoutesByTo {
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/': typeof AuthenticatedIndexRoute
+  '/api/public/c2s-webhook': typeof ApiPublicC2sWebhookRoute
   '/api/public/export-metricas-diarias': typeof ApiPublicExportMetricasDiariasRoute
 }
 export interface FileRoutesById {
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/convite/$token': typeof ConviteTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/api/public/c2s-webhook': typeof ApiPublicC2sWebhookRoute
   '/api/public/export-metricas-diarias': typeof ApiPublicExportMetricasDiariasRoute
 }
 export interface FileRouteTypes {
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/sessoes'
     | '/sitemap.xml'
     | '/convite/$token'
+    | '/api/public/c2s-webhook'
     | '/api/public/export-metricas-diarias'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/convite/$token'
     | '/'
+    | '/api/public/c2s-webhook'
     | '/api/public/export-metricas-diarias'
   id:
     | '__root__'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/convite/$token'
     | '/_authenticated/'
+    | '/api/public/c2s-webhook'
     | '/api/public/export-metricas-diarias'
   fileRoutesById: FileRoutesById
 }
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   SessoesRoute: typeof SessoesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ConviteTokenRoute: typeof ConviteTokenRoute
+  ApiPublicC2sWebhookRoute: typeof ApiPublicC2sWebhookRoute
   ApiPublicExportMetricasDiariasRoute: typeof ApiPublicExportMetricasDiariasRoute
 }
 
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicExportMetricasDiariasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/c2s-webhook': {
+      id: '/api/public/c2s-webhook'
+      path: '/api/public/c2s-webhook'
+      fullPath: '/api/public/c2s-webhook'
+      preLoaderRoute: typeof ApiPublicC2sWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -271,6 +291,7 @@ const rootRouteChildren: RootRouteChildren = {
   SessoesRoute: SessoesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ConviteTokenRoute: ConviteTokenRoute,
+  ApiPublicC2sWebhookRoute: ApiPublicC2sWebhookRoute,
   ApiPublicExportMetricasDiariasRoute: ApiPublicExportMetricasDiariasRoute,
 }
 export const routeTree = rootRouteImport
