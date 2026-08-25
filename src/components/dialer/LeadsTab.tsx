@@ -232,238 +232,249 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
     void load();
   }
 
-  return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-zinc-800 bg-[#13151e] p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold uppercase tracking-wider text-[#c9a84c]" style={fontDisplay}>
-              Leads C2S
-            </h2>
-            <p className="text-xs text-zinc-500">
-              Cada lead novo precisa de 1 ligação na manhã (9h–12h) e 1 na tarde (14h–19h). Sai daqui só quando atender; após 7 dias vai para Fria.
+  const hoje = useMemo(() => visible.filter((l) => spDate(l.received_at) === today), [visible, today]);
+  const anteriores = useMemo(() => visible.filter((l) => spDate(l.received_at) !== today), [visible, today]);
+
+  const LeadCard = ({ lead }: { lead: Lead }) => {
+    const p = progressOf(lead.id);
+    const broker = brokers.find((b) => b.id === lead.broker_id);
+    const age = daysSince(lead.received_at);
+    const phoneOk = normalizePhone(lead.phone).length >= 10;
+    const semResposta = p.manha === "nao_atendeu" && p.tarde === "nao_atendeu";
+    const atendeu = p.manha === "atendeu" || p.tarde === "atendeu";
+    return (
+      <div
+        className="rounded-2xl bg-white p-4"
+        style={{
+          border: `1px solid ${semResposta ? "#fecaca" : atendeu ? "#bbf7d0" : "#e8ecf1"}`,
+          boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+        }}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold" style={{ ...fontDisplay, color: "#0f172a" }}>
+              {lead.name}
             </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: "#64748b" }}>
+              <span style={fontNumeric}>{lead.phone || "sem telefone"}</span>
+              {lead.source && <span>{lead.source}</span>}
+              {broker ? (
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: broker.color }} />
+                  {broker.name}
+                </span>
+              ) : (
+                <span style={{ color: "#b45309" }}>sem corretor</span>
+              )}
+              <span>{age === 0 ? "hoje" : `há ${age} dia(s)`}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <PeriodPill label="Manhã" state={p.manha} icon={Sun} active={period === "manha"} />
+              <PeriodPill label="Tarde" state={p.tarde} icon={Sunset} active={period === "tarde"} />
+              {p.triedBefore > 0 && (
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{ background: "#fff7ed", color: "#b45309" }}
+                >
+                  {p.triedBefore} tentativa(s) antes
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
+
+          {lead.status === "novo" && (
+            <div className="flex items-center gap-2">
+              {phoneOk ? (
+                <a
+                  href={telHref(lead.phone)}
+                  target="_top"
+                  className="flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white"
+                  style={{ ...fontDisplay, background: "#3b82f6", boxShadow: "0 6px 16px -8px rgba(59,130,246,0.8)" }}
+                >
+                  <PhoneCall className="h-4 w-4" /> Ligar
+                </a>
+              ) : (
+                <span className="text-xs" style={{ color: "#dc2626" }}>telefone inválido</span>
+              )}
               <button
-                onClick={() => void syncNow()}
-                disabled={syncing}
-                className="flex h-9 items-center gap-2 rounded-md bg-[#c9a84c] px-3 text-xs font-bold uppercase tracking-wider text-[#0c0e14] disabled:opacity-60"
-                style={fontDisplay}
+                disabled={busy === lead.id}
+                onClick={() => void register(lead, true)}
+                className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold disabled:opacity-50"
+                style={{ background: "#ecfdf5", color: "#047857" }}
               >
-                <Link2 className="h-3.5 w-3.5" /> {syncing ? "Sincronizando…" : "Sincronizar C2S"}
+                <Check className="h-4 w-4" /> Atendeu
               </button>
-            )}
-            <button
-              onClick={() => void load()}
-              className="flex h-9 items-center gap-2 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:border-[#c9a84c]/60 hover:text-[#c9a84c]"
-              style={fontDisplay}
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Atualizar
-            </button>
-          </div>
-
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Novos hoje" value={todayNew.length} icon={Flame} />
-          <Stat
-            label={period === "manha" ? "Faltam na manhã" : "Faltam na tarde"}
-            value={pendingPeriod}
-            icon={period === "manha" ? Sun : Sunset}
-          />
-          <Stat label="Atendidos" value={leads.filter((l) => l.status === "atendido").length} icon={Check} />
-          <Stat label="Frias" value={leads.filter((l) => l.status === "fria").length} icon={Snowflake} />
-        </div>
-
-        <div className="mt-4 rounded-xl border border-zinc-800 bg-[#0f1119] p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500" style={fontDisplay}>
-              Resumo de hoje por corretor
-            </p>
-            <span className="text-[10px] uppercase tracking-widest text-zinc-600">{today.split("-").reverse().join("/")}</span>
-          </div>
-          {dailySummary.length === 0 ? (
-            <p className="mt-2 text-xs text-zinc-500">Nenhuma tentativa registrada hoje.</p>
-          ) : (
-            <div className="mt-2 divide-y divide-zinc-800/70">
-              {dailySummary.map((r) => (
-                <div key={r.name} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <span className="flex min-w-0 items-center gap-2 text-xs text-zinc-200">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
-                    <span className="truncate">{r.name}</span>
-                    <span className="text-[10px] uppercase tracking-wider text-zinc-500">{r.total} lead(s)</span>
-                  </span>
-                  <span className="flex items-center gap-2 text-[11px] font-semibold" style={fontNumeric}>
-                    <span className="flex items-center gap-1 rounded-full border border-emerald-600/50 bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
-                      <Sun className="h-3 w-3" /> {r.manha} manhã
-                    </span>
-                    <span className="flex items-center gap-1 rounded-full border border-emerald-600/50 bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
-                      <Sunset className="h-3 w-3" /> {r.tarde} tarde
-                    </span>
-                    <span className="flex items-center gap-1 rounded-full border border-red-600/50 bg-red-500/10 px-2 py-0.5 text-red-400">
-                      <X className="h-3 w-3" /> {r.semResposta} sem resposta
-                    </span>
-                  </span>
-                </div>
-              ))}
+              <button
+                disabled={busy === lead.id}
+                onClick={() => void register(lead, false)}
+                className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold disabled:opacity-50"
+                style={{ background: "#f1f5f9", color: "#475569" }}
+              >
+                <X className="h-4 w-4" /> Não atendeu
+              </button>
             </div>
           )}
         </div>
+      </div>
+    );
+  };
 
-
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {(["novo", "atendido", "fria"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`h-9 rounded-md px-3 text-xs font-bold uppercase tracking-wider ${
-                view === v ? "bg-[#c9a84c] text-[#0c0e14]" : "border border-zinc-700 text-zinc-400 hover:text-zinc-200"
-              }`}
-              style={fontDisplay}
-            >
-              {v === "novo" ? "Novos" : v === "atendido" ? "Atendidos" : "Fria"}
-            </button>
-          ))}
-          {isAdmin && (
-            <select value={brokerFilter} onChange={(e) => setBrokerFilter(e.target.value)} className={`${inputCls} ml-auto max-w-[220px]`}>
-              <option value="all" className="bg-[#13151e]">Todos os corretores</option>
-              <option value="none" className="bg-[#13151e]">Sem corretor vinculado</option>
-              {brokers.map((b) => (
-                <option key={b.id} value={b.id} className="bg-[#13151e]">{b.name}</option>
-              ))}
-            </select>
-          )}
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight" style={{ ...fontDisplay, color: "#0f172a" }}>
+            Leads
+          </h2>
+          <p className="text-sm" style={{ color: "#64748b" }}>
+            1 ligação na manhã (9h–12h) e 1 na tarde (14h–19h). Sai da lista quando atender.
+          </p>
         </div>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => void syncNow()}
+              disabled={syncing}
+              className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-60"
+              style={{ background: "#eff6ff", color: "#1d4ed8" }}
+            >
+              <Link2 className="h-4 w-4" /> {syncing ? "Sincronizando…" : "Sincronizar"}
+            </button>
+          )}
+          <button
+            onClick={() => void load()}
+            className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium"
+            style={{ background: "#f1f5f9", color: "#475569" }}
+          >
+            <RefreshCw className="h-4 w-4" /> Atualizar
+          </button>
+        </div>
+      </div>
 
-        {view === "novo" && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {([
-              ["todos", `Todos (${novos.length})`],
-              ["falta_manha", `Falta manhã (${counts.faltaManha})`],
-              ["falta_tarde", `Falta tarde (${counts.faltaTarde})`],
-              ["sem_resposta", `Sem resposta nos 2 períodos (${counts.semResposta})`],
-              ["pendentes_anteriores", `Vindo de dias anteriores (${counts.anteriores})`],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setFocus(key)}
-                className={`h-8 rounded-full px-3 text-[11px] font-bold uppercase tracking-wider ${
-                  focus === key
-                    ? "bg-[#c9a84c]/15 text-[#c9a84c] ring-1 ring-[#c9a84c]/50"
-                    : "border border-zinc-700 text-zinc-400 hover:text-zinc-200"
-                }`}
-                style={fontDisplay}
-              >
-                {label}
-              </button>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Novos hoje" value={todayNew.length} icon={Flame} />
+        <Stat
+          label={period === "manha" ? "Faltam na manhã" : "Faltam na tarde"}
+          value={pendingPeriod}
+          icon={period === "manha" ? Sun : Sunset}
+        />
+        <Stat label="Sem resposta" value={counts.semResposta} icon={X} />
+        <Stat label="Atendidos" value={leads.filter((l) => l.status === "atendido").length} icon={Check} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(["novo", "atendido", "fria"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className="h-9 rounded-full px-4 text-sm font-semibold"
+            style={
+              view === v
+                ? { background: "#0f172a", color: "#ffffff" }
+                : { background: "#f1f5f9", color: "#475569" }
+            }
+          >
+            {v === "novo" ? "Para ligar" : v === "atendido" ? "Atendidos" : "Frias"}
+          </button>
+        ))}
+        {isAdmin && (
+          <select
+            value={brokerFilter}
+            onChange={(e) => setBrokerFilter(e.target.value)}
+            className="ml-auto h-9 max-w-[220px] rounded-full px-3 text-sm outline-none"
+            style={{ background: "#f1f5f9", color: "#334155" }}
+          >
+            <option value="all">Todos os corretores</option>
+            <option value="none">Sem corretor</option>
+            {brokers.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
             ))}
-          </div>
+          </select>
         )}
       </div>
 
+      {view === "novo" && (
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            ["todos", `Todos (${novos.length})`],
+            [period === "manha" ? "falta_manha" : "falta_tarde", `Falta ligar agora (${pendingPeriod})`],
+            ["sem_resposta", `Sem resposta (${counts.semResposta})`],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setFocus(key)}
+              className="h-8 rounded-full px-3 text-xs font-semibold"
+              style={
+                focus === key
+                  ? { background: "#eff6ff", color: "#1d4ed8" }
+                  : { background: "transparent", color: "#64748b", border: "1px solid #e2e8f0" }
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-zinc-500">Carregando leads…</div>
+        <div className="py-16 text-center text-sm" style={{ color: "#94a3b8" }}>Carregando leads…</div>
       ) : visible.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-800 bg-[#13151e] py-12 text-center text-sm text-zinc-500">
-          Nenhum lead nessa visualização.
+        <div className="rounded-2xl bg-white py-16 text-center text-sm" style={{ border: "1px solid #e8ecf1", color: "#94a3b8" }}>
+          Nenhum lead nessa lista.
         </div>
       ) : (
-        <div className="space-y-3">
-          {visible.map((lead) => {
-            const p = progressOf(lead.id);
-            const broker = brokers.find((b) => b.id === lead.broker_id);
-            const age = daysSince(lead.received_at);
-            const phoneOk = normalizePhone(lead.phone).length >= 10;
-            const semResposta = p.manha === "nao_atendeu" && p.tarde === "nao_atendeu";
-            const borderCls = semResposta
-              ? "border-red-600/50"
-              : p.manha === "atendeu" || p.tarde === "atendeu"
-                ? "border-emerald-600/50"
-                : "border-zinc-800";
-            return (
-              <div key={lead.id} className={`rounded-2xl border ${borderCls} bg-[#13151e] p-4`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-semibold text-zinc-100">{lead.name}</p>
-                      {lead.source && (
-                        <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] uppercase tracking-wider text-zinc-400">
-                          {lead.source}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-                      <span style={fontNumeric}>{lead.phone || "sem telefone"}</span>
-                      {lead.email && <span>{lead.email}</span>}
-                      {broker ? (
-                        <span className="flex items-center gap-1">
-                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: broker.color }} />
-                          {broker.name}
-                        </span>
-                      ) : (
-                        <span className="italic text-amber-400">
-                          sem corretor {lead.c2s_broker_alias ? `(C2S: ${lead.c2s_broker_alias})` : ""}
-                        </span>
-                      )}
-                      <span>{age === 0 ? "recebido hoje" : `há ${age} dia(s)`}</span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <PeriodPill label="Manhã" state={p.manha} icon={Sun} active={period === "manha"} />
-                      <PeriodPill label="Tarde" state={p.tarde} icon={Sunset} active={period === "tarde"} />
-                      {semResposta && (
-                        <span className="rounded-full border border-red-600/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
-                          Não atendeu em nenhum período
-                        </span>
-                      )}
-                      {p.triedBefore > 0 && (
-                        <span className="rounded-full border border-amber-600/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">
-                          {p.triedBefore} tentativa(s) em dias anteriores
-                        </span>
-                      )}
-                    </div>
-                  </div>
+        <div className="space-y-8">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ ...fontDisplay, color: "#0f172a" }}>
+                Caíram hoje
+              </h3>
+              <span className="text-xs" style={{ color: "#94a3b8" }}>{hoje.length} lead(s)</span>
+            </div>
+            {hoje.length === 0 ? (
+              <p className="text-sm" style={{ color: "#94a3b8" }}>Nenhum lead novo hoje.</p>
+            ) : (
+              hoje.map((lead) => <LeadCard key={lead.id} lead={lead} />)
+            )}
+          </section>
 
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ ...fontDisplay, color: "#0f172a" }}>
+                Dias anteriores {view === "novo" ? "— ainda sem atender" : ""}
+              </h3>
+              <span className="text-xs" style={{ color: "#94a3b8" }}>{anteriores.length} lead(s)</span>
+            </div>
+            {anteriores.length === 0 ? (
+              <p className="text-sm" style={{ color: "#94a3b8" }}>Nada pendente de dias anteriores.</p>
+            ) : (
+              anteriores.map((lead) => <LeadCard key={lead.id} lead={lead} />)
+            )}
+          </section>
+        </div>
+      )}
 
-                  {lead.status === "novo" && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {phoneOk ? (
-                        <a
-                          href={telHref(lead.phone)}
-                          target="_top"
-                          className="flex h-10 items-center gap-2 rounded-md bg-[#c9a84c] px-4 text-xs font-bold uppercase tracking-wider text-[#0c0e14]"
-                          style={fontDisplay}
-                        >
-                          <PhoneCall className="h-4 w-4" /> Ligar
-                        </a>
-                      ) : (
-                        <span className="text-xs text-red-400">telefone inválido</span>
-                      )}
-                      <button
-                        disabled={busy === lead.id}
-                        onClick={() => void register(lead, true)}
-                        className="flex h-10 items-center gap-2 rounded-md border border-emerald-600/60 px-3 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:bg-emerald-600/10 disabled:opacity-50"
-                        style={fontDisplay}
-                      >
-                        <Check className="h-4 w-4" /> Atendeu
-                      </button>
-                      <button
-                        disabled={busy === lead.id}
-                        onClick={() => void register(lead, false)}
-                        className="flex h-10 items-center gap-2 rounded-md border border-zinc-700 px-3 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
-                        style={fontDisplay}
-                      >
-                        <X className="h-4 w-4" /> Não atendeu
-                      </button>
-                    </div>
-                  )}
-                </div>
+      {isAdmin && dailySummary.length > 0 && (
+        <div className="rounded-2xl bg-white p-4" style={{ border: "1px solid #e8ecf1" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#0f172a" }}>Resumo de hoje por corretor</p>
+            <span className="text-xs" style={{ color: "#94a3b8" }}>{today.split("-").reverse().join("/")}</span>
+          </div>
+          <div className="mt-2 divide-y" style={{ borderColor: "#f1f5f9" }}>
+            {dailySummary.map((r) => (
+              <div key={r.name} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="flex min-w-0 items-center gap-2" style={{ color: "#334155" }}>
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
+                  <span className="truncate">{r.name}</span>
+                </span>
+                <span className="flex items-center gap-2 text-xs font-semibold" style={fontNumeric}>
+                  <span className="rounded-full px-2 py-0.5" style={{ background: "#ecfdf5", color: "#047857" }}>{r.manha} manhã</span>
+                  <span className="rounded-full px-2 py-0.5" style={{ background: "#ecfdf5", color: "#047857" }}>{r.tarde} tarde</span>
+                  <span className="rounded-full px-2 py-0.5" style={{ background: "#fef2f2", color: "#b91c1c" }}>{r.semResposta} sem resposta</span>
+                </span>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       )}
 
@@ -478,11 +489,11 @@ function spDate(iso: string) {
 
 function Stat({ label, value, icon: Icon }: { label: string; value: number; icon: typeof Flame }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-[#0f1119] p-3">
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-500">
+    <div className="rounded-2xl bg-white p-3" style={{ border: "1px solid #e8ecf1" }}>
+      <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: "#64748b" }}>
         <Icon className="h-3.5 w-3.5" /> {label}
       </div>
-      <div className="mt-1 text-2xl font-bold text-zinc-100" style={fontNumeric}>{value}</div>
+      <div className="mt-1 text-2xl font-semibold" style={{ ...fontNumeric, color: "#0f172a" }}>{value}</div>
     </div>
   );
 }
@@ -498,21 +509,22 @@ function PeriodPill({
   active: boolean;
   icon: typeof Sun;
 }) {
-  const cls =
+  const style =
     state === "atendeu"
-      ? "border-emerald-600/60 bg-emerald-500/10 text-emerald-400"
+      ? { background: "#ecfdf5", color: "#047857" }
       : state === "nao_atendeu"
-        ? "border-red-600/50 bg-red-500/10 text-red-400"
+        ? { background: "#fef2f2", color: "#b91c1c" }
         : active
-          ? "border-[#c9a84c]/60 text-[#c9a84c]"
-          : "border-zinc-700 text-zinc-500";
-  const suffix = state === "atendeu" ? "atendeu ✓" : state === "nao_atendeu" ? "não atendeu ✕" : "pendente —";
+          ? { background: "#eff6ff", color: "#1d4ed8" }
+          : { background: "#f1f5f9", color: "#94a3b8" };
+  const suffix = state === "atendeu" ? "atendeu" : state === "nao_atendeu" ? "não atendeu" : "pendente";
   return (
-    <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>
+    <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={style}>
       <Icon className="h-3 w-3" /> {label}: {suffix}
     </span>
   );
 }
+
 
 
 /** Mapeia apelidos/e-mails do C2S para corretores daqui (admin). */
