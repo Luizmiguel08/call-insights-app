@@ -379,6 +379,163 @@ export type Database = {
           },
         ]
       }
+      crm_broker_aliases: {
+        Row: {
+          broker_id: string
+          c2s_alias: string | null
+          c2s_email: string | null
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          broker_id: string
+          c2s_alias?: string | null
+          c2s_email?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          broker_id?: string
+          c2s_alias?: string | null
+          c2s_email?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_broker_aliases_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_lead_attempts: {
+        Row: {
+          attempt_date: string
+          broker_id: string | null
+          called_at: string
+          duration_seconds: number
+          id: string
+          lead_id: string
+          observation: string | null
+          period: string
+          result: string
+          user_id: string | null
+        }
+        Insert: {
+          attempt_date?: string
+          broker_id?: string | null
+          called_at?: string
+          duration_seconds?: number
+          id?: string
+          lead_id: string
+          observation?: string | null
+          period: string
+          result: string
+          user_id?: string | null
+        }
+        Update: {
+          attempt_date?: string
+          broker_id?: string | null
+          called_at?: string
+          duration_seconds?: number
+          id?: string
+          lead_id?: string
+          observation?: string | null
+          period?: string
+          result?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_lead_attempts_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_lead_attempts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_leads: {
+        Row: {
+          attended_at: string | null
+          broker_id: string | null
+          c2s_broker_alias: string | null
+          c2s_broker_email: string | null
+          c2s_lead_id: string
+          cold_at: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string
+          raw: Json | null
+          received_at: string
+          source: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attended_at?: string | null
+          broker_id?: string | null
+          c2s_broker_alias?: string | null
+          c2s_broker_email?: string | null
+          c2s_lead_id: string
+          cold_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string
+          raw?: Json | null
+          received_at?: string
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attended_at?: string | null
+          broker_id?: string | null
+          c2s_broker_alias?: string | null
+          c2s_broker_email?: string | null
+          c2s_lead_id?: string
+          cold_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string
+          raw?: Json | null
+          received_at?: string
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_leads_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dialer_error_log: {
         Row: {
           action: string | null
@@ -751,6 +908,22 @@ export type Database = {
         Returns: Json
       }
       claim_corretor_role_if_eligible: { Args: never; Returns: Json }
+      crm_current_period: { Args: never; Returns: string }
+      crm_expire_cold_leads: { Args: never; Returns: Json }
+      crm_register_lead_attempt: {
+        Args: {
+          _attended: boolean
+          _duration_seconds?: number
+          _lead_id: string
+          _observation?: string
+          _result?: string
+        }
+        Returns: Json
+      }
+      crm_resolve_broker: {
+        Args: { _alias: string; _email: string }
+        Returns: string
+      }
       current_broker_id: { Args: never; Returns: string }
       current_org_id: { Args: never; Returns: string }
       dialer_housekeeping: { Args: never; Returns: Json }

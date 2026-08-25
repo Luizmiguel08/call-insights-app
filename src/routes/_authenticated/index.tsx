@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw, Bell } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw, Bell, Flame } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import wolfBg from "@/assets/wolf-wall-street.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
@@ -25,6 +25,7 @@ const DashboardTab = lazy(() => import("@/components/dialer/DashboardTab"));
 const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
 const DiscadorTab = lazy(() => import("@/components/dialer/DiscadorTab"));
+const LeadsTab = lazy(() => import("@/components/dialer/LeadsTab"));
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -101,8 +102,29 @@ function LigaCtrlApp() {
     return () => { alive = false; (supabase as any).removeChannel(ch); };
   }, [me?.userId, isAdmin]);
 
+  // Contagem de leads novos do C2S (badge)
+  const [newLeads, setNewLeads] = useState(0);
+  useEffect(() => {
+    if (!me?.userId) return;
+    let alive = true;
+    const load = async () => {
+      const { count } = await (supabase as any)
+        .from("crm_leads")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "novo");
+      if (alive) setNewLeads(count ?? 0);
+    };
+    void load();
+    const ch = (supabase as any)
+      .channel(`crm-leads-badge-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => void load())
+      .subscribe();
+    return () => { alive = false; (supabase as any).removeChannel(ch); };
+  }, [me?.userId]);
+
   const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
+    { id: "leads", label: "Leads C2S", icon: Flame, badge: newLeads },
     { id: "fila", label: "Fila", icon: ListPlus },
     { id: "lembretes", label: "Lembretes", icon: Bell, badge: pendingReminders },
     { id: "rapido", label: "Rápido", icon: Zap },
@@ -188,6 +210,7 @@ function LigaCtrlApp() {
 
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
         {tab === "discador" && <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} /></Suspense>}
+        {tab === "leads" && <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} /></Suspense>}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
         {tab === "lembretes" && <LembretesTab me={me} isAdmin={isAdmin} />}

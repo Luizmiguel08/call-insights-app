@@ -30,7 +30,7 @@ export type Contact = {
   listName: string;
 };
 export type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
-export type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros" | "lembretes";
+export type Tab = "discador" | "fila" | "rapido" | "historico" | "dashboard" | "corretores" | "erros" | "lembretes" | "leads";
 
 export function attemptLabel(attempts: number | undefined | null) {
   const used = attempts ?? 0;
