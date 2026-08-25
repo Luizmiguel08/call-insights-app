@@ -29,15 +29,46 @@ async function run(request: Request) {
   }
 
   const sinceHours = Number(url.searchParams.get("horas") ?? url.searchParams.get("hours") ?? 48);
+  const force = url.searchParams.get("force") === "1";
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  // Controle de concorrencia + backoff: evita sobrecarga quando ha erros
+  if (!force) {
+    const { data: canRun, error: beginError } = await supabaseAdmin.rpc(
+      "c2s_sync_begin" as never,
+    );
+    if (beginError) {
+      console.error("[c2s-sync] begin falhou", beginError);
+      return json({ error: "lock_failed", message: beginError.message }, 500);
+    }
+    if (!canRun) {
+      return json({ skipped: true, reason: "em_execucao_ou_backoff" }, 202);
+    }
+  }
 
   try {
     const { syncC2sLeads } = await import("@/lib/c2s.server");
     const result = await syncC2sLeads({
       sinceHours: Number.isFinite(sinceHours) ? sinceHours : 48,
     });
+    if (!force) {
+      await supabaseAdmin.rpc("c2s_sync_end" as never, {
+        _ok: true,
+        _error: null,
+        _result: result as never,
+      } as never);
+    }
     return json(result);
   } catch (err) {
     console.error("[c2s-sync] falhou", err);
+    if (!force) {
+      await supabaseAdmin.rpc("c2s_sync_end" as never, {
+        _ok: false,
+        _error: (err as Error).message?.slice(0, 500) ?? "erro",
+        _result: null,
+      } as never);
+    }
     return json({ error: "sync_failed", message: (err as Error).message }, 502);
   }
 }
