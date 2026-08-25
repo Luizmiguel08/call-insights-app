@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw, Bell, Flame } from "lucide-react";
+import { Phone, History, BarChart3, Users, Trash2, Plus, Check, X, Calendar, UserCircle2, Zap, Undo2, Upload, PhoneCall, SkipForward, Target, ListPlus, LogOut, Cloud, MessageCircle, Pencil, Save, AlertTriangle, RefreshCw, Bell, Flame, Menu } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
 import wolfBg from "@/assets/wolf-wall-street.png.asset.json";
 import { useCloudState, newId, type Me } from "@/lib/cloud-state";
@@ -277,6 +277,8 @@ function LigaCtrlApp() {
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         {tab === "discador" && <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} /></Suspense>}
+        {tab !== "discador" && (
+        <div className="rounded-3xl p-3 sm:p-5" style={{ background: "#0b0d13", border: "1px solid #e2e8f0" }}>
         {tab === "leads" && <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} /></Suspense>}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
         {tab === "rapido" && <RapidoTab state={state} setState={setState} />}
@@ -285,6 +287,8 @@ function LigaCtrlApp() {
         {tab === "dashboard" && <DashboardTab state={state} />}
         {tab === "corretores" && <CorretoresTab state={state} fullState={fullState} setState={setState} isAdmin={isAdmin} me={me} />}
         {tab === "erros" && isAdmin && <ErrosTab />}
+        </div>
+        )}
       </main>
     </div>
   );
