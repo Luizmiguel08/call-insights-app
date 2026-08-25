@@ -178,6 +178,28 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   }, [novos, progressOf]);
   const pendingPeriod = period === "manha" ? counts.faltaManha : counts.faltaTarde;
 
+  /** Resumo do dia por corretor: quem atendeu de manhã, de tarde e quem não respondeu. */
+  const dailySummary = useMemo(() => {
+    const rows = new Map<string, { name: string; color: string; manha: number; tarde: number; semResposta: number; total: number }>();
+    for (const l of leads) {
+      const p = progressOf(l.id);
+      if (p.triedToday === 0 && p.manha === "pendente" && p.tarde === "pendente") continue;
+      const key = l.broker_id ?? "none";
+      const broker = brokers.find((b) => b.id === l.broker_id);
+      const cur =
+        rows.get(key) ??
+        { name: broker?.name ?? "Sem corretor", color: broker?.color ?? "#71717a", manha: 0, tarde: 0, semResposta: 0, total: 0 };
+      cur.total += 1;
+      if (p.manha === "atendeu") cur.manha += 1;
+      if (p.tarde === "atendeu") cur.tarde += 1;
+      if (p.manha === "nao_atendeu" && p.tarde === "nao_atendeu") cur.semResposta += 1;
+      rows.set(key, cur);
+    }
+    return [...rows.values()].sort((a, b) => b.manha + b.tarde - (a.manha + a.tarde) || a.name.localeCompare(b.name));
+  }, [leads, brokers, progressOf]);
+
+
+
 
   async function syncNow() {
     setSyncing(true);
@@ -254,6 +276,43 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
           <Stat label="Atendidos" value={leads.filter((l) => l.status === "atendido").length} icon={Check} />
           <Stat label="Frias" value={leads.filter((l) => l.status === "fria").length} icon={Snowflake} />
         </div>
+
+        <div className="mt-4 rounded-xl border border-zinc-800 bg-[#0f1119] p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500" style={fontDisplay}>
+              Resumo de hoje por corretor
+            </p>
+            <span className="text-[10px] uppercase tracking-widest text-zinc-600">{today.split("-").reverse().join("/")}</span>
+          </div>
+          {dailySummary.length === 0 ? (
+            <p className="mt-2 text-xs text-zinc-500">Nenhuma tentativa registrada hoje.</p>
+          ) : (
+            <div className="mt-2 divide-y divide-zinc-800/70">
+              {dailySummary.map((r) => (
+                <div key={r.name} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span className="flex min-w-0 items-center gap-2 text-xs text-zinc-200">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
+                    <span className="truncate">{r.name}</span>
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500">{r.total} lead(s)</span>
+                  </span>
+                  <span className="flex items-center gap-2 text-[11px] font-semibold" style={fontNumeric}>
+                    <span className="flex items-center gap-1 rounded-full border border-emerald-600/50 bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
+                      <Sun className="h-3 w-3" /> {r.manha} manhã
+                    </span>
+                    <span className="flex items-center gap-1 rounded-full border border-emerald-600/50 bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
+                      <Sunset className="h-3 w-3" /> {r.tarde} tarde
+                    </span>
+                    <span className="flex items-center gap-1 rounded-full border border-red-600/50 bg-red-500/10 px-2 py-0.5 text-red-400">
+                      <X className="h-3 w-3" /> {r.semResposta} sem resposta
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {(["novo", "atendido", "fria"] as const).map((v) => (
