@@ -172,6 +172,42 @@ export type Database = {
         }
         Relationships: []
       }
+      c2s_sync_state: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          id: number
+          last_error: string | null
+          last_result: Json | null
+          last_run_at: string | null
+          next_allowed_at: string
+          running_since: string | null
+          updated_at: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          next_allowed_at?: string
+          running_since?: string | null
+          updated_at?: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          next_allowed_at?: string
+          running_since?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       call_reminders: {
         Row: {
           broker_id: string
@@ -906,6 +942,11 @@ export type Database = {
       broker_daily_counts: {
         Args: { _broker: string; _date?: string }
         Returns: Json
+      }
+      c2s_sync_begin: { Args: never; Returns: boolean }
+      c2s_sync_end: {
+        Args: { _error?: string; _ok: boolean; _result?: Json }
+        Returns: undefined
       }
       claim_corretor_role_if_eligible: { Args: never; Returns: Json }
       crm_current_period: { Args: never; Returns: string }
