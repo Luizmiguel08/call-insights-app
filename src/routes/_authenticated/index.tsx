@@ -122,93 +122,160 @@ function LigaCtrlApp() {
     return () => { alive = false; (supabase as any).removeChannel(ch); };
   }, [me?.userId]);
 
-  const allTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
+  const primaryTabs: { id: Tab; label: string; icon: typeof Phone; badge?: number }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
-    { id: "leads", label: "Leads C2S", icon: Flame, badge: newLeads },
-    { id: "fila", label: "Fila", icon: ListPlus },
+    { id: "leads", label: "Leads", icon: Flame, badge: newLeads },
+  ];
+  const menuTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
+    { id: "fila", label: "Fila de contatos", icon: ListPlus },
     { id: "lembretes", label: "Lembretes", icon: Bell, badge: pendingReminders },
-    { id: "rapido", label: "Rápido", icon: Zap },
+    { id: "rapido", label: "Registro rápido", icon: Zap },
     { id: "historico", label: "Histórico", icon: History },
     { id: "dashboard", label: "Painel", icon: BarChart3 },
-    { id: "corretores", label: isAdmin ? "Equipe" : "Conta", icon: Users },
+    { id: "corretores", label: isAdmin ? "Equipe" : "Minha conta", icon: Users },
     { id: "erros", label: "Erros", icon: AlertTriangle, admin: true },
-  ];
-  const tabs = allTabs.filter((t) => !t.admin || isAdmin);
+  ].filter((t) => !(t as any).admin || isAdmin) as typeof menuTabs;
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
+  const activeMenuTab = menuTabs.find((t) => t.id === tab) ?? null;
+  const menuBadge = menuTabs.reduce((a, t) => a + (t.badge ?? 0), 0);
 
   useReminderNotifier(me, () => setTab("lembretes"));
 
   return (
-    <div className="min-h-[100dvh] bg-[#0c0e14] text-zinc-100 pb-[env(safe-area-inset-bottom)] relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.92), rgba(11,13,19,0.96)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center top", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat" }}>
-      <header className="border-b border-zinc-800/80 bg-[#0c0e14]/90 backdrop-blur sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-2 sm:px-6 sm:py-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <img
-              src={fortalLogo.url}
-              alt="Fortal Inteligência Imobiliária"
-              width={40}
-              height={40}
-              className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-[0_0_12px_rgba(201,162,76,0.35)]"
-            />
-            <div className="leading-none">
-              <div className="text-xl sm:text-2xl text-[#c9a84c] tracking-[0.24em] font-medium" style={fontDisplay}>FORTAL</div>
-              <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.34em] text-zinc-500 mt-1.5 italic" style={fontDisplay}>Inteligência Imobiliária</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <ConnectionIndicator state={dialerSession.isConnected} lastSyncAt={dialerSession.lastSyncAt} />
-            <div className="text-right text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
-              <div className="hidden sm:flex items-center justify-end gap-1 text-[#c9a84c]"><Cloud className="h-3 w-3" /> {hydrated ? "sincronizado" : "carregando..."}</div>
-              <div className="text-zinc-300 font-semibold">{new Date().toLocaleDateString("pt-BR")}</div>
-            </div>
-
-            <button
-              onClick={signOut}
-              title="Sair"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-700 text-zinc-400 hover:text-[#c9a84c] hover:border-[#c9a84c]/60"
+    <div
+      className="min-h-[100dvh] pb-[env(safe-area-inset-bottom)]"
+      style={{ fontFamily: "'DM Sans', system-ui, sans-serif", background: "#fafbfc", color: "#101725" }}
+    >
+      <header
+        className="sticky top-0 z-30 pt-[env(safe-area-inset-top)]"
+        style={{ background: "rgba(250,251,252,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid #e8ecf1" }}
+      >
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img src={fortalLogo.url} alt="Fortal" width={32} height={32} className="h-8 w-8 object-contain" />
+            <span
+              className="text-[15px] font-bold tracking-[0.16em]"
+              style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", color: "#101725" }}
             >
-              <LogOut className="h-4 w-4" />
-            </button>
+              FORTAL
+            </span>
           </div>
-        </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 px-2 sm:px-4 overflow-x-auto no-scrollbar">
-          {tabs.map((t) => {
-            const Icon = t.icon;
-            const active = tab === t.id;
-            const badge = t.badge ?? 0;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`relative shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${
-                  active
-                    ? "border-[var(--gold)] text-[var(--gold)]"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300"
-                }`}
-                style={fontDisplay}
-              >
-                <Icon className="h-4 w-4" />
-                {t.label.toUpperCase()}
-                {badge > 0 && (
-                  <span
-                    className="absolute flex items-center justify-center rounded-full text-white font-semibold"
+
+          <div className="flex items-center gap-2">
+            {/* Abas principais */}
+            <div className="flex items-center gap-1 rounded-full p-1" style={{ background: "#eef1f5" }}>
+              {primaryTabs.map((t) => {
+                const active = tab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className="relative rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all sm:px-4"
                     style={{
-                      top: 4, right: 0,
-                      width: 16, height: 16,
-                      background: "var(--red)",
-                      fontSize: 9,
+                      fontFamily: "'Space Grotesk', system-ui, sans-serif",
+                      background: active ? "#ffffff" : "transparent",
+                      color: active ? "#1d4ed8" : "#64748b",
+                      boxShadow: active ? "0 1px 2px rgba(16,23,37,0.10)" : "none",
                     }}
                   >
-                    {badge > 99 ? "99+" : badge}
-                  </span>
+                    {t.label}
+                    {(t.badge ?? 0) > 0 && (
+                      <span
+                        className="ml-1.5 inline-flex items-center rounded-full px-1.5 text-[10px] font-bold"
+                        style={{ background: "#3b82f6", color: "#fff" }}
+                      >
+                        {t.badge! > 99 ? "99+" : t.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Menu com o resto */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-label="Abrir menu"
+                className="relative flex h-9 items-center gap-2 rounded-full px-3 text-[13px] font-semibold transition-colors"
+                style={{
+                  fontFamily: "'Space Grotesk', system-ui, sans-serif",
+                  border: "1px solid #e2e8f0",
+                  background: menuOpen || activeMenuTab ? "#101725" : "#ffffff",
+                  color: menuOpen || activeMenuTab ? "#ffffff" : "#475569",
+                }}
+              >
+                <Menu className="h-4 w-4" />
+                <span className="hidden sm:inline">{activeMenuTab ? activeMenuTab.label : "Menu"}</span>
+                {!menuOpen && menuBadge > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full" style={{ background: "#ef4444" }} />
                 )}
               </button>
-            );
-          })}
-        </nav>
+
+              {menuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl p-1.5"
+                  style={{ background: "#ffffff", border: "1px solid #e8ecf1", boxShadow: "0 18px 45px -20px rgba(16,23,37,0.30)" }}
+                >
+                  {menuTabs.map((t) => {
+                    const Icon = t.icon;
+                    const active = tab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => { setTab(t.id); setMenuOpen(false); }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors"
+                        style={{ background: active ? "#eff4ff" : "transparent", color: active ? "#1d4ed8" : "#334155" }}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" style={{ color: active ? "#3b82f6" : "#94a3b8" }} />
+                        <span className="flex-1">{t.label}</span>
+                        {(t.badge ?? 0) > 0 && (
+                          <span
+                            className="rounded-full px-1.5 text-[10px] font-bold"
+                            style={{ background: "#ef4444", color: "#fff" }}
+                          >
+                            {t.badge! > 99 ? "99+" : t.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  <div className="my-1.5 h-px" style={{ background: "#eef1f5" }} />
+                  <div className="flex items-center justify-between px-3 pb-1 pt-0.5">
+                    <div className="flex items-center gap-1.5 text-[11px]" style={{ color: "#94a3b8" }}>
+                      <ConnectionIndicator state={dialerSession.isConnected} lastSyncAt={dialerSession.lastSyncAt} />
+                    </div>
+                    <span className="text-[11px] tabular-nums" style={{ color: "#94a3b8" }}>
+                      {new Date().toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                  <button
+                    onClick={signOut}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium"
+                    style={{ color: "#dc2626" }}
+                  >
+                    <LogOut className="h-4 w-4" /> Sair
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </header>
 
 
-      <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         {tab === "discador" && <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} /></Suspense>}
         {tab === "leads" && <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} /></Suspense>}
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
