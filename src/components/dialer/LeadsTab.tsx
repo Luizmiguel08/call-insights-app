@@ -121,7 +121,22 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
     [visible, attemptsByLead, period],
   );
 
+  async function syncNow() {
+    setSyncing(true);
+    try {
+      const r = await syncC2sNow({ data: { sinceHours: 72 } });
+      toast.success(`C2S sincronizado: ${r.saved} lead(s) atualizados`);
+      if (r.unmapped.length > 0) toast.warning(`Sem vínculo de corretor: ${r.unmapped.join(", ")}`);
+      void load();
+    } catch (e) {
+      toast.error(`Falha ao sincronizar C2S: ${(e as Error).message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function register(lead: Lead, attended: boolean) {
+
     setBusy(lead.id);
     const { error } = await db.rpc("crm_register_lead_attempt", {
       _lead_id: lead.id,
