@@ -278,7 +278,33 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
             </select>
           )}
         </div>
+
+        {view === "novo" && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {([
+              ["todos", `Todos (${novos.length})`],
+              ["falta_manha", `Falta manhã (${counts.faltaManha})`],
+              ["falta_tarde", `Falta tarde (${counts.faltaTarde})`],
+              ["sem_resposta", `Sem resposta nos 2 períodos (${counts.semResposta})`],
+              ["pendentes_anteriores", `Vindo de dias anteriores (${counts.anteriores})`],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFocus(key)}
+                className={`h-8 rounded-full px-3 text-[11px] font-bold uppercase tracking-wider ${
+                  focus === key
+                    ? "bg-[#c9a84c]/15 text-[#c9a84c] ring-1 ring-[#c9a84c]/50"
+                    : "border border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                }`}
+                style={fontDisplay}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
 
       {loading ? (
         <div className="py-12 text-center text-sm text-zinc-500">Carregando leads…</div>
