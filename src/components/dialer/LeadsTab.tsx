@@ -58,6 +58,8 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   const [brokerFilter, setBrokerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
 
   const today = spToday();
   const period = currentPeriod();
