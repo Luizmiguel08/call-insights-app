@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Flame, Link2, PhoneCall, RefreshCw, Snowflake, Sun, Sunset, Check, X } from "lucide-react";
+import { Flame, Link2, PhoneCall, RefreshCw, Sun, Sunset, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Me } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
