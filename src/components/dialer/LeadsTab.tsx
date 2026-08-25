@@ -178,6 +178,28 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   }, [novos, progressOf]);
   const pendingPeriod = period === "manha" ? counts.faltaManha : counts.faltaTarde;
 
+  /** Resumo do dia por corretor: quem atendeu de manhã, de tarde e quem não respondeu. */
+  const dailySummary = useMemo(() => {
+    const rows = new Map<string, { name: string; color: string; manha: number; tarde: number; semResposta: number; total: number }>();
+    for (const l of leads) {
+      const p = progressOf(l.id);
+      if (p.triedToday === 0 && p.manha === "pendente" && p.tarde === "pendente") continue;
+      const key = l.broker_id ?? "none";
+      const broker = brokers.find((b) => b.id === l.broker_id);
+      const cur =
+        rows.get(key) ??
+        { name: broker?.name ?? "Sem corretor", color: broker?.color ?? "#71717a", manha: 0, tarde: 0, semResposta: 0, total: 0 };
+      cur.total += 1;
+      if (p.manha === "atendeu") cur.manha += 1;
+      if (p.tarde === "atendeu") cur.tarde += 1;
+      if (p.manha === "nao_atendeu" && p.tarde === "nao_atendeu") cur.semResposta += 1;
+      rows.set(key, cur);
+    }
+    return [...rows.values()].sort((a, b) => b.manha + b.tarde - (a.manha + a.tarde) || a.name.localeCompare(b.name));
+  }, [leads, brokers, progressOf]);
+
+
+
 
   async function syncNow() {
     setSyncing(true);
