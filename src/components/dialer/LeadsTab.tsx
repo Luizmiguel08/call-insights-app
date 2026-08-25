@@ -57,6 +57,7 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
+  const [focus, setFocus] = useState<"todos" | "falta_manha" | "falta_tarde" | "sem_resposta" | "pendentes_anteriores">("todos");
   const [brokerFilter, setBrokerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -67,9 +68,10 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   const period = currentPeriod();
 
   const load = useCallback(async () => {
+    const since = new Date(Date.now() - 8 * 86_400_000).toISOString().slice(0, 10);
     const [leadsR, attemptsR, brokersR] = await Promise.all([
       db.from("crm_leads").select("*").order("received_at", { ascending: false }).limit(1000),
-      db.from("crm_lead_attempts").select("*").eq("attempt_date", today),
+      db.from("crm_lead_attempts").select("*").gte("attempt_date", since),
       db.from("brokers").select("id,name,color,email").order("name"),
     ]);
     if (leadsR.error) toast.error(`Falha ao carregar leads: ${leadsR.error.message}`);
@@ -77,7 +79,7 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
     setAttempts((attemptsR.data ?? []) as Attempt[]);
     setBrokers((brokersR.data ?? []) as Broker[]);
     setLoading(false);
-  }, [today]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -94,19 +96,41 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
     };
   }, [load]);
 
-  const attemptsByLead = useMemo(() => {
-    const map = new Map<string, { manha: number; tarde: number }>();
+  type PeriodState = "pendente" | "nao_atendeu" | "atendeu";
+  type LeadProgress = {
+    manha: PeriodState;
+    tarde: PeriodState;
+    triedToday: number;
+    triedBefore: number;
+  };
+
+  const progressByLead = useMemo(() => {
+    const map = new Map<string, LeadProgress>();
+    const get = (id: string) =>
+      map.get(id) ?? { manha: "pendente" as PeriodState, tarde: "pendente" as PeriodState, triedToday: 0, triedBefore: 0 };
     for (const a of attempts) {
-      const cur = map.get(a.lead_id) ?? { manha: 0, tarde: 0 };
-      if (a.period === "manha") cur.manha += 1;
-      else cur.tarde += 1;
+      const cur = get(a.lead_id);
+      if (a.attempt_date === today) {
+        cur.triedToday += 1;
+        const key = a.period === "manha" ? "manha" : "tarde";
+        if (a.result === "atendeu") cur[key] = "atendeu";
+        else if (cur[key] !== "atendeu") cur[key] = "nao_atendeu";
+      } else {
+        cur.triedBefore += 1;
+      }
       map.set(a.lead_id, cur);
     }
     return map;
-  }, [attempts]);
+  }, [attempts, today]);
+
+  const progressOf = useCallback(
+    (id: string): LeadProgress =>
+      progressByLead.get(id) ?? { manha: "pendente", tarde: "pendente", triedToday: 0, triedBefore: 0 },
+    [progressByLead],
+  );
 
   const visible = useMemo(() => {
-    return leads.filter((l) => {
+    const byView = leads.filter((l) => {
       if (l.status !== view) return false;
       if (isAdmin && brokerFilter !== "all") {
         if (brokerFilter === "none") return !l.broker_id;
@@ -114,16 +138,46 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
       }
       return true;
     });
-  }, [leads, view, isAdmin, brokerFilter]);
+    if (view !== "novo" || focus === "todos") return byView;
+    return byView.filter((l) => {
+      const p = progressOf(l.id);
+      if (focus === "falta_manha") return p.manha === "pendente";
+      if (focus === "falta_tarde") return p.tarde === "pendente";
+      if (focus === "sem_resposta") return p.manha === "nao_atendeu" && p.tarde === "nao_atendeu";
+      if (focus === "pendentes_anteriores") return p.triedBefore > 0;
+      return true;
+    });
+  }, [leads, view, isAdmin, brokerFilter, focus, progressOf]);
 
   const todayNew = useMemo(
     () => leads.filter((l) => l.status === "novo" && spDate(l.received_at) === today),
     [leads, today],
   );
-  const pendingPeriod = useMemo(
-    () => visible.filter((l) => (attemptsByLead.get(l.id)?.[period] ?? 0) === 0).length,
-    [visible, attemptsByLead, period],
+  const novos = useMemo(
+    () =>
+      leads.filter((l) => {
+        if (l.status !== "novo") return false;
+        if (isAdmin && brokerFilter !== "all") {
+          if (brokerFilter === "none") return !l.broker_id;
+          return l.broker_id === brokerFilter;
+        }
+        return true;
+      }),
+    [leads, isAdmin, brokerFilter],
   );
+  const counts = useMemo(() => {
+    let faltaManha = 0, faltaTarde = 0, semResposta = 0, anteriores = 0;
+    for (const l of novos) {
+      const p = progressOf(l.id);
+      if (p.manha === "pendente") faltaManha += 1;
+      if (p.tarde === "pendente") faltaTarde += 1;
+      if (p.manha === "nao_atendeu" && p.tarde === "nao_atendeu") semResposta += 1;
+      if (p.triedBefore > 0) anteriores += 1;
+    }
+    return { faltaManha, faltaTarde, semResposta, anteriores };
+  }, [novos, progressOf]);
+  const pendingPeriod = period === "manha" ? counts.faltaManha : counts.faltaTarde;
+
 
   async function syncNow() {
     setSyncing(true);
@@ -224,7 +278,33 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
             </select>
           )}
         </div>
+
+        {view === "novo" && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {([
+              ["todos", `Todos (${novos.length})`],
+              ["falta_manha", `Falta manhã (${counts.faltaManha})`],
+              ["falta_tarde", `Falta tarde (${counts.faltaTarde})`],
+              ["sem_resposta", `Sem resposta nos 2 períodos (${counts.semResposta})`],
+              ["pendentes_anteriores", `Vindo de dias anteriores (${counts.anteriores})`],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFocus(key)}
+                className={`h-8 rounded-full px-3 text-[11px] font-bold uppercase tracking-wider ${
+                  focus === key
+                    ? "bg-[#c9a84c]/15 text-[#c9a84c] ring-1 ring-[#c9a84c]/50"
+                    : "border border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                }`}
+                style={fontDisplay}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
 
       {loading ? (
         <div className="py-12 text-center text-sm text-zinc-500">Carregando leads…</div>
@@ -235,12 +315,18 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
       ) : (
         <div className="space-y-3">
           {visible.map((lead) => {
-            const a = attemptsByLead.get(lead.id) ?? { manha: 0, tarde: 0 };
+            const p = progressOf(lead.id);
             const broker = brokers.find((b) => b.id === lead.broker_id);
             const age = daysSince(lead.received_at);
             const phoneOk = normalizePhone(lead.phone).length >= 10;
+            const semResposta = p.manha === "nao_atendeu" && p.tarde === "nao_atendeu";
+            const borderCls = semResposta
+              ? "border-red-600/50"
+              : p.manha === "atendeu" || p.tarde === "atendeu"
+                ? "border-emerald-600/50"
+                : "border-zinc-800";
             return (
-              <div key={lead.id} className="rounded-2xl border border-zinc-800 bg-[#13151e] p-4">
+              <div key={lead.id} className={`rounded-2xl border ${borderCls} bg-[#13151e] p-4`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -266,11 +352,22 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
                       )}
                       <span>{age === 0 ? "recebido hoje" : `há ${age} dia(s)`}</span>
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <PeriodPill label="Manhã" done={a.manha > 0} icon={Sun} active={period === "manha"} />
-                      <PeriodPill label="Tarde" done={a.tarde > 0} icon={Sunset} active={period === "tarde"} />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <PeriodPill label="Manhã" state={p.manha} icon={Sun} active={period === "manha"} />
+                      <PeriodPill label="Tarde" state={p.tarde} icon={Sunset} active={period === "tarde"} />
+                      {semResposta && (
+                        <span className="rounded-full border border-red-600/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
+                          Não atendeu em nenhum período
+                        </span>
+                      )}
+                      {p.triedBefore > 0 && (
+                        <span className="rounded-full border border-amber-600/50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">
+                          {p.triedBefore} tentativa(s) em dias anteriores
+                        </span>
+                      )}
                     </div>
                   </div>
+
 
                   {lead.status === "novo" && (
                     <div className="flex flex-wrap items-center gap-2">
@@ -331,21 +428,33 @@ function Stat({ label, value, icon: Icon }: { label: string; value: number; icon
   );
 }
 
-function PeriodPill({ label, done, active, icon: Icon }: { label: string; done: boolean; active: boolean; icon: typeof Sun }) {
+function PeriodPill({
+  label,
+  state,
+  active,
+  icon: Icon,
+}: {
+  label: string;
+  state: "pendente" | "nao_atendeu" | "atendeu";
+  active: boolean;
+  icon: typeof Sun;
+}) {
+  const cls =
+    state === "atendeu"
+      ? "border-emerald-600/60 bg-emerald-500/10 text-emerald-400"
+      : state === "nao_atendeu"
+        ? "border-red-600/50 bg-red-500/10 text-red-400"
+        : active
+          ? "border-[#c9a84c]/60 text-[#c9a84c]"
+          : "border-zinc-700 text-zinc-500";
+  const suffix = state === "atendeu" ? "atendeu ✓" : state === "nao_atendeu" ? "não atendeu ✕" : "pendente —";
   return (
-    <span
-      className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-        done
-          ? "border-emerald-600/50 text-emerald-400"
-          : active
-            ? "border-[#c9a84c]/60 text-[#c9a84c]"
-            : "border-zinc-700 text-zinc-500"
-      }`}
-    >
-      <Icon className="h-3 w-3" /> {label} {done ? "✓" : "—"}
+    <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>
+      <Icon className="h-3 w-3" /> {label}: {suffix}
     </span>
   );
 }
+
 
 /** Mapeia apelidos/e-mails do C2S para corretores daqui (admin). */
 function AliasManager({ brokers, leads, onChange }: { brokers: Broker[]; leads: Lead[]; onChange: () => void }) {
