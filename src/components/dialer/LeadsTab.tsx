@@ -428,21 +428,33 @@ function Stat({ label, value, icon: Icon }: { label: string; value: number; icon
   );
 }
 
-function PeriodPill({ label, done, active, icon: Icon }: { label: string; done: boolean; active: boolean; icon: typeof Sun }) {
+function PeriodPill({
+  label,
+  state,
+  active,
+  icon: Icon,
+}: {
+  label: string;
+  state: "pendente" | "nao_atendeu" | "atendeu";
+  active: boolean;
+  icon: typeof Sun;
+}) {
+  const cls =
+    state === "atendeu"
+      ? "border-emerald-600/60 bg-emerald-500/10 text-emerald-400"
+      : state === "nao_atendeu"
+        ? "border-red-600/50 bg-red-500/10 text-red-400"
+        : active
+          ? "border-[#c9a84c]/60 text-[#c9a84c]"
+          : "border-zinc-700 text-zinc-500";
+  const suffix = state === "atendeu" ? "atendeu ✓" : state === "nao_atendeu" ? "não atendeu ✕" : "pendente —";
   return (
-    <span
-      className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-        done
-          ? "border-emerald-600/50 text-emerald-400"
-          : active
-            ? "border-[#c9a84c]/60 text-[#c9a84c]"
-            : "border-zinc-700 text-zinc-500"
-      }`}
-    >
-      <Icon className="h-3 w-3" /> {label} {done ? "✓" : "—"}
+    <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>
+      <Icon className="h-3 w-3" /> {label}: {suffix}
     </span>
   );
 }
+
 
 /** Mapeia apelidos/e-mails do C2S para corretores daqui (admin). */
 function AliasManager({ brokers, leads, onChange }: { brokers: Broker[]; leads: Lead[]; onChange: () => void }) {
