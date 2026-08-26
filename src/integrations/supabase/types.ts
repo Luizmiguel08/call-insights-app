@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -989,21 +989,37 @@ export type Database = {
       current_broker_id: { Args: never; Returns: string }
       current_org_id: { Args: never; Returns: string }
       dialer_housekeeping: { Args: never; Returns: Json }
-      dialer_prefetch_queue: {
-        Args: { _limit?: number; _list_name?: string }
-        Returns: {
-          attempt_count: number
-          broker_id: string
-          created_at: string
-          id: string
-          last_attempt_at: string
-          last_attempt_result: string
-          list_name: string
-          name: string
-          phone: string
-          priority: number
-        }[]
-      }
+      dialer_prefetch_queue:
+        | {
+            Args: { _broker: string; _limit?: number; _list_name?: string }
+            Returns: {
+              attempt_count: number
+              broker_id: string
+              created_at: string
+              id: string
+              last_attempt_at: string
+              last_attempt_result: string
+              list_name: string
+              name: string
+              phone: string
+              priority: number
+            }[]
+          }
+        | {
+            Args: { _limit?: number; _list_name?: string }
+            Returns: {
+              attempt_count: number
+              broker_id: string
+              created_at: string
+              id: string
+              last_attempt_at: string
+              last_attempt_result: string
+              list_name: string
+              name: string
+              phone: string
+              priority: number
+            }[]
+          }
       dialer_presence_clear: { Args: never; Returns: undefined }
       dialer_presence_set: {
         Args: {
