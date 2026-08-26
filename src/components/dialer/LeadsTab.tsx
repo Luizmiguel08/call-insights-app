@@ -84,36 +84,52 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
   // Debounce ref for realtime reload
   const reloadTimerRef = useRef<number | null>(null);
+  // Cursor da paginação guardado em ref: manter `leads` nas dependências de
+  // `load` recriava a função a cada resultado e reiniciava o efeito de
+  // carregamento/realtime em loop infinito.
+  const cursorRef = useRef<string | null>(null);
+  const loadingRef = useRef(false);
 
   const today = spToday();
   const period = currentPeriod();
 
   const load = useCallback(async (statusFilter?: string, append = false) => {
-    const effectiveStatus = statusFilter ?? view;
-    const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const effectiveStatus = statusFilter ?? view;
+      const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
-    const cursor = append && leads.length > 0 ? leads[leads.length - 1].received_at : null;
-    let leadsQuery = db
-      .from("crm_leads")
-      .select(LEAD_COLUMNS)
-      .eq("status", effectiveStatus)
-      .order("received_at", { ascending: false })
-      .order("id", { ascending: true })
-      .limit(PAGE_SIZE);
-    if (cursor) leadsQuery = leadsQuery.lt("received_at", cursor);
+      const cursor = append ? cursorRef.current : null;
+      let leadsQuery = db
+        .from("crm_leads")
+        .select(LEAD_COLUMNS)
+        .eq("status", effectiveStatus)
+        .order("received_at", { ascending: false })
+        .order("id", { ascending: true })
+        .limit(PAGE_SIZE);
+      if (cursor) leadsQuery = leadsQuery.lt("received_at", cursor);
 
-    const [leadsR, attemptsR] = await Promise.all([
-      leadsQuery,
-      db.from("crm_lead_attempts").select("id,lead_id,period,result,attempt_date,called_at").gte("attempt_date", since).limit(2000),
-    ]);
-    if (leadsR.error) toast.error(`Falha ao carregar leads: ${leadsR.error.message}`);
-    const rows = (leadsR.data ?? []) as Lead[];
-    setLeads((prev) => (append ? [...prev, ...rows] : rows));
-    setHasMore(rows.length === PAGE_SIZE);
-    setAttempts((attemptsR.data ?? []) as Attempt[]);
-    setLoading(false);
-    setLoadingMore(false);
-  }, [view, leads]);
+      const [leadsR, attemptsR] = await Promise.all([
+        leadsQuery,
+        db.from("crm_lead_attempts").select("id,lead_id,period,result,attempt_date,called_at").gte("attempt_date", since).limit(2000),
+      ]);
+      if (leadsR.error) toast.error(`Falha ao carregar leads: ${leadsR.error.message}`);
+      const rows = (leadsR.data ?? []) as Lead[];
+      setLeads((prev) => {
+        if (!append) return rows;
+        const seen = new Set(prev.map((l) => l.id));
+        return [...prev, ...rows.filter((l) => !seen.has(l.id))];
+      });
+      cursorRef.current = rows.length > 0 ? rows[rows.length - 1].received_at : cursorRef.current;
+      setHasMore(rows.length === PAGE_SIZE);
+      if (!attemptsR.error) setAttempts((attemptsR.data ?? []) as Attempt[]);
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [view]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
@@ -121,26 +137,37 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     void load(view, true);
   }, [load, view, loadingMore, hasMore]);
 
-  // Debounced reload triggered by realtime events
+  // Debounced reload triggered by realtime events (referência estável para
+  // não recriar o canal realtime quando a visão muda).
+  const loadRef = useRef(load);
+  loadRef.current = load;
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
-      setLoading(true);
-      void load();
+      cursorRef.current = null;
+      void loadRef.current();
     }, 700);
+  }, []);
+
+  // Carga inicial + recarga quando a visão muda (um único efeito evita
+  // requisições duplicadas na montagem).
+  useEffect(() => {
+    setLoading(true);
+    setLeads([]);
+    cursorRef.current = null;
+    void load();
   }, [load]);
 
+  // Canal realtime estável por usuário (não recria a cada carga).
   useEffect(() => {
     if (!me) return;
-    setLoading(true);
-    void load();
     const ch = db
       .channel(`crm-leads-${me.userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => scheduleReload())
       .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts" }, () => scheduleReload())
       .subscribe();
     const onFocus = () => {
-      if (document.visibilityState === "visible") { setLoading(true); void load(); }
+      if (document.visibilityState === "visible") scheduleReload();
     };
     document.addEventListener("visibilitychange", onFocus);
     return () => {
@@ -148,14 +175,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       db.removeChannel(ch);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [load, scheduleReload, me]);
+  }, [me, scheduleReload]);
 
-  // Reload when view changes
-  useEffect(() => {
-    setLoading(true);
-    setLeads([]);
-    void load();
-  }, [view, load]);
 
 
   type PeriodState = "pendente" | "nao_atendeu" | "atendeu";
