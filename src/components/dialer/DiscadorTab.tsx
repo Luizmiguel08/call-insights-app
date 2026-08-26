@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Phone, MessageCircle, SkipForward, RefreshCw, Bell, Check, X, Calendar, Copy, ListFilter, Pencil, RotateCcw, ChevronDown, Sliders } from "lucide-react";
-import { useCloudState } from "@/lib/cloud-state";
+import type { State, Me } from "@/lib/cloud-state";
 import { supabase } from "@/integrations/supabase/client";
 import { useContactBuffer, recordContactAttempt } from "@/hooks/useContactBuffer";
 import { usePresencePublisher, useTeamPresence } from "@/hooks/useLivePresence";
@@ -41,8 +41,15 @@ const T = {
   sans: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
 };
 
-export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
-  const { state, hydrated, me } = useCloudState();
+export default function DiscadorTab({
+  goFila,
+  state,
+  me,
+}: {
+  goFila?: () => void;
+  state: State;
+  me: Me | null;
+}) {
   const brokerId = me?.brokerId ?? state.brokers[0]?.id ?? null;
   const brokerName = state.brokers.find((b) => b.id === brokerId)?.name ?? me?.brokerName ?? "Corretor";
   const brokerInitials = brokerName
@@ -384,7 +391,7 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
       )}
 
       {/* Contato atual */}
-      {!hydrated ? (
+      {!me ? (
         <p className="py-24 text-center text-sm" style={{ color: T.mute }}>Carregando fila…</p>
       ) : error ? (
         <div className="py-20 text-center">
