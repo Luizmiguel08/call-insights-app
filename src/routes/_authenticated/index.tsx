@@ -77,7 +77,7 @@ function LigaCtrlApp() {
         .from("call_reminders")
         .select("id", { count: "exact", head: true })
         .in("status", ["pending", "snoozed"]);
-      if (!isAdmin) q.eq("broker_user_id", me.userId);
+      if (!isAdmin) q.eq("user_id", me.userId);
       const { count } = await q;
       if (alive) setPendingReminders(count ?? 0);
     };
