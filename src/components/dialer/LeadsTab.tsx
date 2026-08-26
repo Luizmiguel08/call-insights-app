@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Flame, Link2, PhoneCall, RefreshCw, Sun, Sunset, Check, X } from "lucide-react";
+import { Flame, Link2, PhoneCall, RefreshCw, Sun, Sunset, Check, X, ChevronDown } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
-import type { Me } from "@/lib/cloud-state";
+import type { Me, State } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
 import { syncC2sNow } from "@/lib/c2s.functions";
+
 
 
 const db = supabase as any;
