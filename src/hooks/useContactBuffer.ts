@@ -63,7 +63,6 @@ export function useContactBuffer(brokerId: string | null | undefined, listName: 
         // A função do backend aplica a identidade autenticada, a organização,
         // prioridade e limite de tentativas de forma consistente entre devices.
         const { data, error: rpcError } = await (supabase as any).rpc("dialer_prefetch_queue", {
-          _broker: brokerId,
           _limit: BUFFER_SIZE,
           _list_name: listName,
         });
