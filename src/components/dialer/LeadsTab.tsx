@@ -497,8 +497,20 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             items={anteriores}
             LeadCard={LeadCard}
           />
+          {hasMore && (
+            <button
+              onClick={() => loadMore()}
+              disabled={loadingMore}
+              className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
+              style={{ background: "#f1f5f9", color: "#475569" }}
+            >
+              <ChevronDown className="h-4 w-4" />
+              {loadingMore ? "Carregando…" : "Carregar mais leads"}
+            </button>
+          )}
         </div>
       )}
+
 
       {isAdmin && dailySummary.length > 0 && (
         <div className="rounded-2xl bg-white p-4" style={{ border: "1px solid #e8ecf1" }}>
