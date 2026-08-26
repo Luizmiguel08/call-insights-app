@@ -60,7 +60,9 @@ function LigaCtrlApp() {
 
 
   // Aguardando aprovação do admin (renderizado depois de TODOS os hooks)
-  const awaitingApproval = Boolean(hydrated && me && !me.isAdmin && !me.approved);
+  const awaitingApproval = Boolean(
+    hydrated && me && !me.isAdmin && !me.approved && !me.profileUnknown && me.brokerId,
+  );
 
 
   const isAdmin = me?.isAdmin ?? false;
