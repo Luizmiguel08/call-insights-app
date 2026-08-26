@@ -397,6 +397,22 @@ export default function DiscadorTab({ goFila }: { goFila?: () => void }) {
             Tentar novamente
           </button>
         </div>
+      ) : !brokerId ? (
+        <div className="py-20 text-center">
+          <p className="text-2xl font-semibold tracking-[-0.02em]" style={{ fontFamily: T.grotesk }}>
+            Não conseguimos carregar seu cadastro
+          </p>
+          <p className="mx-auto mt-2 max-w-sm text-sm" style={{ color: T.dim }}>
+            Sua sessão pode ter expirado. Recarregue a página — sua fila continua salva.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-full px-5 py-2.5 text-sm font-semibold"
+            style={{ background: T.blue, color: "#fff", fontFamily: T.grotesk }}
+          >
+            Recarregar
+          </button>
+        </div>
       ) : !current ? (
         <div className="py-20 text-center">
           <p className="text-2xl font-semibold tracking-[-0.02em]" style={{ fontFamily: T.grotesk }}>
