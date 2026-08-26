@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Flame, Link2, PhoneCall, RefreshCw, Sun, Sunset, Check, X } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
 import type { Me } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
@@ -52,6 +53,9 @@ function daysSince(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }
 
+const VIRTUAL_THRESHOLD = 80;
+const CARD_HEIGHT_ESTIMATE = 120;
+
 export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: boolean }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
@@ -63,14 +67,20 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   const [busy, setBusy] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
+  // Debounce ref for realtime reload
+  const reloadTimerRef = useRef<number | null>(null);
 
   const today = spToday();
   const period = currentPeriod();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (statusFilter?: string) => {
     const since = new Date(Date.now() - 8 * 86_400_000).toISOString().slice(0, 10);
+    const effectiveStatus = statusFilter ?? view;
+
+    let leadsQuery = db.from("crm_leads").select("*").eq("status", effectiveStatus).order("received_at", { ascending: false }).limit(1000);
+
     const [leadsR, attemptsR, brokersR] = await Promise.all([
-      db.from("crm_leads").select("*").order("received_at", { ascending: false }).limit(1000),
+      leadsQuery,
       db.from("crm_lead_attempts").select("*").gte("attempt_date", since),
       db.from("brokers").select("id,name,color,email").order("name"),
     ]);
@@ -79,22 +89,39 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
     setAttempts((attemptsR.data ?? []) as Attempt[]);
     setBrokers((brokersR.data ?? []) as Broker[]);
     setLoading(false);
-  }, []);
+  }, [view]);
+
+  // Debounced reload triggered by realtime events
+  const scheduleReload = useCallback(() => {
+    if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = window.setTimeout(() => {
+      void load();
+    }, 700);
+  }, [load]);
 
   useEffect(() => {
     void load();
     const ch = db
       .channel(`crm-leads-${crypto.randomUUID()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => scheduleReload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts" }, () => scheduleReload())
       .subscribe();
-    const onFocus = () => void load();
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void load();
+    };
     document.addEventListener("visibilitychange", onFocus);
     return () => {
+      if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
       db.removeChannel(ch);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [load]);
+  }, [load, scheduleReload]);
+
+  // Reload when view changes
+  useEffect(() => {
+    setLoading(true);
+    void load();
+  }, [view, load]);
 
   type PeriodState = "pendente" | "nao_atendeu" | "atendeu";
   type LeadProgress = {
@@ -131,6 +158,7 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
 
   const visible = useMemo(() => {
     const byView = leads.filter((l) => {
+      // Status already filtered at query level, but double-check for safety
       if (l.status !== view) return false;
       if (isAdmin && brokerFilter !== "all") {
         if (brokerFilter === "none") return !l.broker_id;
@@ -424,33 +452,16 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
         </div>
       ) : (
         <div className="space-y-8">
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ ...fontDisplay, color: "#0f172a" }}>
-                Caíram hoje
-              </h3>
-              <span className="text-xs" style={{ color: "#94a3b8" }}>{hoje.length} lead(s)</span>
-            </div>
-            {hoje.length === 0 ? (
-              <p className="text-sm" style={{ color: "#94a3b8" }}>Nenhum lead novo hoje.</p>
-            ) : (
-              hoje.map((lead) => <LeadCard key={lead.id} lead={lead} />)
-            )}
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ ...fontDisplay, color: "#0f172a" }}>
-                Dias anteriores {view === "novo" ? "— ainda sem atender" : ""}
-              </h3>
-              <span className="text-xs" style={{ color: "#94a3b8" }}>{anteriores.length} lead(s)</span>
-            </div>
-            {anteriores.length === 0 ? (
-              <p className="text-sm" style={{ color: "#94a3b8" }}>Nada pendente de dias anteriores.</p>
-            ) : (
-              anteriores.map((lead) => <LeadCard key={lead.id} lead={lead} />)
-            )}
-          </section>
+          <LeadSection
+            title="Caíram hoje"
+            items={hoje}
+            LeadCard={LeadCard}
+          />
+          <LeadSection
+            title={`Dias anteriores ${view === "novo" ? "— ainda sem atender" : ""}`}
+            items={anteriores}
+            LeadCard={LeadCard}
+          />
         </div>
       )}
 
@@ -480,6 +491,80 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
 
       {isAdmin && <AliasManager brokers={brokers} leads={leads} onChange={load} />}
     </div>
+  );
+}
+
+/** Virtualized or plain lead list section */
+function LeadSection({
+  title,
+  items,
+  LeadCard,
+}: {
+  title: string;
+  items: Lead[];
+  LeadCard: React.ComponentType<{ lead: Lead }>;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = items.length > VIRTUAL_THRESHOLD;
+
+  const virtualizer = useVirtualizer({
+    count: shouldVirtualize ? items.length : 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => CARD_HEIGHT_ESTIMATE,
+    overscan: 5,
+  });
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ ...fontDisplay, color: "#0f172a" }}>
+          {title}
+        </h3>
+        <span className="text-xs" style={{ color: "#94a3b8" }}>{items.length} lead(s)</span>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm" style={{ color: "#94a3b8" }}>Nenhum lead nessa seção.</p>
+      ) : shouldVirtualize ? (
+        <div
+          ref={parentRef}
+          className="max-h-[70vh] overflow-auto rounded-xl"
+          style={{ contain: "strict" }}
+        >
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => (
+              <div
+                key={items[virtualRow.index].id}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+                ref={virtualizer.measureElement}
+                data-index={virtualRow.index}
+              >
+                <div className="pb-3">
+                  <LeadCard lead={items[virtualRow.index]} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((lead) => (
+            <LeadCard key={lead.id} lead={lead} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -589,34 +674,75 @@ function AliasManager({ brokers, leads, onChange }: { brokers: Broker[]; leads: 
 
       {unmapped.length > 0 && (
         <div className="mt-3 rounded-xl p-3 text-xs" style={{ background: "#fff7ed", color: "#b45309" }}>
-          Sem vínculo: {unmapped.map(([, label]) => label).join(", ")}
+          <p className="font-semibold">Leads sem vínculo de corretor ({unmapped.length}):</p>
+          <ul className="mt-1 list-disc pl-4">
+            {unmapped.slice(0, 10).map(([key, label]) => (
+              <li key={key}>{label}</li>
+            ))}
+            {unmapped.length > 10 && <li>… e mais {unmapped.length - 10}</li>}
+          </ul>
         </div>
       )}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-4">
-        <input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="Apelido no C2S" className={inputCls} />
-        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail no C2S" className={inputCls} />
-        <select value={brokerId} onChange={(e) => setBrokerId(e.target.value)} className={inputCls}>
-          <option value="" className="bg-[#13151e]">Corretor daqui…</option>
-          {brokers.map((b) => (
-            <option key={b.id} value={b.id} className="bg-[#13151e]">{b.name}</option>
-          ))}
-        </select>
-        <button onClick={() => void save()} className="h-10 rounded-md bg-[#c9a84c] text-xs font-bold uppercase tracking-wider text-[#0c0e14]" style={fontDisplay}>
-          Vincular
+      <div className="mt-4 flex flex-wrap items-end gap-2">
+        <div>
+          <label className="text-xs font-medium" style={{ color: "#475569" }}>Apelido C2S</label>
+          <input
+            value={alias}
+            onChange={(e) => setAlias(e.target.value)}
+            placeholder="ex: João Silva"
+            className={inputCls + " mt-1 h-9 w-40"}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "#475569" }}>E-mail C2S</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ex: joao@c2s.com"
+            className={inputCls + " mt-1 h-9 w-48"}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "#475569" }}>Corretor</label>
+          <select
+            value={brokerId}
+            onChange={(e) => setBrokerId(e.target.value)}
+            className={inputCls + " mt-1 h-9 w-44"}
+          >
+            <option value="">Selecionar…</option>
+            {brokers.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={() => void save()}
+          className="h-9 rounded-xl px-4 text-sm font-semibold text-white"
+          style={{ background: "#3b82f6" }}
+        >
+          Salvar
         </button>
       </div>
 
       {rows.length > 0 && (
-        <div className="mt-3 divide-y divide-zinc-800 text-xs">
-          {rows.map((r) => (
-            <div key={r.id} className="flex items-center justify-between gap-3 py-2">
-              <span className="text-zinc-300">
-                {r.c2s_alias ?? r.c2s_email} → {brokers.find((b) => b.id === r.broker_id)?.name ?? "—"}
-              </span>
-              <button onClick={() => void remove(r.id)} className="text-zinc-500 hover:text-red-400">remover</button>
-            </div>
-          ))}
+        <div className="mt-4 divide-y" style={{ borderColor: "#f1f5f9" }}>
+          {rows.map((r) => {
+            const broker = brokers.find((b) => b.id === r.broker_id);
+            return (
+              <div key={r.id} className="flex items-center justify-between py-2 text-sm">
+                <span style={{ color: "#334155" }}>
+                  {r.c2s_alias || r.c2s_email} → <strong>{broker?.name ?? "?"}</strong>
+                </span>
+                <button
+                  onClick={() => void remove(r.id)}
+                  className="text-xs font-medium" style={{ color: "#dc2626" }}
+                >
+                  Remover
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
