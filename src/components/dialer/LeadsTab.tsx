@@ -56,17 +56,31 @@ function daysSince(iso: string) {
 
 const VIRTUAL_THRESHOLD = 80;
 const CARD_HEIGHT_ESTIMATE = 120;
+const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
+const PAGE_SIZE = 100;
 
-export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: boolean }) {
+export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmin: boolean; state: State }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
   const [focus, setFocus] = useState<"todos" | "falta_manha" | "falta_tarde" | "sem_resposta" | "pendentes_anteriores">("todos");
   const [brokerFilter, setBrokerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+
+  // Reusa corretores já carregados pelo useCloudState em index.tsx — evita
+  // uma requisição extra toda vez que a aba Leads é montada.
+  const brokers = useMemo<Broker[]>(() => {
+    return state.brokers.map((b) => ({
+      id: b.id,
+      name: b.name,
+      color: "#3b82f6",
+      email: b.userId ?? null,
+    }));
+  }, [state.brokers]);
 
   // Debounce ref for realtime reload
   const reloadTimerRef = useRef<number | null>(null);
@@ -74,41 +88,59 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
   const today = spToday();
   const period = currentPeriod();
 
-  const load = useCallback(async (statusFilter?: string) => {
-    const since = new Date(Date.now() - 8 * 86_400_000).toISOString().slice(0, 10);
+  const load = useCallback(async (statusFilter?: string, append = false) => {
     const effectiveStatus = statusFilter ?? view;
+    const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
-    let leadsQuery = db.from("crm_leads").select("*").eq("status", effectiveStatus).order("received_at", { ascending: false }).limit(1000);
+    const cursor = append && leads.length > 0 ? leads[leads.length - 1].received_at : null;
+    let leadsQuery = db
+      .from("crm_leads")
+      .select(LEAD_COLUMNS)
+      .eq("status", effectiveStatus)
+      .order("received_at", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(PAGE_SIZE);
+    if (cursor) leadsQuery = leadsQuery.lt("received_at", cursor);
 
-    const [leadsR, attemptsR, brokersR] = await Promise.all([
+    const [leadsR, attemptsR] = await Promise.all([
       leadsQuery,
-      db.from("crm_lead_attempts").select("*").gte("attempt_date", since),
-      db.from("brokers").select("id,name,color,email").order("name"),
+      db.from("crm_lead_attempts").select("id,lead_id,period,result,attempt_date,called_at").gte("attempt_date", since).limit(2000),
     ]);
     if (leadsR.error) toast.error(`Falha ao carregar leads: ${leadsR.error.message}`);
-    setLeads((leadsR.data ?? []) as Lead[]);
+    const rows = (leadsR.data ?? []) as Lead[];
+    setLeads((prev) => (append ? [...prev, ...rows] : rows));
+    setHasMore(rows.length === PAGE_SIZE);
     setAttempts((attemptsR.data ?? []) as Attempt[]);
-    setBrokers((brokersR.data ?? []) as Broker[]);
     setLoading(false);
-  }, [view]);
+    setLoadingMore(false);
+  }, [view, leads]);
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    void load(view, true);
+  }, [load, view, loadingMore, hasMore]);
 
   // Debounced reload triggered by realtime events
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
+      setLoading(true);
       void load();
     }, 700);
   }, [load]);
 
   useEffect(() => {
+    if (!me) return;
+    setLoading(true);
     void load();
     const ch = db
-      .channel(`crm-leads-${crypto.randomUUID()}`)
+      .channel(`crm-leads-${me.userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => scheduleReload())
       .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts" }, () => scheduleReload())
       .subscribe();
     const onFocus = () => {
-      if (document.visibilityState === "visible") void load();
+      if (document.visibilityState === "visible") { setLoading(true); void load(); }
     };
     document.addEventListener("visibilitychange", onFocus);
     return () => {
@@ -116,13 +148,15 @@ export default function LeadsTab({ me, isAdmin }: { me: Me | null; isAdmin: bool
       db.removeChannel(ch);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [load, scheduleReload]);
+  }, [load, scheduleReload, me]);
 
   // Reload when view changes
   useEffect(() => {
     setLoading(true);
+    setLeads([]);
     void load();
   }, [view, load]);
+
 
   type PeriodState = "pendente" | "nao_atendeu" | "atendeu";
   type LeadProgress = {
