@@ -83,13 +83,43 @@ function toLocalDate(iso: string) {
 
 async function loadMe(): Promise<Me | null> {
   const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
-  if (!user) return null;
+  let user = userData.user;
+  if (!user) {
+    // Pode ser apenas token expirado: tenta renovar antes de desistir
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    user = refreshed?.user ?? null;
+    if (!user) return null;
+  }
 
-  const [rolesR, brokerR] = await Promise.all([
-    supabase.from("user_roles").select("role").eq("user_id", user.id),
-    supabase.from("brokers").select("id,name,approved").eq("user_id", user.id).maybeSingle(),
-  ]);
+  async function readProfile() {
+    return Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", user!.id),
+      supabase.from("brokers").select("id,name,approved").eq("user_id", user!.id).maybeSingle(),
+    ]);
+  }
+
+  let [rolesR, brokerR] = await readProfile();
+
+  // Sessão expirada / falha de rede: renova o token e tenta de novo antes de
+  // concluir qualquer coisa sobre o perfil (senão o app mostrava
+  // "Aguardando aprovação" para todo mundo).
+  if (rolesR.error || brokerR.error) {
+    await supabase.auth.refreshSession().catch(() => undefined);
+    [rolesR, brokerR] = await readProfile();
+  }
+
+  if (rolesR.error || brokerR.error) {
+    console.error("[loadMe] falha ao ler perfil", rolesR.error ?? brokerR.error);
+    return {
+      userId: user.id,
+      email: user.email ?? "",
+      isAdmin: false,
+      brokerId: null,
+      brokerName: null,
+      approved: true, // não bloqueia o usuário por erro de leitura
+      profileUnknown: true,
+    };
+  }
 
   const isAdmin = (rolesR.data ?? []).some((r) => r.role === "admin");
   const hasCorretorRole = (rolesR.data ?? []).some((r) => r.role === "corretor");
@@ -124,6 +154,7 @@ async function loadMe(): Promise<Me | null> {
     approved: broker?.approved ?? false,
   };
 }
+
 
 // Escopo do payload: corretor (ou admin escopado) só carrega a própria fila
 // e as próprias ligações. Admins normais continuam vendo tudo.
