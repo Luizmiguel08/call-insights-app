@@ -284,7 +284,7 @@ function LigaCtrlApp() {
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         {tab === "discador" && <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} state={state} me={me} /></Suspense>}
-        {tab === "leads" && <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} /></Suspense>}
+        {tab === "leads" && <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} state={state} /></Suspense>}
         {tab !== "discador" && tab !== "leads" && (
         <div className="rounded-3xl p-3 sm:p-5" style={{ background: "#0b0d13", border: "1px solid #e2e8f0" }}>
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
