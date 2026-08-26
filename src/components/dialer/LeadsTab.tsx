@@ -137,14 +137,17 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     void load(view, true);
   }, [load, view, loadingMore, hasMore]);
 
-  // Debounced reload triggered by realtime events
+  // Debounced reload triggered by realtime events (referência estável para
+  // não recriar o canal realtime quando a visão muda).
+  const loadRef = useRef(load);
+  loadRef.current = load;
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
       cursorRef.current = null;
-      void load();
+      void loadRef.current();
     }, 700);
-  }, [load]);
+  }, []);
 
   // Carga inicial + recarga quando a visão muda (um único efeito evita
   // requisições duplicadas na montagem).
