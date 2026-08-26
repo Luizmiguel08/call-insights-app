@@ -137,6 +137,26 @@ function LigaCtrlApp() {
 
   useReminderNotifier(me, () => setTab("lembretes"));
 
+  if (awaitingApproval && me) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-[#0c0e14] text-zinc-100 px-4 relative" style={{ fontFamily: "'DM Sans', system-ui, sans-serif", backgroundImage: `linear-gradient(rgba(11,13,19,0.85), rgba(11,13,19,0.92)), url(${wolfBg.url})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }}>
+        <div className="w-full max-w-md text-center">
+          <img src={fortalLogo.url} alt="Fortal" width={96} height={96} className="mx-auto h-24 w-24 object-contain mb-6" />
+          <div className="text-2xl text-[#c9a84c] tracking-[0.28em] font-medium mb-2" style={fontDisplay}>FORTAL</div>
+          <div className="rounded-2xl border border-zinc-800 bg-[#13151e] p-6 mt-6">
+            <h1 className="text-xl font-bold uppercase tracking-wider text-[#c9a84c]" style={fontDisplay}>Aguardando aprovação</h1>
+            <p className="mt-3 text-sm text-zinc-400">Sua conta <strong className="text-zinc-200">{me.email}</strong> foi criada e está aguardando o Miguel aprovar e definir seu nome de corretor.</p>
+            <button onClick={signOut} className="mt-6 w-full h-11 rounded-md border border-zinc-700 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800" style={fontDisplay}>
+              <LogOut className="inline h-4 w-4 mr-2" /> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+
   return (
     <div
       className="min-h-[100dvh] pb-[env(safe-area-inset-bottom)]"
