@@ -391,7 +391,7 @@ export default function DiscadorTab({
       )}
 
       {/* Contato atual */}
-      {!hydrated ? (
+      {!me ? (
         <p className="py-24 text-center text-sm" style={{ color: T.mute }}>Carregando fila…</p>
       ) : error ? (
         <div className="py-20 text-center">
