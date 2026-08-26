@@ -34,6 +34,8 @@ export type Me = {
   brokerId: string | null;
   brokerName: string | null;
   approved: boolean;
+  /** true quando não foi possível ler perfil/roles (sessão expirada, rede) */
+  profileUnknown?: boolean;
 };
 export type State = { brokers: Broker[]; calls: Call[]; contacts: Contact[]; metaDaily: number };
 
