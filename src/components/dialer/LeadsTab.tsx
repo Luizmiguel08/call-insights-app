@@ -43,11 +43,14 @@ function spToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: SP_TZ }).format(new Date());
 }
 
-function currentPeriod(): "manha" | "tarde" {
-  const hour = Number(
+function spHour() {
+  return Number(
     new Intl.DateTimeFormat("en-GB", { timeZone: SP_TZ, hour: "2-digit", hour12: false }).format(new Date()),
   );
-  return hour < 12 ? "manha" : "tarde";
+}
+
+function currentPeriod(): "manha" | "tarde" {
+  return spHour() < 12 ? "manha" : "tarde";
 }
 
 function daysSince(iso: string) {
