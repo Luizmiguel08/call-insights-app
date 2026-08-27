@@ -282,6 +282,55 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     return [...rows.values()].sort((a, b) => b.manha + b.tarde - (a.manha + a.tarde) || a.name.localeCompare(b.name));
   }, [leads, brokers, progressOf]);
 
+  /**
+   * Ligações que DEIXARAM de ser feitas: leads ainda "novo" sem tentativa
+   * registrada no período. A manhã só vira "perdida" depois das 12h e a tarde
+   * depois das 19h — antes disso ainda dá tempo de ligar (fica como "restam").
+   */
+  const missed = useMemo(() => {
+    const hour = spHour();
+    const rows = new Map<
+      string,
+      { id: string; name: string; color: string; manhaHoje: number; tardeHoje: number; manhaAnt: number; tardeAnt: number }
+    >();
+    let meManhaHoje = 0, meTardeHoje = 0, meManhaAnt = 0, meTardeAnt = 0;
+    for (const l of leads) {
+      if (l.status !== "novo") continue;
+      const p = progressOf(l.id);
+      const hoje = spDate(l.received_at) === today;
+      const perdeuManha = p.manha === "pendente" && (hoje ? hour >= 12 : true);
+      const perdeuTarde = p.tarde === "pendente" && (hoje ? hour >= 19 : true);
+      if (!perdeuManha && !perdeuTarde) continue;
+      const key = l.broker_id ?? "none";
+      const broker = brokers.find((b) => b.id === l.broker_id);
+      const cur =
+        rows.get(key) ??
+        { id: key, name: broker?.name ?? "Sem corretor", color: broker?.color ?? "#71717a", manhaHoje: 0, tardeHoje: 0, manhaAnt: 0, tardeAnt: 0 };
+      if (perdeuManha) hoje ? (cur.manhaHoje += 1) : (cur.manhaAnt += 1);
+      if (perdeuTarde) hoje ? (cur.tardeHoje += 1) : (cur.tardeAnt += 1);
+      rows.set(key, cur);
+      if (me?.brokerId && l.broker_id === me.brokerId) {
+        if (perdeuManha) hoje ? (meManhaHoje += 1) : (meManhaAnt += 1);
+        if (perdeuTarde) hoje ? (meTardeHoje += 1) : (meTardeAnt += 1);
+      }
+    }
+    const list = [...rows.values()].sort(
+      (a, b) =>
+        b.manhaHoje + b.tardeHoje + b.manhaAnt + b.tardeAnt - (a.manhaHoje + a.tardeHoje + a.manhaAnt + a.tardeAnt) ||
+        a.name.localeCompare(b.name),
+    );
+    return {
+      list,
+      mine: {
+        manhaHoje: meManhaHoje,
+        tardeHoje: meTardeHoje,
+        manhaAnt: meManhaAnt,
+        tardeAnt: meTardeAnt,
+        total: meManhaHoje + meTardeHoje + meManhaAnt + meTardeAnt,
+      },
+    };
+  }, [leads, brokers, progressOf, today, me]);
+
 
 
 
