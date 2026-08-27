@@ -43,11 +43,14 @@ function spToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: SP_TZ }).format(new Date());
 }
 
-function currentPeriod(): "manha" | "tarde" {
-  const hour = Number(
+function spHour() {
+  return Number(
     new Intl.DateTimeFormat("en-GB", { timeZone: SP_TZ, hour: "2-digit", hour12: false }).format(new Date()),
   );
-  return hour < 12 ? "manha" : "tarde";
+}
+
+function currentPeriod(): "manha" | "tarde" {
+  return spHour() < 12 ? "manha" : "tarde";
 }
 
 function daysSince(iso: string) {
@@ -282,6 +285,55 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     return [...rows.values()].sort((a, b) => b.manha + b.tarde - (a.manha + a.tarde) || a.name.localeCompare(b.name));
   }, [leads, brokers, progressOf]);
 
+  /**
+   * Ligações que DEIXARAM de ser feitas: leads ainda "novo" sem tentativa
+   * registrada no período. A manhã só vira "perdida" depois das 12h e a tarde
+   * depois das 19h — antes disso ainda dá tempo de ligar (fica como "restam").
+   */
+  const missed = useMemo(() => {
+    const hour = spHour();
+    const rows = new Map<
+      string,
+      { id: string; name: string; color: string; manhaHoje: number; tardeHoje: number; manhaAnt: number; tardeAnt: number }
+    >();
+    let meManhaHoje = 0, meTardeHoje = 0, meManhaAnt = 0, meTardeAnt = 0;
+    for (const l of leads) {
+      if (l.status !== "novo") continue;
+      const p = progressOf(l.id);
+      const hoje = spDate(l.received_at) === today;
+      const perdeuManha = p.manha === "pendente" && (hoje ? hour >= 12 : true);
+      const perdeuTarde = p.tarde === "pendente" && (hoje ? hour >= 19 : true);
+      if (!perdeuManha && !perdeuTarde) continue;
+      const key = l.broker_id ?? "none";
+      const broker = brokers.find((b) => b.id === l.broker_id);
+      const cur =
+        rows.get(key) ??
+        { id: key, name: broker?.name ?? "Sem corretor", color: broker?.color ?? "#71717a", manhaHoje: 0, tardeHoje: 0, manhaAnt: 0, tardeAnt: 0 };
+      if (perdeuManha) hoje ? (cur.manhaHoje += 1) : (cur.manhaAnt += 1);
+      if (perdeuTarde) hoje ? (cur.tardeHoje += 1) : (cur.tardeAnt += 1);
+      rows.set(key, cur);
+      if (me?.brokerId && l.broker_id === me.brokerId) {
+        if (perdeuManha) hoje ? (meManhaHoje += 1) : (meManhaAnt += 1);
+        if (perdeuTarde) hoje ? (meTardeHoje += 1) : (meTardeAnt += 1);
+      }
+    }
+    const list = [...rows.values()].sort(
+      (a, b) =>
+        b.manhaHoje + b.tardeHoje + b.manhaAnt + b.tardeAnt - (a.manhaHoje + a.tardeHoje + a.manhaAnt + a.tardeAnt) ||
+        a.name.localeCompare(b.name),
+    );
+    return {
+      list,
+      mine: {
+        manhaHoje: meManhaHoje,
+        tardeHoje: meTardeHoje,
+        manhaAnt: meManhaAnt,
+        tardeAnt: meTardeAnt,
+        total: meManhaHoje + meTardeHoje + meManhaAnt + meTardeAnt,
+      },
+    };
+  }, [leads, brokers, progressOf, today, me]);
+
 
 
 
@@ -446,6 +498,33 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         <Stat label="Atendidos" value={leads.filter((l) => l.status === "atendido").length} icon={Check} />
       </div>
 
+      {!isAdmin && missed.mine.total > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
+          <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#9a3412" }}>
+            Atenção: {missed.mine.total} ligação(ões) que você deixou de fazer
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold" style={fontNumeric}>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#ffedd5", color: "#9a3412" }}>
+              Hoje — manhã: {missed.mine.manhaHoje}
+            </span>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#ffedd5", color: "#9a3412" }}>
+              Hoje — tarde: {missed.mine.tardeHoje}
+            </span>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+              Dias anteriores — manhã: {missed.mine.manhaAnt}
+            </span>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+              Dias anteriores — tarde: {missed.mine.tardeAnt}
+            </span>
+          </div>
+          <p className="mt-2 text-xs" style={{ color: "#b45309" }}>
+            A manhã conta como perdida após as 12h e a tarde após as 19h.
+          </p>
+        </div>
+      )}
+
+
+
       <div className="flex flex-wrap items-center gap-2">
         {(["novo", "atendido", "fria"] as const).map((v) => (
           <button
@@ -529,6 +608,50 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
               {loadingMore ? "Carregando…" : "Carregar mais leads"}
             </button>
           )}
+        </div>
+      )}
+
+      {isAdmin && missed.list.length > 0 && (
+        <div className="rounded-2xl bg-white p-4" style={{ border: "1px solid #fed7aa" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#9a3412" }}>
+              Ligações não feitas por corretor
+            </p>
+            <span className="text-xs" style={{ color: "#94a3b8" }}>manhã após 12h · tarde após 19h</span>
+          </div>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide" style={{ color: "#94a3b8" }}>
+                  <th className="py-2 pr-3 font-semibold">Corretor</th>
+                  <th className="py-2 pr-3 font-semibold">Hoje manhã</th>
+                  <th className="py-2 pr-3 font-semibold">Hoje tarde</th>
+                  <th className="py-2 pr-3 font-semibold">Ant. manhã</th>
+                  <th className="py-2 pr-3 font-semibold">Ant. tarde</th>
+                  <th className="py-2 font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
+                {missed.list.map((r) => (
+                  <tr key={r.id}>
+                    <td className="py-2 pr-3" style={{ color: "#334155" }}>
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
+                        <span className="truncate">{r.name}</span>
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#9a3412" }}>{r.manhaHoje}</td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#9a3412" }}>{r.tardeHoje}</td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#b91c1c" }}>{r.manhaAnt}</td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#b91c1c" }}>{r.tardeAnt}</td>
+                    <td className="py-2 font-semibold" style={{ ...fontNumeric, color: "#0f172a" }}>
+                      {r.manhaHoje + r.tardeHoje + r.manhaAnt + r.tardeAnt}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
