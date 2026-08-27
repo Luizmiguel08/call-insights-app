@@ -52,6 +52,17 @@ function LigaCtrlApp() {
   const navigate = useNavigate();
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
+  // Abas pesadas ficam montadas depois da 1ª visita (troca instantânea, sem refetch)
+  const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: true, leads: false });
+  useEffect(() => {
+    if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
+    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
+  }, [tab]);
+  // Pré-carrega os chunks das duas abas principais logo no início
+  useEffect(() => {
+    const t = setTimeout(() => { void importDiscador(); void importLeads(); }, 0);
+    return () => clearTimeout(t);
+  }, []);
   // Único subscriber Realtime para o estado vivo do discador (espelha mobile↔desktop)
   const dialerSession = useDialerSession(me?.userId ?? null);
 
