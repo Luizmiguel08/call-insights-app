@@ -611,6 +611,50 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         </div>
       )}
 
+      {isAdmin && missed.list.length > 0 && (
+        <div className="rounded-2xl bg-white p-4" style={{ border: "1px solid #fed7aa" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#9a3412" }}>
+              Ligações não feitas por corretor
+            </p>
+            <span className="text-xs" style={{ color: "#94a3b8" }}>manhã após 12h · tarde após 19h</span>
+          </div>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide" style={{ color: "#94a3b8" }}>
+                  <th className="py-2 pr-3 font-semibold">Corretor</th>
+                  <th className="py-2 pr-3 font-semibold">Hoje manhã</th>
+                  <th className="py-2 pr-3 font-semibold">Hoje tarde</th>
+                  <th className="py-2 pr-3 font-semibold">Ant. manhã</th>
+                  <th className="py-2 pr-3 font-semibold">Ant. tarde</th>
+                  <th className="py-2 font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
+                {missed.list.map((r) => (
+                  <tr key={r.id}>
+                    <td className="py-2 pr-3" style={{ color: "#334155" }}>
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
+                        <span className="truncate">{r.name}</span>
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#9a3412" }}>{r.manhaHoje}</td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#9a3412" }}>{r.tardeHoje}</td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#b91c1c" }}>{r.manhaAnt}</td>
+                    <td className="py-2 pr-3" style={{ ...fontNumeric, color: "#b91c1c" }}>{r.tardeAnt}</td>
+                    <td className="py-2 font-semibold" style={{ ...fontNumeric, color: "#0f172a" }}>
+                      {r.manhaHoje + r.tardeHoje + r.manhaAnt + r.tardeAnt}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
 
       {isAdmin && dailySummary.length > 0 && (
         <div className="rounded-2xl bg-white p-4" style={{ border: "1px solid #e8ecf1" }}>
