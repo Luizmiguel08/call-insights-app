@@ -498,6 +498,33 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         <Stat label="Atendidos" value={leads.filter((l) => l.status === "atendido").length} icon={Check} />
       </div>
 
+      {!isAdmin && missed.mine.total > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
+          <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#9a3412" }}>
+            Atenção: {missed.mine.total} ligação(ões) que você deixou de fazer
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold" style={fontNumeric}>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#ffedd5", color: "#9a3412" }}>
+              Hoje — manhã: {missed.mine.manhaHoje}
+            </span>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#ffedd5", color: "#9a3412" }}>
+              Hoje — tarde: {missed.mine.tardeHoje}
+            </span>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+              Dias anteriores — manhã: {missed.mine.manhaAnt}
+            </span>
+            <span className="rounded-full px-2 py-0.5" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+              Dias anteriores — tarde: {missed.mine.tardeAnt}
+            </span>
+          </div>
+          <p className="mt-2 text-xs" style={{ color: "#b45309" }}>
+            A manhã conta como perdida após as 12h e a tarde após as 19h.
+          </p>
+        </div>
+      )}
+
+
+
       <div className="flex flex-wrap items-center gap-2">
         {(["novo", "atendido", "fria"] as const).map((v) => (
           <button
