@@ -92,6 +92,9 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // carregamento/realtime em loop infinito.
   const cursorRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  // Espelho do tamanho atual da lista: usado no reload (realtime/troca de visão)
+  // para não encolher a lista de volta à primeira página e jogar o scroll pro topo.
+  const leadsLenRef = useRef(0);
 
   const today = spToday();
   const period = currentPeriod();
@@ -104,13 +107,16 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
       const cursor = append ? cursorRef.current : null;
+      // Num reload (append=false) busca pelo menos o que já está na tela,
+      // assim a lista nunca diminui e o usuário não perde a posição do scroll.
+      const pageLimit = append ? PAGE_SIZE : Math.max(PAGE_SIZE, leadsLenRef.current);
       let leadsQuery = db
         .from("crm_leads")
         .select(LEAD_COLUMNS)
         .eq("status", effectiveStatus)
         .order("received_at", { ascending: false })
         .order("id", { ascending: true })
-        .limit(PAGE_SIZE);
+        .limit(pageLimit);
       if (cursor) leadsQuery = leadsQuery.lt("received_at", cursor);
 
       const [leadsR, attemptsR] = await Promise.all([
@@ -120,12 +126,14 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       if (leadsR.error) toast.error(`Falha ao carregar leads: ${leadsR.error.message}`);
       const rows = (leadsR.data ?? []) as Lead[];
       setLeads((prev) => {
-        if (!append) return rows;
-        const seen = new Set(prev.map((l) => l.id));
-        return [...prev, ...rows.filter((l) => !seen.has(l.id))];
+        const next = append
+          ? [...prev, ...rows.filter((l) => !prev.some((p) => p.id === l.id))]
+          : rows;
+        leadsLenRef.current = next.length;
+        return next;
       });
       cursorRef.current = rows.length > 0 ? rows[rows.length - 1].received_at : cursorRef.current;
-      setHasMore(rows.length === PAGE_SIZE);
+      setHasMore(rows.length >= pageLimit);
       if (!attemptsR.error) setAttempts((attemptsR.data ?? []) as Attempt[]);
     } finally {
       loadingRef.current = false;
