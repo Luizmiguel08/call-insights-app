@@ -145,17 +145,25 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
-    void load(view, true);
+    // Trava o scroll: se alguma renderização intermediária reduzir a altura
+    // da página, restaura a posição após a carga para o usuário não "subir".
+    const y = window.scrollY;
+    void load(view, true).finally(() => {
+      requestAnimationFrame(() => {
+        if (window.scrollY < y - 50) window.scrollTo({ top: y });
+      });
+    });
   }, [load, view, loadingMore, hasMore]);
 
   // Debounced reload triggered by realtime events (referência estável para
-  // não recriar o canal realtime quando a visão muda).
+  // não recriar o canal realtime quando a visão muda). NÃO reseta o cursor:
+  // o reload busca todos os leads já exibidos (via leadsLenRef) e mantém a
+  // paginação, evitando o "pulo" da tela para o topo.
   const loadRef = useRef(load);
   loadRef.current = load;
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
-      cursorRef.current = null;
       void loadRef.current();
     }, 700);
   }, []);
@@ -165,6 +173,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   useEffect(() => {
     setLoading(true);
     setLeads([]);
+    leadsLenRef.current = 0;
     cursorRef.current = null;
     void load();
   }, [load]);
