@@ -24,8 +24,10 @@ const HistoricoTab = lazy(() => import("@/components/dialer/HistoricoTab"));
 const DashboardTab = lazy(() => import("@/components/dialer/DashboardTab"));
 const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
-const DiscadorTab = lazy(() => import("@/components/dialer/DiscadorTab"));
-const LeadsTab = lazy(() => import("@/components/dialer/LeadsTab"));
+const importDiscador = () => import("@/components/dialer/DiscadorTab");
+const importLeads = () => import("@/components/dialer/LeadsTab");
+const DiscadorTab = lazy(importDiscador);
+const LeadsTab = lazy(importLeads);
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -50,6 +52,19 @@ function LigaCtrlApp() {
   const navigate = useNavigate();
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("discador");
+  // Abas pesadas ficam montadas depois da 1ª visita (troca instantânea, sem refetch)
+  const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: true, leads: false });
+  useEffect(() => {
+    if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
+    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
+  }, [tab]);
+  // Pré-carrega os chunks das duas abas principais logo no início
+  useEffect(() => {
+    const t = setTimeout(() => { void importDiscador(); void importLeads(); }, 0);
+    // Depois que o discador respira, monta a aba Leads em segundo plano
+    const t2 = setTimeout(() => setVisited((v) => (v.leads ? v : { ...v, leads: true })), 3000);
+    return () => { clearTimeout(t); clearTimeout(t2); };
+  }, []);
   // Único subscriber Realtime para o estado vivo do discador (espelha mobile↔desktop)
   const dialerSession = useDialerSession(me?.userId ?? null);
 
@@ -283,8 +298,16 @@ function LigaCtrlApp() {
 
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        {tab === "discador" && <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} state={state} me={me} /></Suspense>}
-        {tab === "leads" && <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} state={state} /></Suspense>}
+        {visited.discador && (
+          <div style={{ display: tab === "discador" ? undefined : "none" }}>
+            <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} state={state} me={me} /></Suspense>
+          </div>
+        )}
+        {visited.leads && (
+          <div style={{ display: tab === "leads" ? undefined : "none" }}>
+            <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} state={state} /></Suspense>
+          </div>
+        )}
         {tab !== "discador" && tab !== "leads" && (
         <div className="rounded-3xl p-3 sm:p-5" style={{ background: "#0b0d13", border: "1px solid #e2e8f0" }}>
         {tab === "fila" && <FilaTab state={state} setState={setState} isAdmin={isAdmin} me={me} refetchCloud={refetchCloud} />}
