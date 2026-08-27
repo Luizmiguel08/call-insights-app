@@ -285,8 +285,11 @@ function LigaCtrlApp() {
 
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        {tab === "discador" && <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} state={state} me={me} /></Suspense>}
-        {tab === "leads" && <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} state={state} /></Suspense>}
+        {visited.discador && (
+          <div style={{ display: tab === "discador" ? undefined : "none" }}>
+            <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} state={state} me={me} /></Suspense>
+          </div>
+        )}
         {visited.leads && (
           <div style={{ display: tab === "leads" ? undefined : "none" }}>
             <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} state={state} /></Suspense>
