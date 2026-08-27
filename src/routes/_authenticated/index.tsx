@@ -61,7 +61,9 @@ function LigaCtrlApp() {
   // Pré-carrega os chunks das duas abas principais logo no início
   useEffect(() => {
     const t = setTimeout(() => { void importDiscador(); void importLeads(); }, 0);
-    return () => clearTimeout(t);
+    // Depois que o discador respira, monta a aba Leads em segundo plano
+    const t2 = setTimeout(() => setVisited((v) => (v.leads ? v : { ...v, leads: true })), 3000);
+    return () => { clearTimeout(t); clearTimeout(t2); };
   }, []);
   // Único subscriber Realtime para o estado vivo do discador (espelha mobile↔desktop)
   const dialerSession = useDialerSession(me?.userId ?? null);
