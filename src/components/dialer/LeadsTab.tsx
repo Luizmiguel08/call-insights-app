@@ -92,6 +92,9 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // carregamento/realtime em loop infinito.
   const cursorRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  // Espelho do tamanho atual da lista: usado no reload (realtime/troca de visão)
+  // para não encolher a lista de volta à primeira página e jogar o scroll pro topo.
+  const leadsLenRef = useRef(0);
 
   const today = spToday();
   const period = currentPeriod();
@@ -104,13 +107,16 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
       const cursor = append ? cursorRef.current : null;
+      // Num reload (append=false) busca pelo menos o que já está na tela,
+      // assim a lista nunca diminui e o usuário não perde a posição do scroll.
+      const pageLimit = append ? PAGE_SIZE : Math.max(PAGE_SIZE, leadsLenRef.current);
       let leadsQuery = db
         .from("crm_leads")
         .select(LEAD_COLUMNS)
         .eq("status", effectiveStatus)
         .order("received_at", { ascending: false })
         .order("id", { ascending: true })
-        .limit(PAGE_SIZE);
+        .limit(pageLimit);
       if (cursor) leadsQuery = leadsQuery.lt("received_at", cursor);
 
       const [leadsR, attemptsR] = await Promise.all([
@@ -120,12 +126,14 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       if (leadsR.error) toast.error(`Falha ao carregar leads: ${leadsR.error.message}`);
       const rows = (leadsR.data ?? []) as Lead[];
       setLeads((prev) => {
-        if (!append) return rows;
-        const seen = new Set(prev.map((l) => l.id));
-        return [...prev, ...rows.filter((l) => !seen.has(l.id))];
+        const next = append
+          ? [...prev, ...rows.filter((l) => !prev.some((p) => p.id === l.id))]
+          : rows;
+        leadsLenRef.current = next.length;
+        return next;
       });
       cursorRef.current = rows.length > 0 ? rows[rows.length - 1].received_at : cursorRef.current;
-      setHasMore(rows.length === PAGE_SIZE);
+      setHasMore(rows.length >= pageLimit);
       if (!attemptsR.error) setAttempts((attemptsR.data ?? []) as Attempt[]);
     } finally {
       loadingRef.current = false;
@@ -137,17 +145,25 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
-    void load(view, true);
+    // Trava o scroll: se alguma renderização intermediária reduzir a altura
+    // da página, restaura a posição após a carga para o usuário não "subir".
+    const y = window.scrollY;
+    void load(view, true).finally(() => {
+      requestAnimationFrame(() => {
+        if (window.scrollY < y - 50) window.scrollTo({ top: y });
+      });
+    });
   }, [load, view, loadingMore, hasMore]);
 
   // Debounced reload triggered by realtime events (referência estável para
-  // não recriar o canal realtime quando a visão muda).
+  // não recriar o canal realtime quando a visão muda). NÃO reseta o cursor:
+  // o reload busca todos os leads já exibidos (via leadsLenRef) e mantém a
+  // paginação, evitando o "pulo" da tela para o topo.
   const loadRef = useRef(load);
   loadRef.current = load;
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
-      cursorRef.current = null;
       void loadRef.current();
     }, 700);
   }, []);
@@ -157,6 +173,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   useEffect(() => {
     setLoading(true);
     setLeads([]);
+    leadsLenRef.current = 0;
     cursorRef.current = null;
     void load();
   }, [load]);
