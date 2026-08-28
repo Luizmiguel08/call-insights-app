@@ -50,7 +50,7 @@ function spHour() {
 }
 
 function currentPeriod(): "manha" | "tarde" {
-  return spHour() < 12 ? "manha" : "tarde";
+  return spHour() < 14 ? "manha" : "tarde";
 }
 
 function daysSince(iso: string) {
@@ -304,8 +304,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
   /**
    * Ligações que DEIXARAM de ser feitas: leads ainda "novo" sem tentativa
-   * registrada no período. A manhã só vira "perdida" depois das 12h e a tarde
-   * depois das 19h — antes disso ainda dá tempo de ligar (fica como "restam").
+   * registrada no período. A manhã só vira "perdida" depois das 14h e a tarde
+   * depois das 22h — antes disso ainda dá tempo de ligar (fica como "restam").
    */
   const missed = useMemo(() => {
     const hour = spHour();
@@ -318,8 +318,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       if (l.status !== "novo") continue;
       const p = progressOf(l.id);
       const hoje = spDate(l.received_at) === today;
-      const perdeuManha = p.manha === "pendente" && (hoje ? hour >= 12 : true);
-      const perdeuTarde = p.tarde === "pendente" && (hoje ? hour >= 19 : true);
+      const perdeuManha = p.manha === "pendente" && (hoje ? hour >= 14 : true);
+      const perdeuTarde = p.tarde === "pendente" && (hoje ? hour >= 22 : true);
       if (!perdeuManha && !perdeuTarde) continue;
       const key = l.broker_id ?? "none";
       const broker = brokers.find((b) => b.id === l.broker_id);
@@ -480,7 +480,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             Leads
           </h2>
           <p className="text-sm" style={{ color: "#64748b" }}>
-            1 ligação na manhã (9h–12h) e 1 na tarde (14h–19h). Sai da lista quando atender.
+            1 ligação na manhã (9h–14h) e 1 na tarde (14h–22h). Sai da lista quando atender.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -535,7 +535,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             </span>
           </div>
           <p className="mt-2 text-xs" style={{ color: "#b45309" }}>
-            A manhã conta como perdida após as 12h e a tarde após as 19h.
+            A manhã conta como perdida após as 14h e a tarde após as 22h.
           </p>
         </div>
       )}
@@ -634,7 +634,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#9a3412" }}>
               Ligações não feitas por corretor
             </p>
-            <span className="text-xs" style={{ color: "#94a3b8" }}>manhã após 12h · tarde após 19h</span>
+            <span className="text-xs" style={{ color: "#94a3b8" }}>manhã após 14h · tarde após 22h</span>
           </div>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full text-sm">
