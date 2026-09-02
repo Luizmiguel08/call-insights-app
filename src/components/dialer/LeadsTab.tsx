@@ -59,6 +59,10 @@ function daysSince(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }
 
+function spMonth(iso: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: SP_TZ, year: "numeric", month: "2-digit" }).format(new Date(iso));
+}
+
 const VIRTUAL_THRESHOLD = 80;
 const CARD_HEIGHT_ESTIMATE = 120;
 const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
@@ -88,6 +92,18 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     brokerFilterInit.current = true;
     setBrokerFilter(me.brokerId);
   }, [me?.brokerId]);
+
+  // Filtro por mês para visualizar leads de ago/jul/jun de 2026 por corretor.
+  const MONTH_OPTIONS = useMemo(
+    () => [
+      { value: "all", label: "Todos os meses" },
+      { value: "2026-08", label: "Agosto/2026" },
+      { value: "2026-07", label: "Julho/2026" },
+      { value: "2026-06", label: "Junho/2026" },
+    ],
+    [],
+  );
+  const [monthFilter, setMonthFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -316,8 +332,9 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       }
       return true;
     });
-    if (view !== "novo" || focus === "todos") return byView;
-    return byView.filter((l) => {
+    const byMonth = monthFilter === "all" ? byView : byView.filter((l) => spMonth(l.received_at) === monthFilter);
+    if (view !== "novo" || focus === "todos") return byMonth;
+    return byMonth.filter((l) => {
       const p = progressOf(l.id);
       if (focus === "falta_manha") return p.manha === "pendente";
       if (focus === "falta_tarde") return p.tarde === "pendente";
@@ -325,7 +342,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       if (focus === "pendentes_anteriores") return p.triedBefore > 0;
       return true;
     });
-  }, [leads, view, isAdmin, brokerFilter, focus, progressOf]);
+  }, [leads, view, isAdmin, brokerFilter, focus, progressOf, monthFilter]);
 
   const todayNew = useMemo(
     () => leads.filter((l) => l.status === "novo" && spDate(l.received_at) === today),
@@ -724,11 +741,21 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             {v === "novo" ? "Para ligar" : v === "atendido" ? "Atendidos" : "Frias"}
           </button>
         ))}
+        <select
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+          className="ml-auto h-9 max-w-[180px] rounded-full px-3 text-sm outline-none"
+          style={{ background: "#f1f5f9", color: "#334155" }}
+        >
+          {MONTH_OPTIONS.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
         {isAdmin && (
           <select
             value={brokerFilter}
             onChange={(e) => setBrokerFilter(e.target.value)}
-            className="ml-auto h-9 max-w-[220px] rounded-full px-3 text-sm outline-none"
+            className="h-9 max-w-[220px] rounded-full px-3 text-sm outline-none"
             style={{ background: "#f1f5f9", color: "#334155" }}
           >
             <option value="all">Todos os corretores</option>
