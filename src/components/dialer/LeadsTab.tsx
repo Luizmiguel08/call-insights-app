@@ -741,11 +741,21 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             {v === "novo" ? "Para ligar" : v === "atendido" ? "Atendidos" : "Frias"}
           </button>
         ))}
+        <select
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+          className="ml-auto h-9 max-w-[180px] rounded-full px-3 text-sm outline-none"
+          style={{ background: "#f1f5f9", color: "#334155" }}
+        >
+          {MONTH_OPTIONS.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
         {isAdmin && (
           <select
             value={brokerFilter}
             onChange={(e) => setBrokerFilter(e.target.value)}
-            className="ml-auto h-9 max-w-[220px] rounded-full px-3 text-sm outline-none"
+            className="h-9 max-w-[220px] rounded-full px-3 text-sm outline-none"
             style={{ background: "#f1f5f9", color: "#334155" }}
           >
             <option value="all">Todos os corretores</option>
