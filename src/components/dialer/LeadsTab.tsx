@@ -68,6 +68,8 @@ const CARD_HEIGHT_ESTIMATE = 120;
 const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
 const PAGE_SIZE = 500;
 const MAX_PAGES = 40;
+/** Limite real de linhas por resposta da API (não adianta pedir mais). */
+const PAGE_ROWS = 1000;
 // Piso de histórico: puxa leads desde 01/06/2026 (não apenas os últimos dias)
 const LEADS_FLOOR = "2026-06-01T00:00:00.000Z";
 /** Após este número de tentativas o lead vai para a lista fria (regra também no banco). */
@@ -153,6 +155,10 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // Espelho do tamanho atual da lista: usado no reload (realtime/troca de visão)
   // para não encolher a lista de volta à primeira página e jogar o scroll pro topo.
   const leadsLenRef = useRef(0);
+  // Tentativas registradas neste aparelho hoje: sobrevivem a qualquer recarga,
+  // então o lead nunca volta para a fila depois do clique.
+  const localAttemptsRef = useRef<Attempt[]>([]);
+  const localTotalsRef = useRef<Map<string, number>>(new Map());
 
   const today = spToday();
   const period = currentPeriod();
@@ -198,9 +204,43 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         cursor = rows[rows.length - 1].received_at;
       }
 
-      const [attemptsR, totalsR] = await Promise.all([
-        db.from("crm_lead_attempts").select("id,lead_id,period,result,attempt_date,called_at").gte("attempt_date", since).limit(5000),
-        db.from("crm_lead_attempt_totals").select("lead_id,total_attempts,last_called_at").limit(20000),
+      // A API corta qualquer consulta em 1.000 linhas, mesmo pedindo mais.
+      // Sem paginar, as tentativas mais recentes do dia sumiam do app e o lead
+      // voltava para a fila logo depois de "não atendeu" (efeito de looping).
+      const [attemptsRows, totalsRows] = await Promise.all([
+        (async () => {
+          const out: Attempt[] = [];
+          for (let page = 0; page < MAX_PAGES; page++) {
+            const from = page * PAGE_ROWS;
+            const r = await db
+              .from("crm_lead_attempts")
+              .select("id,lead_id,period,result,attempt_date,called_at")
+              .gte("attempt_date", since)
+              .order("called_at", { ascending: true })
+              .range(from, from + PAGE_ROWS - 1);
+            if (r.error) return out;
+            const rows = (r.data ?? []) as Attempt[];
+            out.push(...rows);
+            if (rows.length < PAGE_ROWS) break;
+          }
+          return out;
+        })(),
+        (async () => {
+          const out: { lead_id: string; total_attempts: number }[] = [];
+          for (let page = 0; page < MAX_PAGES; page++) {
+            const from = page * PAGE_ROWS;
+            const r = await db
+              .from("crm_lead_attempt_totals")
+              .select("lead_id,total_attempts")
+              .order("lead_id", { ascending: true })
+              .range(from, from + PAGE_ROWS - 1);
+            if (r.error) return out;
+            const rows = (r.data ?? []) as { lead_id: string; total_attempts: number }[];
+            out.push(...rows);
+            if (rows.length < PAGE_ROWS) break;
+          }
+          return out;
+        })(),
       ]);
 
       setLeads((prev) => {
@@ -212,14 +252,22 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       });
       cursorRef.current = cursor;
       setHasMore(false);
-      if (!attemptsR.error) setAttempts((attemptsR.data ?? []) as Attempt[]);
-      if (!totalsR.error) {
+      // Mantém as tentativas registradas neste aparelho que ainda não voltaram
+      // do servidor — nunca deixa o lead reaparecer por atraso de leitura.
+      setAttempts(() => {
+        const ids = new Set(attemptsRows.map((a) => a.lead_id + "|" + a.period + "|" + a.attempt_date));
+        const localExtras = localAttemptsRef.current.filter(
+          (a) => !ids.has(a.lead_id + "|" + a.period + "|" + a.attempt_date),
+        );
+        return [...attemptsRows, ...localExtras];
+      });
+      {
         const m = new Map<string, number>();
-        for (const t of (totalsR.data ?? []) as { lead_id: string; total_attempts: number }[]) {
-          m.set(t.lead_id, t.total_attempts);
-        }
+        for (const t of totalsRows) m.set(t.lead_id, t.total_attempts);
+        for (const [id, n] of localTotalsRef.current) m.set(id, Math.max(m.get(id) ?? 0, n));
         setTotalsByLead(m);
       }
+
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -476,25 +524,27 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     // demorar (ou ser adiado), e sem isso a ação parecia não ter sido registrada.
     const res = (data ?? {}) as { period?: string; attempts?: number; status?: string };
     const usedPeriod = res.period === "manha" || res.period === "tarde" ? res.period : period;
-    setAttempts((prev) => [
-      ...prev,
-      {
-        id: `local-${lead.id}-${Date.now()}`,
-        lead_id: lead.id,
-        period: usedPeriod,
-        result: attended ? "atendeu" : "nao_atendeu",
-        attempt_date: today,
-        called_at: new Date().toISOString(),
-      } as Attempt,
-    ]);
+    const localAttempt = {
+      id: `local-${lead.id}-${Date.now()}`,
+      lead_id: lead.id,
+      period: usedPeriod,
+      result: attended ? "atendeu" : "nao_atendeu",
+      attempt_date: today,
+      called_at: new Date().toISOString(),
+    } as Attempt;
+    localAttemptsRef.current = [...localAttemptsRef.current, localAttempt];
+    setAttempts((prev) => [...prev, localAttempt]);
     setTotalsByLead((prev) => {
       const m = new Map(prev);
-      m.set(lead.id, res.attempts ?? (prev.get(lead.id) ?? 0) + 1);
+      const total = res.attempts ?? (prev.get(lead.id) ?? 0) + 1;
+      m.set(lead.id, total);
+      localTotalsRef.current.set(lead.id, total);
       return m;
     });
     if (res.status && res.status !== "novo") {
       setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: res.status as string } : l)));
     }
+
 
     toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${usedPeriod === "manha" ? "manhã" : "tarde"})`);
     void load();
