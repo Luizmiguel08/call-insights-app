@@ -513,6 +513,7 @@ export type Database = {
           c2s_lead_id: string
           cold_at: string | null
           created_at: string
+          cycle_started_at: string | null
           email: string | null
           id: string
           name: string
@@ -532,6 +533,7 @@ export type Database = {
           c2s_lead_id: string
           cold_at?: string | null
           created_at?: string
+          cycle_started_at?: string | null
           email?: string | null
           id?: string
           name?: string
@@ -551,6 +553,7 @@ export type Database = {
           c2s_lead_id?: string
           cold_at?: string | null
           created_at?: string
+          cycle_started_at?: string | null
           email?: string | null
           id?: string
           name?: string
