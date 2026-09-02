@@ -259,7 +259,27 @@ export default function LeadsDialer({
               {current.source ? `Origem: ${current.source}` : "Origem: C2S"}
               {current.brokerName ? ` · ${current.brokerName}` : ""}
             </p>
+
+            {/* Situação por período + tentativas acumuladas */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <PeriodChip label="Manhã" icon={Sun} state={current.manha} active={period === "manha"} />
+              <PeriodChip label="Tarde" icon={Sunset} state={current.tarde} active={period === "tarde"} />
+              <span
+                className="rounded-full px-3 py-1.5 text-[12px] font-semibold"
+                style={{
+                  background: current.totalAttempts >= current.coldAfter - 1 ? T.redSoft : T.soft,
+                  color: current.totalAttempts >= current.coldAfter - 1 ? T.red : T.dim,
+                  fontFamily: T.grotesk,
+                }}
+              >
+                {current.totalAttempts} de {current.coldAfter} tentativas
+              </span>
+            </div>
+            <p className="mt-2 text-[11px]" style={{ color: T.mute }}>
+              Após {current.coldAfter} tentativas o lead vai automaticamente para a lista fria.
+            </p>
           </div>
+
 
           {!phoneValid ? (
             <div className="text-center">
