@@ -65,6 +65,7 @@ export default function LeadsDialer({
   period,
   brokerName,
   stats,
+  goal,
   busy,
   loading,
   onOutcome,
@@ -75,12 +76,14 @@ export default function LeadsDialer({
   period: "manha" | "tarde";
   brokerName: string;
   stats: { atendidos: number; restantes: number; semResposta: number; novosHoje: number };
+  goal?: { done: number; meta: number };
   busy: boolean;
   loading: boolean;
   onOutcome: (lead: DialerLead, attended: boolean) => Promise<void> | void;
   onRefresh: () => void;
   onOpenList: () => void;
 }) {
+
   const [skipped, setSkipped] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -99,8 +102,21 @@ export default function LeadsDialer({
   }, []);
 
   const pending = useMemo(() => queue.filter((l) => !skipped.includes(l.id)), [queue, skipped]);
-  const current = pending[0] ?? null;
-  const nextOne = pending[1] ?? null;
+  // Lead "travado": só muda quando o corretor registra o resultado ou pula.
+  // Sem isso, qualquer recarga (realtime/refetch) reordenava a fila e o app
+  // trocava de lead sozinho no meio da ligação.
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const current = useMemo(() => {
+    const pinned = pinnedId ? pending.find((l) => l.id === pinnedId) : undefined;
+    return pinned ?? pending[0] ?? null;
+  }, [pending, pinnedId]);
+
+  const nextOne = useMemo(() => pending.find((l) => l.id !== current?.id) ?? null, [pending, current?.id]);
+
+  useEffect(() => {
+    if (current && current.id !== pinnedId) setPinnedId(current.id);
+    if (!current && pinnedId) setPinnedId(null);
+  }, [current, pinnedId]);
 
   useEffect(() => {
     setNote("");
@@ -108,6 +124,7 @@ export default function LeadsDialer({
     dialStartRef.current = null;
     setCallSeconds(0);
   }, [current?.id]);
+
 
   useEffect(() => {
     if (!dialing) return;
@@ -131,15 +148,21 @@ export default function LeadsDialer({
   async function register(attended: boolean) {
     if (!current || busy || inFlightRef.current) return;
     inFlightRef.current = true;
+    const doneId = current.id;
     try {
       await onOutcome(current, attended);
       setDialing(false);
       dialStartRef.current = null;
       setCallSeconds(0);
+      // Libera o lead atual: se ele continuar na fila (ex.: falta o outro
+      // período), ele sai da vez e o próximo assume.
+      setSkipped((s) => (s.includes(doneId) ? s : [...s, doneId]));
+      setPinnedId(null);
     } finally {
       inFlightRef.current = false;
     }
   }
+
 
   function skip() {
     if (current) setSkipped((s) => [...s, current.id]);
@@ -186,6 +209,20 @@ export default function LeadsDialer({
             </button>
           </div>
         </div>
+        {goal && (
+          <div
+            className="flex items-center justify-between rounded-2xl px-4 py-3"
+            style={{ background: T.soft, border: `1px solid ${T.line}` }}
+          >
+            <span className="text-[12px] font-medium" style={{ color: T.dim }}>
+              Meta diária de ligações
+            </span>
+            <span className="text-[13px] font-semibold tabular-nums" style={{ fontFamily: T.grotesk, color: goal.done >= goal.meta ? T.green : T.ink }}>
+              {goal.done} / {goal.meta}
+            </span>
+          </div>
+        )}
+
         <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: T.lineSoft }}>
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: T.blue }} />
         </div>

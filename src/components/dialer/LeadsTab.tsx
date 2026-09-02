@@ -163,7 +163,46 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const today = spToday();
   const period = currentPeriod();
 
+  // Contador de ligações do dia por corretor (mesma fonte do painel: tabela calls).
+  const [callsToday, setCallsToday] = useState<Map<string, number>>(new Map());
+  const [metaDaily, setMetaDaily] = useState(50);
+  const loadCallCountsRef = useRef<(() => Promise<void>) | null>(null);
+
+  const loadCallCounts = useCallback(async () => {
+    const startIso = `${today}T03:00:00.000Z`; // 00h em São Paulo (UTC-3)
+    const rows: { broker_id: string | null }[] = [];
+    for (let page = 0; page < 10; page++) {
+      const from = page * PAGE_ROWS;
+      const r = await db
+        .from("calls")
+        .select("broker_id")
+        .gte("created_at", startIso)
+        .range(from, from + PAGE_ROWS - 1);
+      if (r.error) break;
+      const got = (r.data ?? []) as { broker_id: string | null }[];
+      rows.push(...got);
+      if (got.length < PAGE_ROWS) break;
+    }
+    const m = new Map<string, number>();
+    for (const c of rows) {
+      const k = c.broker_id ?? "none";
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    setCallsToday(m);
+  }, [today]);
+  loadCallCountsRef.current = loadCallCounts;
+
+  useEffect(() => {
+    void loadCallCounts();
+    void (async () => {
+      const r = await db.from("app_settings").select("meta_daily").limit(1);
+      const n = (r.data ?? [])[0]?.meta_daily;
+      if (typeof n === "number" && n > 0) setMetaDaily(n);
+    })();
+  }, [loadCallCounts]);
+
   const loadFnRef = useRef<((statusFilter?: string, append?: boolean) => Promise<void>) | null>(null);
+
 
   const load = useCallback(async (statusFilter?: string, append = false) => {
     if (loadingRef.current) {
@@ -178,9 +217,13 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
       // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
       // não precisa mais clicar em "carregar mais".
+      // Escopo por corretor: sem isso o app baixava a base inteira (dezenas de
+      // milhares de linhas), o que deixava a aba lenta e fazia os números
+      // oscilarem entre recargas parciais.
+      const scopeBroker = isAdmin ? (brokerFilter === "all" ? null : brokerFilter) : me?.brokerId ?? null;
       const all: Lead[] = [];
-      let cursor: string | null = append ? cursorRef.current : null;
       for (let page = 0; page < MAX_PAGES; page++) {
+        const from = page * PAGE_SIZE;
         let q = db
           .from("crm_leads")
           .select(LEAD_COLUMNS)
@@ -188,8 +231,9 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           .gte("received_at", LEADS_FLOOR)
           .order("received_at", { ascending: false })
           .order("id", { ascending: true })
-          .limit(PAGE_SIZE);
-        if (cursor) q = q.lt("received_at", cursor);
+          .range(from, from + PAGE_SIZE - 1);
+        if (scopeBroker === "none") q = q.is("broker_id", null);
+        else if (scopeBroker) q = q.eq("broker_id", scopeBroker);
         const r = await q;
         if (r.error) {
           toast.error(`Falha ao carregar leads: ${r.error.message}`);
@@ -197,12 +241,10 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         }
         const rows = (r.data ?? []) as Lead[];
         all.push(...rows);
-        if (rows.length < PAGE_SIZE) {
-          cursor = rows.length > 0 ? rows[rows.length - 1].received_at : cursor;
-          break;
-        }
-        cursor = rows[rows.length - 1].received_at;
+        if (rows.length < PAGE_SIZE) break;
       }
+      const cursor: string | null = all.length > 0 ? all[all.length - 1].received_at : null;
+
 
       // A API corta qualquer consulta em 1.000 linhas, mesmo pedindo mais.
       // Sem paginar, as tentativas mais recentes do dia sumiam do app e o lead
@@ -212,12 +254,15 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           const out: Attempt[] = [];
           for (let page = 0; page < MAX_PAGES; page++) {
             const from = page * PAGE_ROWS;
-            const r = await db
+            let qa = db
               .from("crm_lead_attempts")
               .select("id,lead_id,period,result,attempt_date,called_at")
               .gte("attempt_date", since)
               .order("called_at", { ascending: true })
               .range(from, from + PAGE_ROWS - 1);
+            if (scopeBroker && scopeBroker !== "none") qa = qa.eq("broker_id", scopeBroker);
+            const r = await qa;
+
             if (r.error) return out;
             const rows = (r.data ?? []) as Attempt[];
             out.push(...rows);
@@ -268,6 +313,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         setTotalsByLead(m);
       }
 
+      void loadCallCountsRef.current?.();
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -277,7 +323,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         void loadFnRef.current?.();
       }
     }
-  }, [view]);
+  }, [view, isAdmin, brokerFilter, me?.brokerId]);
 
   loadFnRef.current = load;
 
@@ -294,17 +340,24 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
 
   // Debounced reload triggered by realtime events (referência estável para
-  // não recriar o canal realtime quando a visão muda). NÃO reseta o cursor:
-  // o reload busca todos os leads já exibidos (via leadsLenRef) e mantém a
-  // paginação, evitando o "pulo" da tela para o topo.
+  // não recriar o canal realtime quando a visão muda). Janela larga: eventos
+  // de todos os corretores chegam no mesmo canal e recargas frequentes faziam
+  // os contadores oscilarem na tela.
   const loadRef = useRef(load);
   loadRef.current = load;
+  const busyRef = useRef(false);
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
+      // Nunca recarrega no meio de um registro de resultado.
+      if (busyRef.current || loadingRef.current) {
+        scheduleReload();
+        return;
+      }
       void loadRef.current();
-    }, 700);
+    }, 4000);
   }, []);
+
 
   // Carga inicial + recarga quando a visão muda (um único efeito evita
   // requisições duplicadas na montagem).
@@ -509,12 +562,14 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
   async function register(lead: Lead, attended: boolean) {
     setBusy(lead.id);
+    busyRef.current = true;
     const { data, error } = await db.rpc("crm_register_lead_attempt", {
       _lead_id: lead.id,
       _attended: attended,
       _result: attended ? "atendeu" : "nao_atendeu",
     });
     setBusy(null);
+    busyRef.current = false;
     if (error) {
       toast.error(`Não foi possível registrar: ${error.message}`);
       return;
@@ -522,7 +577,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
     // Aplica o resultado localmente na hora — o recarregamento do servidor pode
     // demorar (ou ser adiado), e sem isso a ação parecia não ter sido registrada.
-    const res = (data ?? {}) as { period?: string; attempts?: number; status?: string };
+    const res = (data ?? {}) as { period?: string; attempts?: number; status?: string; counted_call?: boolean };
     const usedPeriod = res.period === "manha" || res.period === "tarde" ? res.period : period;
     const localAttempt = {
       id: `local-${lead.id}-${Date.now()}`,
@@ -544,11 +599,21 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     if (res.status && res.status !== "novo") {
       setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: res.status as string } : l)));
     }
-
+    if (res.counted_call && lead.broker_id) {
+      setCallsToday((prev) => {
+        const m = new Map(prev);
+        m.set(lead.broker_id as string, (m.get(lead.broker_id as string) ?? 0) + 1);
+        return m;
+      });
+    }
 
     toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${usedPeriod === "manha" ? "manhã" : "tarde"})`);
-    void load();
+    void loadCallCounts();
+    // A lista não é recarregada aqui: o estado local já reflete a ação e uma
+    // recarga imediata era o que fazia a fila "piscar" e trocar de lead sozinho.
+    scheduleReload();
   }
+
 
   const hoje = useMemo(() => visible.filter((l) => spDate(l.received_at) === today), [visible, today]);
   const anteriores = useMemo(() => visible.filter((l) => spDate(l.received_at) !== today), [visible, today]);
@@ -600,6 +665,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         period={period}
         brokerName={me?.brokerName ?? "Corretor"}
         stats={dialStats}
+        goal={{ done: callsToday.get(me?.brokerId ?? "") ?? 0, meta: metaDaily }}
+
         busy={busy !== null}
         loading={loading}
         onOutcome={async (lead, attended) => {
@@ -748,6 +815,41 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         <Stat label="Sem resposta" value={counts.semResposta} icon={X} />
         <Stat label="Atendidos" value={leads.filter((l) => l.status === "atendido").length} icon={Check} />
       </div>
+
+      {/* Meta diária de ligações por corretor (conta 1 por lead após manhã + tarde) */}
+      <div className="rounded-2xl bg-white p-4" style={{ border: "1px solid #e8ecf1" }}>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#0f172a" }}>
+            Meta diária de ligações
+          </p>
+          <span className="text-xs" style={{ color: "#64748b" }}>
+            meta {metaDaily} / dia
+          </span>
+        </div>
+        <div className="mt-3 space-y-2">
+          {(isAdmin ? brokers : brokers.filter((b) => b.id === me?.brokerId)).map((b) => {
+            const done = callsToday.get(b.id) ?? 0;
+            const pct = Math.min(100, Math.round((done / Math.max(1, metaDaily)) * 100));
+            return (
+              <div key={b.id} className="flex items-center gap-3">
+                <span className="w-40 shrink-0 truncate text-xs font-medium" style={{ color: "#334155" }}>
+                  {b.name}
+                </span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: "#eef1f5" }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: done >= metaDaily ? "#16a34a" : "#3b82f6" }}
+                  />
+                </div>
+                <span className="w-16 shrink-0 text-right text-xs font-semibold tabular-nums" style={{ color: "#0f172a" }}>
+                  {done}/{metaDaily}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
 
       {!isAdmin && missed.mine.total > 0 && (
         <div className="rounded-2xl p-4" style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
