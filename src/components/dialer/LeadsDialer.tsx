@@ -101,7 +101,15 @@ export default function LeadsDialer({
     } as { 1: string; 2: string };
   }, []);
 
+  // Ao virar de manhã para tarde, tudo que foi ligado/pulado de manhã volta
+  // para a fila: são justamente as ligações do turno da tarde.
+  useEffect(() => {
+    setSkipped([]);
+    setPinnedId(null);
+  }, [period]);
+
   const pending = useMemo(() => queue.filter((l) => !skipped.includes(l.id)), [queue, skipped]);
+
   // Lead "travado": só muda quando o corretor registra o resultado ou pula.
   // Sem isso, qualquer recarga (realtime/refetch) reordenava a fila e o app
   // trocava de lead sozinho no meio da ligação.
