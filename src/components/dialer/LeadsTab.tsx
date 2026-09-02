@@ -274,6 +274,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         setTotalsByLead(m);
       }
 
+      void loadCallCountsRef.current?.();
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -283,7 +284,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         void loadFnRef.current?.();
       }
     }
-  }, [view]);
+  }, [view, isAdmin, brokerFilter, me?.brokerId]);
 
   loadFnRef.current = load;
 
@@ -300,17 +301,24 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
 
   // Debounced reload triggered by realtime events (referência estável para
-  // não recriar o canal realtime quando a visão muda). NÃO reseta o cursor:
-  // o reload busca todos os leads já exibidos (via leadsLenRef) e mantém a
-  // paginação, evitando o "pulo" da tela para o topo.
+  // não recriar o canal realtime quando a visão muda). Janela larga: eventos
+  // de todos os corretores chegam no mesmo canal e recargas frequentes faziam
+  // os contadores oscilarem na tela.
   const loadRef = useRef(load);
   loadRef.current = load;
+  const busyRef = useRef(false);
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
+      // Nunca recarrega no meio de um registro de resultado.
+      if (busyRef.current || loadingRef.current) {
+        scheduleReload();
+        return;
+      }
       void loadRef.current();
-    }, 700);
+    }, 4000);
   }, []);
+
 
   // Carga inicial + recarga quando a visão muda (um único efeito evita
   // requisições duplicadas na montagem).
