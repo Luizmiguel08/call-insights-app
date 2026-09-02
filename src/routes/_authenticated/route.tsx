@@ -8,6 +8,18 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) {
       throw redirect({ to: "/auth" });
     }
+
+    // Verifica modo de manutenção global.
+    const { data: flagRow } = await supabase
+      .from("system_flags")
+      .select("value")
+      .eq("key", "maintenance_mode")
+      .single();
+
+    if (flagRow?.value) {
+      throw redirect({ to: "/manutencao" });
+    }
+
     return { user: data.user };
   },
   component: () => <Outlet />,
