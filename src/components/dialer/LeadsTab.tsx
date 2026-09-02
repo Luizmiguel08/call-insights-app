@@ -79,7 +79,15 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
 
   const [focus, setFocus] = useState<"todos" | "falta_manha" | "falta_tarde" | "sem_resposta" | "pendentes_anteriores">("todos");
-  const [brokerFilter, setBrokerFilter] = useState<string>("all");
+  // Admin também é corretor: começa vendo os próprios leads (pode trocar para
+  // "Todos os corretores" no seletor).
+  const [brokerFilter, setBrokerFilter] = useState<string>(me?.brokerId ?? "all");
+  const brokerFilterInit = useRef(false);
+  useEffect(() => {
+    if (brokerFilterInit.current || !me?.brokerId) return;
+    brokerFilterInit.current = true;
+    setBrokerFilter(me.brokerId);
+  }, [me?.brokerId]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
