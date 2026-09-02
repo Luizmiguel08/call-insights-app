@@ -178,8 +178,14 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       loadingRef.current = false;
       setLoading(false);
       setLoadingMore(false);
+      if (pendingLoadRef.current) {
+        pendingLoadRef.current = false;
+        void loadFnRef.current?.();
+      }
     }
   }, [view]);
+
+  loadFnRef.current = load;
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
