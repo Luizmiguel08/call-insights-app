@@ -64,6 +64,8 @@ const CARD_HEIGHT_ESTIMATE = 120;
 const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
 const PAGE_SIZE = 500;
 const MAX_PAGES = 40;
+// Piso de histórico: puxa leads desde 01/06/2026 (não apenas os últimos dias)
+const LEADS_FLOOR = "2026-06-01T00:00:00.000Z";
 /** Após este número de tentativas o lead vai para a lista fria (regra também no banco). */
 const COLD_AFTER_ATTEMPTS = 7;
 
