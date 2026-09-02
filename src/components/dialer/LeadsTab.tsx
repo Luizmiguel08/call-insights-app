@@ -358,7 +358,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
   /** Resumo do dia por corretor: quem atendeu de manhã, de tarde e quem não respondeu. */
   const dailySummary = useMemo(() => {
-    const rows = new Map<string, { name: string; color: string; manha: number; tarde: number; semResposta: number; total: number }>();
+    const rows = new Map<string, { id: string; name: string; color: string; manha: number; tarde: number; semResposta: number; total: number }>();
     for (const l of leads) {
       const p = progressOf(l.id);
       if (p.triedToday === 0 && p.manha === "pendente" && p.tarde === "pendente") continue;
@@ -366,7 +366,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       const broker = brokers.find((b) => b.id === l.broker_id);
       const cur =
         rows.get(key) ??
-        { name: broker?.name ?? "Sem corretor", color: broker?.color ?? "#71717a", manha: 0, tarde: 0, semResposta: 0, total: 0 };
+        { id: key, name: broker?.name ?? "Sem corretor", color: broker?.color ?? "#71717a", manha: 0, tarde: 0, semResposta: 0, total: 0 };
       cur.total += 1;
       if (p.manha === "atendeu") cur.manha += 1;
       if (p.tarde === "atendeu") cur.tarde += 1;
@@ -848,7 +848,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           </div>
           <div className="mt-2 divide-y" style={{ borderColor: "#f1f5f9" }}>
             {dailySummary.map((r) => (
-              <div key={r.name} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <span className="flex min-w-0 items-center gap-2" style={{ color: "#334155" }}>
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
                   <span className="truncate">{r.name}</span>
@@ -902,7 +902,7 @@ function LeadSection({
       ) : shouldVirtualize ? (
         <div
           ref={parentRef}
-          className="max-h-[70vh] overflow-auto rounded-xl"
+          className="h-[70vh] overflow-auto rounded-xl"
           style={{ contain: "strict" }}
         >
           <div
