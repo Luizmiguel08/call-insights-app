@@ -181,6 +181,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // então o lead nunca volta para a fila depois do clique.
   const localAttemptsRef = useRef<Attempt[]>([]);
   const localTotalsRef = useRef<Map<string, number>>(new Map());
+  const localCoverageRef = useRef<Map<string, CoverageState>>(new Map());
 
   // Relógio interno: a aba fica aberta o dia todo. Sem isto, quem abriu de
   // manhã continuava com period = "manha" depois das 14h e os leads já
