@@ -99,8 +99,20 @@ export default function LeadsDialer({
   }, []);
 
   const pending = useMemo(() => queue.filter((l) => !skipped.includes(l.id)), [queue, skipped]);
-  const current = pending[0] ?? null;
-  const nextOne = pending[1] ?? null;
+  // Lead "travado": só muda quando o corretor registra o resultado ou pula.
+  // Sem isso, qualquer recarga (realtime/refetch) reordenava a fila e o app
+  // trocava de lead sozinho no meio da ligação.
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const current = useMemo(
+    () => (pinnedId ? pending.find((l) => l.id === pinnedId) ?? null : null) ?? pending[0] ?? null,
+    [pending, pinnedId],
+  );
+  const nextOne = useMemo(() => pending.find((l) => l.id !== current?.id) ?? null, [pending, current?.id]);
+
+  useEffect(() => {
+    if (current && current.id !== pinnedId) setPinnedId(current.id);
+    if (!current && pinnedId) setPinnedId(null);
+  }, [current, pinnedId]);
 
   useEffect(() => {
     setNote("");
@@ -108,6 +120,7 @@ export default function LeadsDialer({
     dialStartRef.current = null;
     setCallSeconds(0);
   }, [current?.id]);
+
 
   useEffect(() => {
     if (!dialing) return;
