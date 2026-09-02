@@ -87,10 +87,9 @@ function spMonth(iso: string) {
 const VIRTUAL_THRESHOLD = 80;
 const CARD_HEIGHT_ESTIMATE = 120;
 const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
-const PAGE_SIZE = 500;
-const MAX_PAGES = 40;
 /** Limite real de linhas por resposta da API (não adianta pedir mais). */
 const PAGE_ROWS = 1000;
+
 // Piso de histórico: puxa leads desde 01/06/2026 (não apenas os últimos dias)
 const LEADS_FLOOR = "2026-06-01T00:00:00.000Z";
 /** Após este número de tentativas o lead vai para a lista fria (regra também no banco). */
@@ -206,29 +205,27 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const [metaDaily, setMetaDaily] = useState(50);
   const loadCallCountsRef = useRef<(() => Promise<void>) | null>(null);
 
+  // As contagens do dia vêm dentro do snapshot (uma única chamada). Esta função
+  // só é usada como recarga pontual leve.
+  const applyCallCounts = useCallback((rows: { broker_id: string | null; total: number }[]) => {
+    const m = new Map<string, number>();
+    for (const c of rows) m.set(c.broker_id ?? "none", c.total);
+    setCallsToday(m);
+  }, []);
+
   const loadCallCounts = useCallback(async () => {
     const startIso = `${today}T03:00:00.000Z`; // 00h em São Paulo (UTC-3)
-    const rows: { broker_id: string | null }[] = [];
-    for (let page = 0; page < 10; page++) {
-      const from = page * PAGE_ROWS;
-      const r = await db
-        .from("calls")
-        .select("broker_id")
-        .gte("created_at", startIso)
-        .range(from, from + PAGE_ROWS - 1);
-      if (r.error) break;
-      const got = (r.data ?? []) as { broker_id: string | null }[];
-      rows.push(...got);
-      if (got.length < PAGE_ROWS) break;
-    }
+    const r = await db.from("calls").select("broker_id").gte("created_at", startIso).limit(1000);
+    if (r.error) return;
     const m = new Map<string, number>();
-    for (const c of rows) {
+    for (const c of (r.data ?? []) as { broker_id: string | null }[]) {
       const k = c.broker_id ?? "none";
       m.set(k, (m.get(k) ?? 0) + 1);
     }
     setCallsToday(m);
   }, [today]);
   loadCallCountsRef.current = loadCallCounts;
+
 
   useEffect(() => {
     void loadCallCounts();
@@ -250,103 +247,38 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     loadingRef.current = true;
     try {
       const effectiveStatus = statusFilter ?? view;
-      // Tentativas recentes (usadas para manhã/tarde e pendências do dia)
-      const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
-      // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
-      // não precisa mais clicar em "carregar mais".
-      // Escopo por corretor: sem isso o app baixava a base inteira (dezenas de
-      // milhares de linhas), o que deixava a aba lenta e fazia os números
-      // oscilarem entre recargas parciais.
-      const scopeBroker = isAdmin ? (brokerFilter === "all" ? null : brokerFilter) : me?.brokerId ?? null;
-      const all: Lead[] = [];
-      for (let page = 0; page < MAX_PAGES; page++) {
-        const from = page * PAGE_SIZE;
-        let q = db
-          .from("crm_leads")
-          .select(LEAD_COLUMNS)
-          .eq("status", effectiveStatus)
-          .gte("received_at", LEADS_FLOOR)
-          .order("received_at", { ascending: false })
-          .order("id", { ascending: true })
-          .range(from, from + PAGE_SIZE - 1);
-        if (scopeBroker === "none") q = q.is("broker_id", null);
-        else if (scopeBroker) q = q.eq("broker_id", scopeBroker);
-        const r = await q;
-        if (r.error) {
-          toast.error(`Falha ao carregar leads: ${r.error.message}`);
-          break;
-        }
-        const rows = (r.data ?? []) as Lead[];
-        all.push(...rows);
-        if (rows.length < PAGE_SIZE) break;
+      // Escopo por corretor. O banco reforça o escopo (corretor só vê o próprio).
+      const scopeBroker = isAdmin ? (brokerFilter === "all" ? "all" : brokerFilter) : me?.brokerId ?? null;
+
+      // UMA única chamada traz leads + tentativas + coberturas + totais +
+      // ligações do dia. Antes eram até ~120 requisições sequenciais de 500/1000
+      // linhas — isso saturava a API e deixava a aba lenta / falhando.
+      const rpc = await db.rpc("crm_leads_snapshot", {
+        _status: effectiveStatus,
+        _broker: scopeBroker && scopeBroker !== "all" && scopeBroker !== "none" ? scopeBroker : null,
+        _all_brokers: scopeBroker === "all",
+        _floor: LEADS_FLOOR,
+        _limit: 20000,
+      });
+      if (rpc.error) {
+        toast.error(`Falha ao carregar leads: ${rpc.error.message}`);
+        return;
       }
+      const snap = (rpc.data ?? {}) as {
+        leads?: Lead[];
+        attempts?: Attempt[];
+        totals?: { lead_id: string; total_attempts: number }[];
+        coverage?: ({ lead_id: string } & CoverageState)[];
+        calls_today?: { broker_id: string | null; total: number }[];
+      };
+      const all: Lead[] = snap.leads ?? [];
       const cursor: string | null = all.length > 0 ? all[all.length - 1].received_at : null;
+      const attemptsRows: Attempt[] = snap.attempts ?? [];
+      const totalsRows = snap.totals ?? [];
+      const coverageRows = snap.coverage ?? [];
+      applyCallCounts(snap.calls_today ?? []);
 
-
-      // A API corta qualquer consulta em 1.000 linhas, mesmo pedindo mais.
-      // Sem paginar, as tentativas mais recentes do dia sumiam do app e o lead
-      // voltava para a fila logo depois de "não atendeu" (efeito de looping).
-      const [attemptsRows, totalsRows, coverageRows] = await Promise.all([
-        (async () => {
-          const out: Attempt[] = [];
-          for (let page = 0; page < MAX_PAGES; page++) {
-            const from = page * PAGE_ROWS;
-            let qa = db
-              .from("crm_lead_attempts")
-              .select("id,lead_id,period,result,attempt_date,called_at")
-              .gte("attempt_date", since)
-              .order("called_at", { ascending: true })
-              .range(from, from + PAGE_ROWS - 1);
-            if (scopeBroker && scopeBroker !== "none") qa = qa.eq("broker_id", scopeBroker);
-            const r = await qa;
-
-            if (r.error) return out;
-            const rows = (r.data ?? []) as Attempt[];
-            out.push(...rows);
-            if (rows.length < PAGE_ROWS) break;
-          }
-          return out;
-        })(),
-        (async () => {
-          const out: { lead_id: string; total_attempts: number }[] = [];
-          for (let page = 0; page < MAX_PAGES; page++) {
-            const from = page * PAGE_ROWS;
-            const r = await db
-              .from("crm_lead_attempt_totals")
-              .select("lead_id,total_attempts")
-              .order("lead_id", { ascending: true })
-              .range(from, from + PAGE_ROWS - 1);
-            if (r.error) return out;
-            const rows = (r.data ?? []) as { lead_id: string; total_attempts: number }[];
-            out.push(...rows);
-            if (rows.length < PAGE_ROWS) break;
-          }
-          return out;
-        })(),
-        // Estado das coberturas de 24h (progresso X/7 + cobertura aberta)
-        (async () => {
-          const out: ({ lead_id: string } & CoverageState)[] = [];
-          for (let page = 0; page < MAX_PAGES; page++) {
-            const from = page * PAGE_ROWS;
-            let qc = db
-              .from("crm_lead_coverage_state")
-              .select(
-                "lead_id,attempts_done,open_first_period,open_first_called_at,open_expires_at,last_first_called_at,last_second_called_at,last_attempt_number",
-              )
-              .order("lead_id", { ascending: true })
-              .range(from, from + PAGE_ROWS - 1);
-            if (scopeBroker === "none") qc = qc.is("broker_id", null);
-            else if (scopeBroker) qc = qc.eq("broker_id", scopeBroker);
-            const r = await qc;
-            if (r.error) return out;
-            const rows = (r.data ?? []) as ({ lead_id: string } & CoverageState)[];
-            out.push(...rows);
-            if (rows.length < PAGE_ROWS) break;
-          }
-          return out;
-        })(),
-      ]) as [Attempt[], { lead_id: string; total_attempts: number }[], ({ lead_id: string } & CoverageState)[]];
 
       setLeads((prev) => {
         const next = append
@@ -389,10 +321,6 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         }
         setCoverageByLead(m);
       }
-
-
-
-      void loadCallCountsRef.current?.();
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -402,7 +330,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         void loadFnRef.current?.();
       }
     }
-  }, [view, isAdmin, brokerFilter, me?.brokerId]);
+  }, [view, isAdmin, brokerFilter, me?.brokerId, applyCallCounts]);
+
 
   loadFnRef.current = load;
 
@@ -425,6 +354,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const loadRef = useRef(load);
   loadRef.current = load;
   const busyRef = useRef(false);
+  const lastLoadRef = useRef(0);
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
@@ -433,8 +363,15 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         scheduleReload();
         return;
       }
+      // Piso de 20s entre recargas completas: com vários corretores online os
+      // eventos de tempo real chegavam em rajada e derrubavam a API.
+      if (Date.now() - lastLoadRef.current < 20_000) {
+        scheduleReload();
+        return;
+      }
+      lastLoadRef.current = Date.now();
       void loadRef.current();
-    }, 4000);
+    }, 6000);
   }, []);
 
 
@@ -445,16 +382,21 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     setLeads([]);
     leadsLenRef.current = 0;
     cursorRef.current = null;
+    lastLoadRef.current = Date.now();
     void load();
   }, [load]);
 
   // Canal realtime estável por usuário (não recria a cada carga).
+  // Escopo por corretor: sem o filtro, cada clique de qualquer corretor da
+  // empresa disparava uma recarga completa em todos os aparelhos.
+  const rtBroker = isAdmin ? (brokerFilter !== "all" && brokerFilter !== "none" ? brokerFilter : null) : me?.brokerId ?? null;
   useEffect(() => {
     if (!me) return;
+    const leadFilter = rtBroker ? { filter: `broker_id=eq.${rtBroker}` } : {};
     const ch = db
       .channel(`crm-leads-${me.userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => scheduleReload())
-      .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts" }, () => scheduleReload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads", ...leadFilter }, () => scheduleReload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts", ...leadFilter }, () => scheduleReload())
       .subscribe();
     const onFocus = () => {
       if (document.visibilityState === "visible") scheduleReload();
@@ -465,7 +407,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       db.removeChannel(ch);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [me, scheduleReload]);
+  }, [me, scheduleReload, rtBroker]);
+
 
 
 
