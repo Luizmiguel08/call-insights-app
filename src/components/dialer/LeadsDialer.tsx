@@ -106,10 +106,11 @@ export default function LeadsDialer({
   // Sem isso, qualquer recarga (realtime/refetch) reordenava a fila e o app
   // trocava de lead sozinho no meio da ligação.
   const [pinnedId, setPinnedId] = useState<string | null>(null);
-  const current = useMemo(
-    () => (pinnedId ? pending.find((l) => l.id === pinnedId) ?? null : null) ?? pending[0] ?? null,
-    [pending, pinnedId],
-  );
+  const current = useMemo(() => {
+    const pinned = pinnedId ? pending.find((l) => l.id === pinnedId) : undefined;
+    return pinned ?? pending[0] ?? null;
+  }, [pending, pinnedId]);
+
   const nextOne = useMemo(() => pending.find((l) => l.id !== current?.id) ?? null, [pending, current?.id]);
 
   useEffect(() => {
