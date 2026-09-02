@@ -665,6 +665,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         period={period}
         brokerName={me?.brokerName ?? "Corretor"}
         stats={dialStats}
+        goal={{ done: callsToday.get(me?.brokerId ?? "") ?? 0, meta: metaDaily }}
+
         busy={busy !== null}
         loading={loading}
         onOutcome={async (lead, attended) => {
