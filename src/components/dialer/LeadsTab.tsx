@@ -198,9 +198,43 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         cursor = rows[rows.length - 1].received_at;
       }
 
-      const [attemptsR, totalsR] = await Promise.all([
-        db.from("crm_lead_attempts").select("id,lead_id,period,result,attempt_date,called_at").gte("attempt_date", since).limit(5000),
-        db.from("crm_lead_attempt_totals").select("lead_id,total_attempts,last_called_at").limit(20000),
+      // A API corta qualquer consulta em 1.000 linhas, mesmo pedindo mais.
+      // Sem paginar, as tentativas mais recentes do dia sumiam do app e o lead
+      // voltava para a fila logo depois de "não atendeu" (efeito de looping).
+      const [attemptsRows, totalsRows] = await Promise.all([
+        (async () => {
+          const out: Attempt[] = [];
+          for (let page = 0; page < MAX_PAGES; page++) {
+            const from = page * PAGE_ROWS;
+            const r = await db
+              .from("crm_lead_attempts")
+              .select("id,lead_id,period,result,attempt_date,called_at")
+              .gte("attempt_date", since)
+              .order("called_at", { ascending: true })
+              .range(from, from + PAGE_ROWS - 1);
+            if (r.error) return out;
+            const rows = (r.data ?? []) as Attempt[];
+            out.push(...rows);
+            if (rows.length < PAGE_ROWS) break;
+          }
+          return out;
+        })(),
+        (async () => {
+          const out: { lead_id: string; total_attempts: number }[] = [];
+          for (let page = 0; page < MAX_PAGES; page++) {
+            const from = page * PAGE_ROWS;
+            const r = await db
+              .from("crm_lead_attempt_totals")
+              .select("lead_id,total_attempts")
+              .order("lead_id", { ascending: true })
+              .range(from, from + PAGE_ROWS - 1);
+            if (r.error) return out;
+            const rows = (r.data ?? []) as { lead_id: string; total_attempts: number }[];
+            out.push(...rows);
+            if (rows.length < PAGE_ROWS) break;
+          }
+          return out;
+        })(),
       ]);
 
       setLeads((prev) => {
@@ -212,14 +246,22 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       });
       cursorRef.current = cursor;
       setHasMore(false);
-      if (!attemptsR.error) setAttempts((attemptsR.data ?? []) as Attempt[]);
-      if (!totalsR.error) {
+      // Mantém as tentativas registradas neste aparelho que ainda não voltaram
+      // do servidor — nunca deixa o lead reaparecer por atraso de leitura.
+      setAttempts(() => {
+        const ids = new Set(attemptsRows.map((a) => a.lead_id + "|" + a.period + "|" + a.attempt_date));
+        const localExtras = localAttemptsRef.current.filter(
+          (a) => !ids.has(a.lead_id + "|" + a.period + "|" + a.attempt_date),
+        );
+        return [...attemptsRows, ...localExtras];
+      });
+      {
         const m = new Map<string, number>();
-        for (const t of (totalsR.data ?? []) as { lead_id: string; total_attempts: number }[]) {
-          m.set(t.lead_id, t.total_attempts);
-        }
+        for (const t of totalsRows) m.set(t.lead_id, t.total_attempts);
+        for (const [id, n] of localTotalsRef.current) m.set(id, Math.max(m.get(id) ?? 0, n));
         setTotalsByLead(m);
       }
+
     } finally {
       loadingRef.current = false;
       setLoading(false);
