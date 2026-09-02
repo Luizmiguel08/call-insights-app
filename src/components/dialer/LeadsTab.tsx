@@ -178,9 +178,13 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
       // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
       // não precisa mais clicar em "carregar mais".
+      // Escopo por corretor: sem isso o app baixava a base inteira (dezenas de
+      // milhares de linhas), o que deixava a aba lenta e fazia os números
+      // oscilarem entre recargas parciais.
+      const scopeBroker = isAdmin ? (brokerFilter === "all" ? null : brokerFilter) : me?.brokerId ?? null;
       const all: Lead[] = [];
-      let cursor: string | null = append ? cursorRef.current : null;
       for (let page = 0; page < MAX_PAGES; page++) {
+        const from = page * PAGE_SIZE;
         let q = db
           .from("crm_leads")
           .select(LEAD_COLUMNS)
@@ -188,8 +192,9 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           .gte("received_at", LEADS_FLOOR)
           .order("received_at", { ascending: false })
           .order("id", { ascending: true })
-          .limit(PAGE_SIZE);
-        if (cursor) q = q.lt("received_at", cursor);
+          .range(from, from + PAGE_SIZE - 1);
+        if (scopeBroker === "none") q = q.is("broker_id", null);
+        else if (scopeBroker) q = q.eq("broker_id", scopeBroker);
         const r = await q;
         if (r.error) {
           toast.error(`Falha ao carregar leads: ${r.error.message}`);
@@ -197,12 +202,10 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         }
         const rows = (r.data ?? []) as Lead[];
         all.push(...rows);
-        if (rows.length < PAGE_SIZE) {
-          cursor = rows.length > 0 ? rows[rows.length - 1].received_at : cursor;
-          break;
-        }
-        cursor = rows[rows.length - 1].received_at;
+        if (rows.length < PAGE_SIZE) break;
       }
+      const cursor: string | null = all.length > 0 ? all[all.length - 1].received_at : null;
+
 
       // A API corta qualquer consulta em 1.000 linhas, mesmo pedindo mais.
       // Sem paginar, as tentativas mais recentes do dia sumiam do app e o lead
