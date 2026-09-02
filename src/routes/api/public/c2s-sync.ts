@@ -30,6 +30,8 @@ async function run(request: Request) {
 
   const sinceHours = Number(url.searchParams.get("horas") ?? url.searchParams.get("hours") ?? 48);
   const force = url.searchParams.get("force") === "1";
+  const maxPages = Number(url.searchParams.get("paginas") ?? 12);
+  const startPage = Number(url.searchParams.get("pagina") ?? 1);
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -51,6 +53,8 @@ async function run(request: Request) {
     const { syncC2sLeads } = await import("@/lib/c2s.server");
     const result = await syncC2sLeads({
       sinceHours: Number.isFinite(sinceHours) ? sinceHours : 48,
+      maxPages: Number.isFinite(maxPages) ? maxPages : 12,
+      startPage: Number.isFinite(startPage) ? startPage : 1,
     });
     if (!force) {
       await supabaseAdmin.rpc("c2s_sync_end" as never, {

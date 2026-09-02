@@ -51,12 +51,18 @@ export type C2sSyncResult = {
  * Puxa os leads mais recentes do C2S e grava em public.crm_leads.
  * Para de paginar quando encontra leads mais antigos que `sinceHours`.
  */
-export async function syncC2sLeads(opts?: { sinceHours?: number; maxPages?: number }): Promise<C2sSyncResult> {
+export async function syncC2sLeads(opts?: {
+  sinceHours?: number;
+  maxPages?: number;
+  startPage?: number;
+}): Promise<C2sSyncResult> {
   const token = process.env["C2S_API_TOKEN"];
   if (!token) throw new Error("c2s_token_missing");
 
-  const sinceHours = Math.min(Math.max(opts?.sinceHours ?? 48, 1), 24 * 30);
-  const maxPages = Math.min(Math.max(opts?.maxPages ?? 12, 1), 60);
+  // Janela ampla o suficiente para recuperar meses antigos (backfill).
+  const sinceHours = Math.min(Math.max(opts?.sinceHours ?? 48, 1), 24 * 400);
+  const maxPages = Math.min(Math.max(opts?.maxPages ?? 12, 1), 200);
+  const startPage = Math.max(opts?.startPage ?? 1, 1);
   const sinceMs = Date.now() - sinceHours * 3_600_000;
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -67,7 +73,7 @@ export async function syncC2sLeads(opts?: { sinceHours?: number; maxPages?: numb
   let pages = 0;
   const unmapped = new Set<string>();
 
-  outer: for (let page = 1; page <= maxPages; page++) {
+  outer: for (let page = startPage; page < startPage + maxPages; page++) {
     const items = await fetchPage(token, page);
     pages = page;
     if (items.length === 0) break;
