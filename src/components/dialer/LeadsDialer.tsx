@@ -208,6 +208,20 @@ export default function LeadsDialer({
             </button>
           </div>
         </div>
+        {goal && (
+          <div
+            className="flex items-center justify-between rounded-2xl px-4 py-3"
+            style={{ background: T.soft, border: `1px solid ${T.line}` }}
+          >
+            <span className="text-[12px] font-medium" style={{ color: T.dim }}>
+              Meta diária de ligações
+            </span>
+            <span className="text-[13px] font-semibold tabular-nums" style={{ fontFamily: T.grotesk, color: goal.done >= goal.meta ? T.green : T.ink }}>
+              {goal.done} / {goal.meta}
+            </span>
+          </div>
+        )}
+
         <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: T.lineSoft }}>
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: T.blue }} />
         </div>
