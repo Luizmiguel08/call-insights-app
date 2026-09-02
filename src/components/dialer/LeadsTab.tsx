@@ -206,29 +206,27 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const [metaDaily, setMetaDaily] = useState(50);
   const loadCallCountsRef = useRef<(() => Promise<void>) | null>(null);
 
+  // As contagens do dia vêm dentro do snapshot (uma única chamada). Esta função
+  // só é usada como recarga pontual leve.
+  const applyCallCounts = useCallback((rows: { broker_id: string | null; total: number }[]) => {
+    const m = new Map<string, number>();
+    for (const c of rows) m.set(c.broker_id ?? "none", c.total);
+    setCallsToday(m);
+  }, []);
+
   const loadCallCounts = useCallback(async () => {
     const startIso = `${today}T03:00:00.000Z`; // 00h em São Paulo (UTC-3)
-    const rows: { broker_id: string | null }[] = [];
-    for (let page = 0; page < 10; page++) {
-      const from = page * PAGE_ROWS;
-      const r = await db
-        .from("calls")
-        .select("broker_id")
-        .gte("created_at", startIso)
-        .range(from, from + PAGE_ROWS - 1);
-      if (r.error) break;
-      const got = (r.data ?? []) as { broker_id: string | null }[];
-      rows.push(...got);
-      if (got.length < PAGE_ROWS) break;
-    }
+    const r = await db.from("calls").select("broker_id").gte("created_at", startIso).limit(1000);
+    if (r.error) return;
     const m = new Map<string, number>();
-    for (const c of rows) {
+    for (const c of (r.data ?? []) as { broker_id: string | null }[]) {
       const k = c.broker_id ?? "none";
       m.set(k, (m.get(k) ?? 0) + 1);
     }
     setCallsToday(m);
   }, [today]);
   loadCallCountsRef.current = loadCallCounts;
+
 
   useEffect(() => {
     void loadCallCounts();
