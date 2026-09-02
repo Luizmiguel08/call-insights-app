@@ -355,6 +355,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const loadRef = useRef(load);
   loadRef.current = load;
   const busyRef = useRef(false);
+  const lastLoadRef = useRef(0);
   const scheduleReload = useCallback(() => {
     if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
@@ -363,8 +364,15 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         scheduleReload();
         return;
       }
+      // Piso de 20s entre recargas completas: com vários corretores online os
+      // eventos de tempo real chegavam em rajada e derrubavam a API.
+      if (Date.now() - lastLoadRef.current < 20_000) {
+        scheduleReload();
+        return;
+      }
+      lastLoadRef.current = Date.now();
       void loadRef.current();
-    }, 4000);
+    }, 6000);
   }, []);
 
 
@@ -375,16 +383,21 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     setLeads([]);
     leadsLenRef.current = 0;
     cursorRef.current = null;
+    lastLoadRef.current = Date.now();
     void load();
   }, [load]);
 
   // Canal realtime estável por usuário (não recria a cada carga).
+  // Escopo por corretor: sem o filtro, cada clique de qualquer corretor da
+  // empresa disparava uma recarga completa em todos os aparelhos.
+  const rtBroker = isAdmin ? (brokerFilter !== "all" && brokerFilter !== "none" ? brokerFilter : null) : me?.brokerId ?? null;
   useEffect(() => {
     if (!me) return;
+    const leadFilter = rtBroker ? { filter: `broker_id=eq.${rtBroker}` } : {};
     const ch = db
       .channel(`crm-leads-${me.userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => scheduleReload())
-      .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts" }, () => scheduleReload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads", ...leadFilter }, () => scheduleReload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "crm_lead_attempts", ...leadFilter }, () => scheduleReload())
       .subscribe();
     const onFocus = () => {
       if (document.visibilityState === "visible") scheduleReload();
@@ -395,7 +408,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       db.removeChannel(ch);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [me, scheduleReload]);
+  }, [me, scheduleReload, rtBroker]);
+
 
 
 
