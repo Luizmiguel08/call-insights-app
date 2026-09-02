@@ -99,37 +99,69 @@ export default function HistoricoPeriodos({
         };
 
         const pageSize = 1000;
-        for (let from = 0; ; from += pageSize) {
-          if (cancelled) return;
-          if (fonte === "calls") {
+        const det: Detalhe[] = [];
+
+        if (fonte === "todas" || fonte === "calls") {
+          for (let from = 0; ; from += pageSize) {
+            if (cancelled) return;
             const { data, error } = await supabase
               .from("calls")
-              .select("broker_id, created_at")
+              .select("id, broker_id, client_name, created_at, attended, scheduled, notes")
               .gte("created_at", start)
               .lt("created_at", end)
               .order("created_at", { ascending: true })
               .range(from, from + pageSize - 1);
             if (error) throw error;
-            const rows = data ?? [];
+            const rows = (data ?? []) as Array<Record<string, any>>;
             for (const r of rows) {
+              // Ligações da aba Fila são consolidadas em `calls` com marcador crm_lead:
+              // no modo "todas" elas já entram via crm_lead_attempts — evita contagem dupla.
+              const isCrm = typeof r.notes === "string" && r.notes.includes("crm_lead:");
+              if (fonte === "todas" && isCrm) continue;
               const { day, hour } = spParts(r.created_at as string);
-              bump(r.broker_id as string, day, periodOfHour(hour));
+              const kind = periodOfHour(hour);
+              bump(r.broker_id as string, day, kind);
+              det.push({
+                id: `c:${r.id}`,
+                brokerId: r.broker_id as string | null,
+                name: (r.client_name as string) || "—",
+                when: r.created_at as string,
+                day, period: kind,
+                result: r.scheduled ? "agendou" : r.attended ? "atendeu" : "não atendeu",
+                origem: "Discador",
+              });
             }
             if (rows.length < pageSize) break;
-          } else {
+          }
+        }
+
+        if (fonte === "todas" || fonte === "leads") {
+          for (let from = 0; ; from += pageSize) {
+            if (cancelled) return;
             const { data, error } = await (supabase as any)
               .from("crm_lead_attempts")
-              .select("broker_id, called_at, period, attempt_date")
+              .select("id, broker_id, called_at, period, attempt_date, result, lead_id, crm_leads(name)")
               .gte("called_at", start)
               .lt("called_at", end)
               .order("called_at", { ascending: true })
               .range(from, from + pageSize - 1);
             if (error) throw error;
-            const rows = (data ?? []) as Array<{ broker_id: string | null; called_at: string; period: string; attempt_date: string }>;
+            const rows = (data ?? []) as Array<Record<string, any>>;
             for (const r of rows) {
-              const { day, hour } = spParts(r.called_at);
-              const kind = r.period === "manha" || r.period === "tarde" ? r.period : periodOfHour(hour);
-              bump(r.broker_id, r.attempt_date ?? day, kind);
+              const { day, hour } = spParts(r.called_at as string);
+              const kind = r.period === "manha" || r.period === "tarde" ? (r.period as "manha" | "tarde") : periodOfHour(hour);
+              const dia = (r.attempt_date as string) ?? day;
+              bump(r.broker_id as string | null, dia, kind);
+              det.push({
+                id: `l:${r.id}`,
+                brokerId: r.broker_id as string | null,
+                name: r.crm_leads?.name ?? "Lead C2S",
+                when: r.called_at as string,
+                day: dia,
+                period: kind,
+                result: (r.result as string) ?? "—",
+                origem: "Fila (C2S)",
+              });
             }
             if (rows.length < pageSize) break;
           }
@@ -137,6 +169,12 @@ export default function HistoricoPeriodos({
 
         if (!cancelled) {
           setLinhas(Array.from(acc.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)));
+          const visiveis = det
+            .filter((d) => d.brokerId && d.day >= de && d.day <= ate)
+            .filter((d) => isAdmin || !me?.brokerId || d.brokerId === me.brokerId)
+            .sort((a, b) => (a.when < b.when ? 1 : -1))
+            .slice(0, 400);
+          setDetalhes(visiveis);
         }
       } catch (e) {
         if (!cancelled) setErro(e instanceof Error ? e.message : "Falha ao carregar histórico");
