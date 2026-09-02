@@ -413,19 +413,43 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   }
 
   async function register(lead: Lead, attended: boolean) {
-
     setBusy(lead.id);
-    const { error } = await db.rpc("crm_register_lead_attempt", {
+    const { data, error } = await db.rpc("crm_register_lead_attempt", {
       _lead_id: lead.id,
       _attended: attended,
       _result: attended ? "atendeu" : "nao_atendeu",
     });
     setBusy(null);
     if (error) {
-      toast.error(error.message);
+      toast.error(`Não foi possível registrar: ${error.message}`);
       return;
     }
-    toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${period === "manha" ? "manhã" : "tarde"})`);
+
+    // Aplica o resultado localmente na hora — o recarregamento do servidor pode
+    // demorar (ou ser adiado), e sem isso a ação parecia não ter sido registrada.
+    const res = (data ?? {}) as { period?: string; attempts?: number; status?: string };
+    const usedPeriod = res.period === "manha" || res.period === "tarde" ? res.period : period;
+    setAttempts((prev) => [
+      ...prev,
+      {
+        id: `local-${lead.id}-${Date.now()}`,
+        lead_id: lead.id,
+        period: usedPeriod,
+        result: attended ? "atendeu" : "nao_atendeu",
+        attempt_date: today,
+        called_at: new Date().toISOString(),
+      } as Attempt,
+    ]);
+    setTotalsByLead((prev) => {
+      const m = new Map(prev);
+      m.set(lead.id, res.attempts ?? (prev.get(lead.id) ?? 0) + 1);
+      return m;
+    });
+    if (res.status && res.status !== "novo") {
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: res.status as string } : l)));
+    }
+
+    toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${usedPeriod === "manha" ? "manhã" : "tarde"})`);
     void load();
   }
 
