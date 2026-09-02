@@ -17,7 +17,14 @@ export const Route = createFileRoute("/_authenticated")({
       .single();
 
     if (flagRow?.value) {
-      throw redirect({ to: "/manutencao" });
+      // Admins continuam com acesso normal durante a manutenção.
+      const { data: isAdmin } = await supabase.rpc("has_role", {
+        _uid: data.user.id,
+        _role: "admin",
+      });
+      if (!isAdmin) {
+        throw redirect({ to: "/manutencao" });
+      }
     }
 
     return { user: data.user };
