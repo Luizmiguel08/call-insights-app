@@ -743,6 +743,37 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             </div>
           </div>
 
+          {lead.status === "fria" && (
+            <div className="flex items-center gap-2">
+              {phoneOk && (
+                <a
+                  href={telHref(lead.phone)}
+                  target="_top"
+                  className="flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white"
+                  style={{ ...fontDisplay, background: "#3b82f6", boxShadow: "0 6px 16px -8px rgba(59,130,246,0.8)" }}
+                >
+                  <PhoneCall className="h-4 w-4" /> Ligar
+                </a>
+              )}
+              <button
+                disabled={busy === lead.id}
+                onClick={async () => {
+                  const { error } = await db
+                    .from("crm_leads")
+                    .update({ status: "novo", cold_at: null })
+                    .eq("id", lead.id);
+                  if (error) { toast.error(`Não foi possível reativar: ${error.message}`); return; }
+                  toast.success(`${lead.name} voltou para a fila`);
+                  void reload();
+                }}
+                className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold disabled:opacity-50"
+                style={{ background: "#fff7ed", color: "#b45309" }}
+              >
+                Reativar
+              </button>
+            </div>
+          )}
+
           {lead.status === "novo" && (
             <div className="flex items-center gap-2">
               {phoneOk ? (
