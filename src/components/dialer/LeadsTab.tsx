@@ -102,6 +102,10 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // carregamento/realtime em loop infinito.
   const cursorRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  // Quando um reload chega enquanto outro está em andamento, ele era descartado
+  // silenciosamente — isso fazia a ação de "atendeu/não atendeu" parecer não
+  // registrada. Agora a chamada fica pendente e roda logo após a atual.
+  const pendingLoadRef = useRef(false);
   // Espelho do tamanho atual da lista: usado no reload (realtime/troca de visão)
   // para não encolher a lista de volta à primeira página e jogar o scroll pro topo.
   const leadsLenRef = useRef(0);
