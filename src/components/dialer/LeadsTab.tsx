@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Me, State } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
 import { syncC2sNow } from "@/lib/c2s.functions";
+import LeadsDialer, { type DialerLead } from "@/components/dialer/LeadsDialer";
+
 
 
 
