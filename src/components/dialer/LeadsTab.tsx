@@ -816,6 +816,41 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         <Stat label="Atendidos" value={leads.filter((l) => l.status === "atendido").length} icon={Check} />
       </div>
 
+      {/* Meta diária de ligações por corretor (conta 1 por lead após manhã + tarde) */}
+      <div className="rounded-2xl bg-white p-4" style={{ border: "1px solid #e8ecf1" }}>
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#0f172a" }}>
+            Meta diária de ligações
+          </p>
+          <span className="text-xs" style={{ color: "#64748b" }}>
+            meta {metaDaily} / dia
+          </span>
+        </div>
+        <div className="mt-3 space-y-2">
+          {(isAdmin ? brokers : brokers.filter((b) => b.id === me?.brokerId)).map((b) => {
+            const done = callsToday.get(b.id) ?? 0;
+            const pct = Math.min(100, Math.round((done / Math.max(1, metaDaily)) * 100));
+            return (
+              <div key={b.id} className="flex items-center gap-3">
+                <span className="w-40 shrink-0 truncate text-xs font-medium" style={{ color: "#334155" }}>
+                  {b.name}
+                </span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: "#eef1f5" }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: done >= metaDaily ? "#16a34a" : "#3b82f6" }}
+                  />
+                </div>
+                <span className="w-16 shrink-0 text-right text-xs font-semibold tabular-nums" style={{ color: "#0f172a" }}>
+                  {done}/{metaDaily}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+
       {!isAdmin && missed.mine.total > 0 && (
         <div className="rounded-2xl p-4" style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}>
           <p className="text-sm font-semibold" style={{ ...fontDisplay, color: "#9a3412" }}>
