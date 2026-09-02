@@ -123,7 +123,7 @@ function LigaCtrlApp() {
   }, [me?.userId]);
 
   const primaryTabs: { id: Tab; label: string; icon: typeof Phone; badge?: number }[] = [
-    { id: "discador", label: "Discador", icon: PhoneCall },
+    { id: "discador", label: "Discador · manutenção", icon: PhoneCall },
     { id: "leads", label: "Leads", icon: Flame, badge: newLeads },
   ];
   const menuTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
