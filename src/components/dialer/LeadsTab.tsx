@@ -88,14 +88,32 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
   // Reusa corretores já carregados pelo useCloudState em index.tsx — evita
   // uma requisição extra toda vez que a aba Leads é montada.
+  const [dbBrokers, setDbBrokers] = useState<Broker[]>([]);
   const brokers = useMemo<Broker[]>(() => {
-    return state.brokers.map((b) => ({
-      id: b.id,
-      name: b.name,
-      color: "#3b82f6",
-      email: b.userId ?? null,
-    }));
-  }, [state.brokers]);
+    const map = new Map<string, Broker>();
+    for (const b of state.brokers) {
+      map.set(b.id, { id: b.id, name: b.name, color: "#3b82f6", email: b.userId ?? null });
+    }
+    // Admin (e qualquer usuário) precisa dos nomes de TODOS os corretores para
+    // rotular os leads corretamente — o estado local traz só o próprio corretor.
+    for (const b of dbBrokers) map.set(b.id, b);
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [state.brokers, dbBrokers]);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const r = await db.from("brokers").select("id,name,color").order("name");
+      if (!alive || r.error) return;
+      setDbBrokers(((r.data ?? []) as { id: string; name: string; color: string | null }[]).map((b) => ({
+        id: b.id,
+        name: b.name,
+        color: b.color ?? "#3b82f6",
+        email: null,
+      })));
+    })();
+    return () => { alive = false; };
+  }, []);
 
   // Debounce ref for realtime reload
   const reloadTimerRef = useRef<number | null>(null);
