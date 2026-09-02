@@ -26,6 +26,8 @@ const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
 const importLeads = () => import("@/components/dialer/LeadsTab");
 const LeadsTab = lazy(importLeads);
+const importDiscador = () => import("@/components/dialer/DiscadorTab");
+const DiscadorTab = lazy(importDiscador);
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -54,10 +56,11 @@ function LigaCtrlApp() {
   const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: false, leads: true });
   useEffect(() => {
     if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
+    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
   }, [tab]);
-  // Pré-carrega o chunk da aba Leads logo no início
+  // Pré-carrega os chunks das abas principais logo no início
   useEffect(() => {
-    const t = setTimeout(() => { void importLeads(); }, 0);
+    const t = setTimeout(() => { void importLeads(); void importDiscador(); }, 0);
     return () => { clearTimeout(t); };
   }, []);
 
@@ -121,7 +124,7 @@ function LigaCtrlApp() {
   }, [me?.userId]);
 
   const primaryTabs: { id: Tab; label: string; icon: typeof Phone; badge?: number }[] = [
-    { id: "discador", label: "Discador · manutenção", icon: PhoneCall },
+    { id: "discador", label: "Discador", icon: PhoneCall },
     { id: "leads", label: "Leads", icon: Flame, badge: newLeads },
   ];
   const menuTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
@@ -294,25 +297,11 @@ function LigaCtrlApp() {
 
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        {tab === "discador" && (
-          <div className="mx-auto max-w-xl rounded-3xl bg-white p-8 text-center" style={{ border: "1px solid #e8ecf1" }}>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "#94a3b8" }}>
-              Discador
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "#101725" }}>
-              Em manutenção
-            </h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm" style={{ color: "#64748b" }}>
-              O discador de listas está temporariamente desativado. Todas as ligações devem ser feitas pela aba
-              <strong> Leads</strong>, com os leads do C2S.
-            </p>
-            <button
-              onClick={() => setTab("leads")}
-              className="mt-5 rounded-full px-5 py-2.5 text-sm font-semibold text-white"
-              style={{ background: "#3b82f6" }}
-            >
-              Ir para Leads
-            </button>
+        {visited.discador && (
+          <div style={{ display: tab === "discador" ? undefined : "none" }}>
+            <Suspense fallback={<TabFallback />}>
+              <DiscadorTab state={state} me={me} goFila={() => setTab("fila")} />
+            </Suspense>
           </div>
         )}
 
