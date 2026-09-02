@@ -322,10 +322,6 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         }
         setCoverageByLead(m);
       }
-
-
-
-      void loadCallCountsRef.current?.();
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -335,7 +331,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         void loadFnRef.current?.();
       }
     }
-  }, [view, isAdmin, brokerFilter, me?.brokerId]);
+  }, [view, isAdmin, brokerFilter, me?.brokerId, applyCallCounts]);
+
 
   loadFnRef.current = load;
 
