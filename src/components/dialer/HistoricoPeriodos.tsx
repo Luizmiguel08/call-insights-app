@@ -63,10 +63,12 @@ export default function HistoricoPeriodos({
 }: { state: State; me: Me | null; isAdmin: boolean }) {
   const [de, setDe] = useState(spToday);
   const [ate, setAte] = useState(spToday);
-  const [fonte, setFonte] = useState<Fonte>("calls");
+  const [fonte, setFonte] = useState<Fonte>("todas");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [detalhes, setDetalhes] = useState<Detalhe[]>([]);
+  const [verDetalhes, setVerDetalhes] = useState(false);
 
   const brokerNames = useMemo(() => {
     const m = new Map<string, string>();
