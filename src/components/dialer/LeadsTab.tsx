@@ -421,6 +421,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const dialQueue = useMemo<DialerLead[]>(() => {
     const rows = novos
       .filter((l) => progressOf(l.id)[period] === "pendente")
+      .filter((l) => (totalsByLead.get(l.id) ?? 0) < COLD_AFTER_ATTEMPTS)
       .map((l) => {
         const p = progressOf(l.id);
         return {
@@ -432,13 +433,18 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           brokerName: brokers.find((b) => b.id === l.broker_id)?.name ?? null,
           triedBefore: p.triedBefore,
           isToday: spDate(l.received_at) === today,
+          manha: p.manha,
+          tarde: p.tarde,
+          totalAttempts: totalsByLead.get(l.id) ?? p.triedToday + p.triedBefore,
+          coldAfter: COLD_AFTER_ATTEMPTS,
         } satisfies DialerLead;
       });
     // Dias anteriores primeiro (estão atrasados), depois os mais antigos do dia.
     return rows.sort(
       (a, b) => Number(a.isToday) - Number(b.isToday) || a.received_at.localeCompare(b.received_at),
     );
-  }, [novos, progressOf, period, brokers, today]);
+  }, [novos, progressOf, period, brokers, today, totalsByLead]);
+
 
   const dialStats = useMemo(() => {
     let atendidos = 0;
