@@ -215,12 +215,15 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           const out: Attempt[] = [];
           for (let page = 0; page < MAX_PAGES; page++) {
             const from = page * PAGE_ROWS;
-            const r = await db
+            let qa = db
               .from("crm_lead_attempts")
               .select("id,lead_id,period,result,attempt_date,called_at")
               .gte("attempt_date", since)
               .order("called_at", { ascending: true })
               .range(from, from + PAGE_ROWS - 1);
+            if (scopeBroker && scopeBroker !== "none") qa = qa.eq("broker_id", scopeBroker);
+            const r = await qa;
+
             if (r.error) return out;
             const rows = (r.data ?? []) as Attempt[];
             out.push(...rows);
