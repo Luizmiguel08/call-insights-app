@@ -372,6 +372,25 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         for (const [id, n] of localTotalsRef.current) m.set(id, Math.max(m.get(id) ?? 0, n));
         setTotalsByLead(m);
       }
+      {
+        const m = new Map<string, CoverageState>();
+        for (const c of coverageRows) {
+          const { lead_id, ...rest } = c;
+          m.set(lead_id, { ...EMPTY_COVERAGE, ...rest });
+        }
+        // Coberturas registradas neste aparelho vencem o que ainda não chegou do servidor.
+        for (const [id, local] of localCoverageRef.current) {
+          const srv = m.get(id);
+          const srvSecond = srv?.last_second_called_at ?? "";
+          const locSecond = local.last_second_called_at ?? "";
+          if (!srv || (local.attempts_done ?? 0) > (srv.attempts_done ?? 0) || locSecond > srvSecond) {
+            m.set(id, local);
+          }
+        }
+        setCoverageByLead(m);
+      }
+
+
 
       void loadCallCountsRef.current?.();
     } finally {
