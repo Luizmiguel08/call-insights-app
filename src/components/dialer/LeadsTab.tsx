@@ -101,6 +101,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const [leads, setLeads] = useState<Lead[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [totalsByLead, setTotalsByLead] = useState<Map<string, number>>(new Map());
+  const [coverageByLead, setCoverageByLead] = useState<Map<string, CoverageState>>(new Map());
 
   const [mode, setMode] = useState<"dial" | "lista">("dial");
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
