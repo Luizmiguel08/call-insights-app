@@ -562,12 +562,14 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
   async function register(lead: Lead, attended: boolean) {
     setBusy(lead.id);
+    busyRef.current = true;
     const { data, error } = await db.rpc("crm_register_lead_attempt", {
       _lead_id: lead.id,
       _attended: attended,
       _result: attended ? "atendeu" : "nao_atendeu",
     });
     setBusy(null);
+    busyRef.current = false;
     if (error) {
       toast.error(`Não foi possível registrar: ${error.message}`);
       return;
@@ -575,7 +577,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
     // Aplica o resultado localmente na hora — o recarregamento do servidor pode
     // demorar (ou ser adiado), e sem isso a ação parecia não ter sido registrada.
-    const res = (data ?? {}) as { period?: string; attempts?: number; status?: string };
+    const res = (data ?? {}) as { period?: string; attempts?: number; status?: string; counted_call?: boolean };
     const usedPeriod = res.period === "manha" || res.period === "tarde" ? res.period : period;
     const localAttempt = {
       id: `local-${lead.id}-${Date.now()}`,
@@ -597,11 +599,21 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     if (res.status && res.status !== "novo") {
       setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: res.status as string } : l)));
     }
-
+    if (res.counted_call && lead.broker_id) {
+      setCallsToday((prev) => {
+        const m = new Map(prev);
+        m.set(lead.broker_id as string, (m.get(lead.broker_id as string) ?? 0) + 1);
+        return m;
+      });
+    }
 
     toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${usedPeriod === "manha" ? "manhã" : "tarde"})`);
-    void load();
+    void loadCallCounts();
+    // A lista não é recarregada aqui: o estado local já reflete a ação e uma
+    // recarga imediata era o que fazia a fila "piscar" e trocar de lead sozinho.
+    scheduleReload();
   }
+
 
   const hoje = useMemo(() => visible.filter((l) => spDate(l.received_at) === today), [visible, today]);
   const anteriores = useMemo(() => visible.filter((l) => spDate(l.received_at) !== today), [visible, today]);
