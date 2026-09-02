@@ -160,8 +160,23 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const localAttemptsRef = useRef<Attempt[]>([]);
   const localTotalsRef = useRef<Map<string, number>>(new Map());
 
-  const today = spToday();
-  const period = currentPeriod();
+  // Relógio interno: a aba fica aberta o dia todo. Sem isto, quem abriu de
+  // manhã continuava com period = "manha" depois das 14h e os leads já
+  // ligados de manhã nunca reapareciam para a ligação da tarde.
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setClockTick((n) => n + 1), 60_000);
+    const onWake = () => setClockTick((n) => n + 1);
+    document.addEventListener("visibilitychange", onWake);
+    return () => {
+      window.clearInterval(t);
+      document.removeEventListener("visibilitychange", onWake);
+    };
+  }, []);
+
+  const today = useMemo(() => spToday(), [clockTick]);
+  const period = useMemo(() => currentPeriod(), [clockTick]);
+
 
   // Contador de ligações do dia por corretor (mesma fonte do painel: tabela calls).
   const [callsToday, setCallsToday] = useState<Map<string, number>>(new Map());
