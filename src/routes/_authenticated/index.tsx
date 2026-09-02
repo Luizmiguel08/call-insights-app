@@ -26,8 +26,6 @@ const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
 const importLeads = () => import("@/components/dialer/LeadsTab");
 const LeadsTab = lazy(importLeads);
-const importDiscador = () => import("@/components/dialer/DiscadorTab");
-const DiscadorTab = lazy(importDiscador);
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -53,14 +51,13 @@ function LigaCtrlApp() {
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("leads");
   // Abas pesadas ficam montadas depois da 1ª visita (troca instantânea, sem refetch)
-  const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: false, leads: true });
+  const [visited, setVisited] = useState<{ leads: boolean }>({ leads: true });
   useEffect(() => {
     if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
-    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
   }, [tab]);
   // Pré-carrega os chunks das abas principais logo no início
   useEffect(() => {
-    const t = setTimeout(() => { void importLeads(); void importDiscador(); }, 0);
+    const t = setTimeout(() => { void importLeads(); }, 0);
     return () => { clearTimeout(t); };
   }, []);
 
