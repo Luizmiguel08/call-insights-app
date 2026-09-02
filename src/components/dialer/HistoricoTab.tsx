@@ -9,6 +9,7 @@ import {
 
 } from "@/lib/dialer-shared";
 import type { Me } from "@/lib/cloud-state";
+import HistoricoPeriodos from "./HistoricoPeriodos";
 
 export default function HistoricoTab({ state, setState, me, isAdmin }: { state: State; setState: React.Dispatch<React.SetStateAction<State>>; me: Me | null; isAdmin: boolean }) {
   const [date, setDate] = useState("");
@@ -116,6 +117,8 @@ export default function HistoricoTab({ state, setState, me, isAdmin }: { state: 
 
   return (
     <div className="space-y-4">
+      <HistoricoPeriodos state={state} me={me} isAdmin={isAdmin} />
+
       <div className="rounded-lg border border-zinc-800 bg-[#13151e] p-4 flex flex-wrap gap-3 items-end">
         <Field label="Data" className="min-w-[180px]">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
