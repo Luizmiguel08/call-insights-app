@@ -64,6 +64,8 @@ const CARD_HEIGHT_ESTIMATE = 120;
 const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
 const PAGE_SIZE = 500;
 const MAX_PAGES = 40;
+// Piso de histórico: puxa leads desde 01/06/2026 (não apenas os últimos dias)
+const LEADS_FLOOR = "2026-06-01T00:00:00.000Z";
 /** Após este número de tentativas o lead vai para a lista fria (regra também no banco). */
 const COLD_AFTER_ATTEMPTS = 7;
 
@@ -123,6 +125,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     loadingRef.current = true;
     try {
       const effectiveStatus = statusFilter ?? view;
+      // Tentativas recentes (usadas para manhã/tarde e pendências do dia)
       const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
       // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
@@ -134,6 +137,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           .from("crm_leads")
           .select(LEAD_COLUMNS)
           .eq("status", effectiveStatus)
+          .gte("received_at", LEADS_FLOOR)
           .order("received_at", { ascending: false })
           .order("id", { ascending: true })
           .limit(PAGE_SIZE);
