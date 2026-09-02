@@ -62,7 +62,11 @@ function daysSince(iso: string) {
 const VIRTUAL_THRESHOLD = 80;
 const CARD_HEIGHT_ESTIMATE = 120;
 const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 500;
+const MAX_PAGES = 40;
+/** Após este número de tentativas o lead vai para a lista fria (regra também no banco). */
+const COLD_AFTER_ATTEMPTS = 7;
+
 
 export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmin: boolean; state: State }) {
   const [leads, setLeads] = useState<Lead[]>([]);
