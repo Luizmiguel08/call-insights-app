@@ -429,3 +429,32 @@ export default function LeadsDialer({
     </div>
   );
 }
+
+function PeriodChip({
+  label,
+  icon: Icon,
+  state,
+  active,
+}: {
+  label: string;
+  icon: typeof Sun;
+  state: PeriodState;
+  active: boolean;
+}) {
+  const bg = state === "atendeu" ? "#eafaf0" : state === "nao_atendeu" ? T.redSoft : T.soft;
+  const fg = state === "atendeu" ? T.green : state === "nao_atendeu" ? T.red : T.dim;
+  const txt = state === "atendeu" ? "atendeu" : state === "nao_atendeu" ? "não atendeu" : "pendente";
+  return (
+    <span
+      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold"
+      style={{
+        background: bg,
+        color: fg,
+        fontFamily: T.grotesk,
+        border: active ? `1px solid ${fg}33` : "1px solid transparent",
+      }}
+    >
+      <Icon className="h-3.5 w-3.5" /> {label}: {txt}
+    </span>
+  );
+}
