@@ -248,103 +248,38 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     loadingRef.current = true;
     try {
       const effectiveStatus = statusFilter ?? view;
-      // Tentativas recentes (usadas para manhã/tarde e pendências do dia)
-      const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
-      // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
-      // não precisa mais clicar em "carregar mais".
-      // Escopo por corretor: sem isso o app baixava a base inteira (dezenas de
-      // milhares de linhas), o que deixava a aba lenta e fazia os números
-      // oscilarem entre recargas parciais.
-      const scopeBroker = isAdmin ? (brokerFilter === "all" ? null : brokerFilter) : me?.brokerId ?? null;
-      const all: Lead[] = [];
-      for (let page = 0; page < MAX_PAGES; page++) {
-        const from = page * PAGE_SIZE;
-        let q = db
-          .from("crm_leads")
-          .select(LEAD_COLUMNS)
-          .eq("status", effectiveStatus)
-          .gte("received_at", LEADS_FLOOR)
-          .order("received_at", { ascending: false })
-          .order("id", { ascending: true })
-          .range(from, from + PAGE_SIZE - 1);
-        if (scopeBroker === "none") q = q.is("broker_id", null);
-        else if (scopeBroker) q = q.eq("broker_id", scopeBroker);
-        const r = await q;
-        if (r.error) {
-          toast.error(`Falha ao carregar leads: ${r.error.message}`);
-          break;
-        }
-        const rows = (r.data ?? []) as Lead[];
-        all.push(...rows);
-        if (rows.length < PAGE_SIZE) break;
+      // Escopo por corretor. O banco reforça o escopo (corretor só vê o próprio).
+      const scopeBroker = isAdmin ? (brokerFilter === "all" ? "all" : brokerFilter) : me?.brokerId ?? null;
+
+      // UMA única chamada traz leads + tentativas + coberturas + totais +
+      // ligações do dia. Antes eram até ~120 requisições sequenciais de 500/1000
+      // linhas — isso saturava a API e deixava a aba lenta / falhando.
+      const rpc = await db.rpc("crm_leads_snapshot", {
+        _status: effectiveStatus,
+        _broker: scopeBroker && scopeBroker !== "all" && scopeBroker !== "none" ? scopeBroker : null,
+        _all_brokers: scopeBroker === "all",
+        _floor: LEADS_FLOOR,
+        _limit: 20000,
+      });
+      if (rpc.error) {
+        toast.error(`Falha ao carregar leads: ${rpc.error.message}`);
+        return;
       }
+      const snap = (rpc.data ?? {}) as {
+        leads?: Lead[];
+        attempts?: Attempt[];
+        totals?: { lead_id: string; total_attempts: number }[];
+        coverage?: ({ lead_id: string } & CoverageState)[];
+        calls_today?: { broker_id: string | null; total: number }[];
+      };
+      const all: Lead[] = snap.leads ?? [];
       const cursor: string | null = all.length > 0 ? all[all.length - 1].received_at : null;
+      const attemptsRows: Attempt[] = snap.attempts ?? [];
+      const totalsRows = snap.totals ?? [];
+      const coverageRows = snap.coverage ?? [];
+      applyCallCounts(snap.calls_today ?? []);
 
-
-      // A API corta qualquer consulta em 1.000 linhas, mesmo pedindo mais.
-      // Sem paginar, as tentativas mais recentes do dia sumiam do app e o lead
-      // voltava para a fila logo depois de "não atendeu" (efeito de looping).
-      const [attemptsRows, totalsRows, coverageRows] = await Promise.all([
-        (async () => {
-          const out: Attempt[] = [];
-          for (let page = 0; page < MAX_PAGES; page++) {
-            const from = page * PAGE_ROWS;
-            let qa = db
-              .from("crm_lead_attempts")
-              .select("id,lead_id,period,result,attempt_date,called_at")
-              .gte("attempt_date", since)
-              .order("called_at", { ascending: true })
-              .range(from, from + PAGE_ROWS - 1);
-            if (scopeBroker && scopeBroker !== "none") qa = qa.eq("broker_id", scopeBroker);
-            const r = await qa;
-
-            if (r.error) return out;
-            const rows = (r.data ?? []) as Attempt[];
-            out.push(...rows);
-            if (rows.length < PAGE_ROWS) break;
-          }
-          return out;
-        })(),
-        (async () => {
-          const out: { lead_id: string; total_attempts: number }[] = [];
-          for (let page = 0; page < MAX_PAGES; page++) {
-            const from = page * PAGE_ROWS;
-            const r = await db
-              .from("crm_lead_attempt_totals")
-              .select("lead_id,total_attempts")
-              .order("lead_id", { ascending: true })
-              .range(from, from + PAGE_ROWS - 1);
-            if (r.error) return out;
-            const rows = (r.data ?? []) as { lead_id: string; total_attempts: number }[];
-            out.push(...rows);
-            if (rows.length < PAGE_ROWS) break;
-          }
-          return out;
-        })(),
-        // Estado das coberturas de 24h (progresso X/7 + cobertura aberta)
-        (async () => {
-          const out: ({ lead_id: string } & CoverageState)[] = [];
-          for (let page = 0; page < MAX_PAGES; page++) {
-            const from = page * PAGE_ROWS;
-            let qc = db
-              .from("crm_lead_coverage_state")
-              .select(
-                "lead_id,attempts_done,open_first_period,open_first_called_at,open_expires_at,last_first_called_at,last_second_called_at,last_attempt_number",
-              )
-              .order("lead_id", { ascending: true })
-              .range(from, from + PAGE_ROWS - 1);
-            if (scopeBroker === "none") qc = qc.is("broker_id", null);
-            else if (scopeBroker) qc = qc.eq("broker_id", scopeBroker);
-            const r = await qc;
-            if (r.error) return out;
-            const rows = (r.data ?? []) as ({ lead_id: string } & CoverageState)[];
-            out.push(...rows);
-            if (rows.length < PAGE_ROWS) break;
-          }
-          return out;
-        })(),
-      ]) as [Attempt[], { lead_id: string; total_attempts: number }[], ({ lead_id: string } & CoverageState)[]];
 
       setLeads((prev) => {
         const next = append
