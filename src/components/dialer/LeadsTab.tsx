@@ -62,11 +62,17 @@ function daysSince(iso: string) {
 const VIRTUAL_THRESHOLD = 80;
 const CARD_HEIGHT_ESTIMATE = 120;
 const LEAD_COLUMNS = "id,c2s_lead_id,name,phone,email,source,c2s_broker_alias,c2s_broker_email,broker_id,status,received_at,attended_at";
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 500;
+const MAX_PAGES = 40;
+/** Após este número de tentativas o lead vai para a lista fria (regra também no banco). */
+const COLD_AFTER_ATTEMPTS = 7;
+
 
 export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmin: boolean; state: State }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [totalsByLead, setTotalsByLead] = useState<Map<string, number>>(new Map());
+
   const [mode, setMode] = useState<"dial" | "lista">("dial");
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
 
@@ -110,35 +116,55 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       const effectiveStatus = statusFilter ?? view;
       const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
-      const cursor = append ? cursorRef.current : null;
-      // Num reload (append=false) busca pelo menos o que já está na tela,
-      // assim a lista nunca diminui e o usuário não perde a posição do scroll.
-      const pageLimit = append ? PAGE_SIZE : Math.max(PAGE_SIZE, leadsLenRef.current);
-      let leadsQuery = db
-        .from("crm_leads")
-        .select(LEAD_COLUMNS)
-        .eq("status", effectiveStatus)
-        .order("received_at", { ascending: false })
-        .order("id", { ascending: true })
-        .limit(pageLimit);
-      if (cursor) leadsQuery = leadsQuery.lt("received_at", cursor);
+      // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
+      // não precisa mais clicar em "carregar mais".
+      const all: Lead[] = [];
+      let cursor: string | null = append ? cursorRef.current : null;
+      for (let page = 0; page < MAX_PAGES; page++) {
+        let q = db
+          .from("crm_leads")
+          .select(LEAD_COLUMNS)
+          .eq("status", effectiveStatus)
+          .order("received_at", { ascending: false })
+          .order("id", { ascending: true })
+          .limit(PAGE_SIZE);
+        if (cursor) q = q.lt("received_at", cursor);
+        const r = await q;
+        if (r.error) {
+          toast.error(`Falha ao carregar leads: ${r.error.message}`);
+          break;
+        }
+        const rows = (r.data ?? []) as Lead[];
+        all.push(...rows);
+        if (rows.length < PAGE_SIZE) {
+          cursor = rows.length > 0 ? rows[rows.length - 1].received_at : cursor;
+          break;
+        }
+        cursor = rows[rows.length - 1].received_at;
+      }
 
-      const [leadsR, attemptsR] = await Promise.all([
-        leadsQuery,
-        db.from("crm_lead_attempts").select("id,lead_id,period,result,attempt_date,called_at").gte("attempt_date", since).limit(2000),
+      const [attemptsR, totalsR] = await Promise.all([
+        db.from("crm_lead_attempts").select("id,lead_id,period,result,attempt_date,called_at").gte("attempt_date", since).limit(5000),
+        db.from("crm_lead_attempt_totals").select("lead_id,total_attempts,last_called_at").limit(20000),
       ]);
-      if (leadsR.error) toast.error(`Falha ao carregar leads: ${leadsR.error.message}`);
-      const rows = (leadsR.data ?? []) as Lead[];
+
       setLeads((prev) => {
         const next = append
-          ? [...prev, ...rows.filter((l) => !prev.some((p) => p.id === l.id))]
-          : rows;
+          ? [...prev, ...all.filter((l) => !prev.some((p) => p.id === l.id))]
+          : all;
         leadsLenRef.current = next.length;
         return next;
       });
-      cursorRef.current = rows.length > 0 ? rows[rows.length - 1].received_at : cursorRef.current;
-      setHasMore(rows.length >= pageLimit);
+      cursorRef.current = cursor;
+      setHasMore(false);
       if (!attemptsR.error) setAttempts((attemptsR.data ?? []) as Attempt[]);
+      if (!totalsR.error) {
+        const m = new Map<string, number>();
+        for (const t of (totalsR.data ?? []) as { lead_id: string; total_attempts: number }[]) {
+          m.set(t.lead_id, t.total_attempts);
+        }
+        setTotalsByLead(m);
+      }
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -149,8 +175,6 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
-    // Trava o scroll: se alguma renderização intermediária reduzir a altura
-    // da página, restaura a posição após a carga para o usuário não "subir".
     const y = window.scrollY;
     void load(view, true).finally(() => {
       requestAnimationFrame(() => {
@@ -158,6 +182,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       });
     });
   }, [load, view, loadingMore, hasMore]);
+
 
   // Debounced reload triggered by realtime events (referência estável para
   // não recriar o canal realtime quando a visão muda). NÃO reseta o cursor:
@@ -396,6 +421,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const dialQueue = useMemo<DialerLead[]>(() => {
     const rows = novos
       .filter((l) => progressOf(l.id)[period] === "pendente")
+      .filter((l) => (totalsByLead.get(l.id) ?? 0) < COLD_AFTER_ATTEMPTS)
       .map((l) => {
         const p = progressOf(l.id);
         return {
@@ -407,13 +433,18 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           brokerName: brokers.find((b) => b.id === l.broker_id)?.name ?? null,
           triedBefore: p.triedBefore,
           isToday: spDate(l.received_at) === today,
+          manha: p.manha,
+          tarde: p.tarde,
+          totalAttempts: totalsByLead.get(l.id) ?? p.triedToday + p.triedBefore,
+          coldAfter: COLD_AFTER_ATTEMPTS,
         } satisfies DialerLead;
       });
     // Dias anteriores primeiro (estão atrasados), depois os mais antigos do dia.
     return rows.sort(
       (a, b) => Number(a.isToday) - Number(b.isToday) || a.received_at.localeCompare(b.received_at),
     );
-  }, [novos, progressOf, period, brokers, today]);
+  }, [novos, progressOf, period, brokers, today, totalsByLead]);
+
 
   const dialStats = useMemo(() => {
     let atendidos = 0;

@@ -42,6 +42,8 @@ const T = {
   sans: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
 };
 
+export type PeriodState = "pendente" | "nao_atendeu" | "atendeu";
+
 export type DialerLead = {
   id: string;
   name: string;
@@ -51,7 +53,12 @@ export type DialerLead = {
   brokerName?: string | null;
   triedBefore: number;
   isToday: boolean;
+  manha: PeriodState;
+  tarde: PeriodState;
+  totalAttempts: number;
+  coldAfter: number;
 };
+
 
 export default function LeadsDialer({
   queue,
@@ -252,7 +259,27 @@ export default function LeadsDialer({
               {current.source ? `Origem: ${current.source}` : "Origem: C2S"}
               {current.brokerName ? ` · ${current.brokerName}` : ""}
             </p>
+
+            {/* Situação por período + tentativas acumuladas */}
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <PeriodChip label="Manhã" icon={Sun} state={current.manha} active={period === "manha"} />
+              <PeriodChip label="Tarde" icon={Sunset} state={current.tarde} active={period === "tarde"} />
+              <span
+                className="rounded-full px-3 py-1.5 text-[12px] font-semibold"
+                style={{
+                  background: current.totalAttempts >= current.coldAfter - 1 ? T.redSoft : T.soft,
+                  color: current.totalAttempts >= current.coldAfter - 1 ? T.red : T.dim,
+                  fontFamily: T.grotesk,
+                }}
+              >
+                {current.totalAttempts} de {current.coldAfter} tentativas
+              </span>
+            </div>
+            <p className="mt-2 text-[11px]" style={{ color: T.mute }}>
+              Após {current.coldAfter} tentativas o lead vai automaticamente para a lista fria.
+            </p>
           </div>
+
 
           {!phoneValid ? (
             <div className="text-center">
@@ -400,5 +427,34 @@ export default function LeadsDialer({
         </>
       )}
     </div>
+  );
+}
+
+function PeriodChip({
+  label,
+  icon: Icon,
+  state,
+  active,
+}: {
+  label: string;
+  icon: typeof Sun;
+  state: PeriodState;
+  active: boolean;
+}) {
+  const bg = state === "atendeu" ? "#eafaf0" : state === "nao_atendeu" ? T.redSoft : T.soft;
+  const fg = state === "atendeu" ? T.green : state === "nao_atendeu" ? T.red : T.dim;
+  const txt = state === "atendeu" ? "atendeu" : state === "nao_atendeu" ? "não atendeu" : "pendente";
+  return (
+    <span
+      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold"
+      style={{
+        background: bg,
+        color: fg,
+        fontFamily: T.grotesk,
+        border: active ? `1px solid ${fg}33` : "1px solid transparent",
+      }}
+    >
+      <Icon className="h-3.5 w-3.5" /> {label}: {txt}
+    </span>
   );
 }
