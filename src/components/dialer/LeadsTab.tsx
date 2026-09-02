@@ -102,6 +102,10 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // carregamento/realtime em loop infinito.
   const cursorRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  // Quando um reload chega enquanto outro está em andamento, ele era descartado
+  // silenciosamente — isso fazia a ação de "atendeu/não atendeu" parecer não
+  // registrada. Agora a chamada fica pendente e roda logo após a atual.
+  const pendingLoadRef = useRef(false);
   // Espelho do tamanho atual da lista: usado no reload (realtime/troca de visão)
   // para não encolher a lista de volta à primeira página e jogar o scroll pro topo.
   const leadsLenRef = useRef(0);
@@ -109,8 +113,13 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const today = spToday();
   const period = currentPeriod();
 
+  const loadFnRef = useRef<((statusFilter?: string, append?: boolean) => Promise<void>) | null>(null);
+
   const load = useCallback(async (statusFilter?: string, append = false) => {
-    if (loadingRef.current) return;
+    if (loadingRef.current) {
+      pendingLoadRef.current = true;
+      return;
+    }
     loadingRef.current = true;
     try {
       const effectiveStatus = statusFilter ?? view;
@@ -169,8 +178,14 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       loadingRef.current = false;
       setLoading(false);
       setLoadingMore(false);
+      if (pendingLoadRef.current) {
+        pendingLoadRef.current = false;
+        void loadFnRef.current?.();
+      }
     }
   }, [view]);
+
+  loadFnRef.current = load;
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
@@ -398,19 +413,43 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   }
 
   async function register(lead: Lead, attended: boolean) {
-
     setBusy(lead.id);
-    const { error } = await db.rpc("crm_register_lead_attempt", {
+    const { data, error } = await db.rpc("crm_register_lead_attempt", {
       _lead_id: lead.id,
       _attended: attended,
       _result: attended ? "atendeu" : "nao_atendeu",
     });
     setBusy(null);
     if (error) {
-      toast.error(error.message);
+      toast.error(`Não foi possível registrar: ${error.message}`);
       return;
     }
-    toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${period === "manha" ? "manhã" : "tarde"})`);
+
+    // Aplica o resultado localmente na hora — o recarregamento do servidor pode
+    // demorar (ou ser adiado), e sem isso a ação parecia não ter sido registrada.
+    const res = (data ?? {}) as { period?: string; attempts?: number; status?: string };
+    const usedPeriod = res.period === "manha" || res.period === "tarde" ? res.period : period;
+    setAttempts((prev) => [
+      ...prev,
+      {
+        id: `local-${lead.id}-${Date.now()}`,
+        lead_id: lead.id,
+        period: usedPeriod,
+        result: attended ? "atendeu" : "nao_atendeu",
+        attempt_date: today,
+        called_at: new Date().toISOString(),
+      } as Attempt,
+    ]);
+    setTotalsByLead((prev) => {
+      const m = new Map(prev);
+      m.set(lead.id, res.attempts ?? (prev.get(lead.id) ?? 0) + 1);
+      return m;
+    });
+    if (res.status && res.status !== "novo") {
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: res.status as string } : l)));
+    }
+
+    toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${usedPeriod === "manha" ? "manhã" : "tarde"})`);
     void load();
   }
 
