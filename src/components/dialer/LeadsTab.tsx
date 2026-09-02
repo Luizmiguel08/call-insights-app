@@ -764,7 +764,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
                     .eq("id", lead.id);
                   if (error) { toast.error(`Não foi possível reativar: ${error.message}`); return; }
                   toast.success(`${lead.name} voltou para a fila`);
-                  void reload();
+                  void load(view);
                 }}
                 className="flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold disabled:opacity-50"
                 style={{ background: "#fff7ed", color: "#b45309" }}
