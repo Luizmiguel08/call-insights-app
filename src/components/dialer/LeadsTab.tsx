@@ -92,6 +92,18 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     brokerFilterInit.current = true;
     setBrokerFilter(me.brokerId);
   }, [me?.brokerId]);
+
+  // Filtro por mês para visualizar leads de ago/jul/jun de 2026 por corretor.
+  const MONTH_OPTIONS = useMemo(
+    () => [
+      { value: "all", label: "Todos os meses" },
+      { value: "2026-08", label: "Agosto/2026" },
+      { value: "2026-07", label: "Julho/2026" },
+      { value: "2026-06", label: "Junho/2026" },
+    ],
+    [],
+  );
+  const [monthFilter, setMonthFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
