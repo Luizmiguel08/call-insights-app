@@ -296,11 +296,10 @@ function LigaCtrlApp() {
 
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        {visited.discador && (
-          <div style={{ display: tab === "discador" ? undefined : "none" }}>
-            <Suspense fallback={<TabFallback />}>
-              <DiscadorTab state={state} me={me} goFila={() => setTab("fila")} />
-            </Suspense>
+        {tab === "discador" && (
+          <div className="rounded-3xl p-8 text-center" style={{ background: "#fff", border: "1px solid #e2e8f0" }}>
+            <p className="text-base font-semibold" style={{ color: "#0f172a" }}>Discador em manutenção</p>
+            <p className="mt-1 text-sm" style={{ color: "#64748b" }}>Use a aba Leads para fazer as ligações.</p>
           </div>
         )}
 
