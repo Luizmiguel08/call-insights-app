@@ -3,7 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Field, fontDisplay, fontNumeric, inputCls, type State } from "@/lib/dialer-shared";
 import type { Me } from "@/lib/cloud-state";
 
-type Fonte = "calls" | "leads";
+type Fonte = "todas" | "calls" | "leads";
+
+type Detalhe = {
+  id: string;
+  brokerId: string | null;
+  name: string;
+  when: string;
+  day: string;
+  period: "manha" | "tarde" | "fora";
+  result: string;
+  origem: "Fila (C2S)" | "Discador";
+};
 
 type Linha = {
   brokerId: string;
@@ -52,10 +63,12 @@ export default function HistoricoPeriodos({
 }: { state: State; me: Me | null; isAdmin: boolean }) {
   const [de, setDe] = useState(spToday);
   const [ate, setAte] = useState(spToday);
-  const [fonte, setFonte] = useState<Fonte>("calls");
+  const [fonte, setFonte] = useState<Fonte>("todas");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [detalhes, setDetalhes] = useState<Detalhe[]>([]);
+  const [verDetalhes, setVerDetalhes] = useState(false);
 
   const brokerNames = useMemo(() => {
     const m = new Map<string, string>();
@@ -86,37 +99,69 @@ export default function HistoricoPeriodos({
         };
 
         const pageSize = 1000;
-        for (let from = 0; ; from += pageSize) {
-          if (cancelled) return;
-          if (fonte === "calls") {
+        const det: Detalhe[] = [];
+
+        if (fonte === "todas" || fonte === "calls") {
+          for (let from = 0; ; from += pageSize) {
+            if (cancelled) return;
             const { data, error } = await supabase
               .from("calls")
-              .select("broker_id, created_at")
+              .select("id, broker_id, client_name, created_at, attended, scheduled, notes")
               .gte("created_at", start)
               .lt("created_at", end)
               .order("created_at", { ascending: true })
               .range(from, from + pageSize - 1);
             if (error) throw error;
-            const rows = data ?? [];
+            const rows = (data ?? []) as Array<Record<string, any>>;
             for (const r of rows) {
+              // Ligações da aba Fila são consolidadas em `calls` com marcador crm_lead:
+              // no modo "todas" elas já entram via crm_lead_attempts — evita contagem dupla.
+              const isCrm = typeof r.notes === "string" && r.notes.includes("crm_lead:");
+              if (fonte === "todas" && isCrm) continue;
               const { day, hour } = spParts(r.created_at as string);
-              bump(r.broker_id as string, day, periodOfHour(hour));
+              const kind = periodOfHour(hour);
+              bump(r.broker_id as string, day, kind);
+              det.push({
+                id: `c:${r.id}`,
+                brokerId: r.broker_id as string | null,
+                name: (r.client_name as string) || "—",
+                when: r.created_at as string,
+                day, period: kind,
+                result: r.scheduled ? "agendou" : r.attended ? "atendeu" : "não atendeu",
+                origem: "Discador",
+              });
             }
             if (rows.length < pageSize) break;
-          } else {
+          }
+        }
+
+        if (fonte === "todas" || fonte === "leads") {
+          for (let from = 0; ; from += pageSize) {
+            if (cancelled) return;
             const { data, error } = await (supabase as any)
               .from("crm_lead_attempts")
-              .select("broker_id, called_at, period, attempt_date")
+              .select("id, broker_id, called_at, period, attempt_date, result, lead_id, crm_leads(name)")
               .gte("called_at", start)
               .lt("called_at", end)
               .order("called_at", { ascending: true })
               .range(from, from + pageSize - 1);
             if (error) throw error;
-            const rows = (data ?? []) as Array<{ broker_id: string | null; called_at: string; period: string; attempt_date: string }>;
+            const rows = (data ?? []) as Array<Record<string, any>>;
             for (const r of rows) {
-              const { day, hour } = spParts(r.called_at);
-              const kind = r.period === "manha" || r.period === "tarde" ? r.period : periodOfHour(hour);
-              bump(r.broker_id, r.attempt_date ?? day, kind);
+              const { day, hour } = spParts(r.called_at as string);
+              const kind = r.period === "manha" || r.period === "tarde" ? (r.period as "manha" | "tarde") : periodOfHour(hour);
+              const dia = (r.attempt_date as string) ?? day;
+              bump(r.broker_id as string | null, dia, kind);
+              det.push({
+                id: `l:${r.id}`,
+                brokerId: r.broker_id as string | null,
+                name: r.crm_leads?.name ?? "Lead C2S",
+                when: r.called_at as string,
+                day: dia,
+                period: kind,
+                result: (r.result as string) ?? "—",
+                origem: "Fila (C2S)",
+              });
             }
             if (rows.length < pageSize) break;
           }
@@ -124,6 +169,12 @@ export default function HistoricoPeriodos({
 
         if (!cancelled) {
           setLinhas(Array.from(acc.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)));
+          const visiveis = det
+            .filter((d) => d.brokerId && d.day >= de && d.day <= ate)
+            .filter((d) => isAdmin || !me?.brokerId || d.brokerId === me.brokerId)
+            .sort((a, b) => (a.when < b.when ? 1 : -1))
+            .slice(0, 400);
+          setDetalhes(visiveis);
         }
       } catch (e) {
         if (!cancelled) setErro(e instanceof Error ? e.message : "Falha ao carregar histórico");
@@ -168,8 +219,9 @@ export default function HistoricoPeriodos({
           </Field>
           <Field label="Fonte" className="min-w-[190px]">
             <select value={fonte} onChange={(e) => setFonte(e.target.value as Fonte)} className={inputCls + " appearance-none"}>
-              <option value="calls" className="bg-[#13151e]">Ligações registradas</option>
-              <option value="leads" className="bg-[#13151e]">Tentativas de leads (C2S)</option>
+              <option value="todas" className="bg-[#13151e]">Todas (Fila + Discador)</option>
+              <option value="calls" className="bg-[#13151e]">Somente discador</option>
+              <option value="leads" className="bg-[#13151e]">Somente fila (C2S)</option>
             </select>
           </Field>
         </div>
@@ -186,6 +238,13 @@ export default function HistoricoPeriodos({
             {label as string}
           </button>
         ))}
+        <button
+          onClick={() => setVerDetalhes((v) => !v)}
+          className="h-8 rounded-md border border-zinc-700 px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+          style={fontDisplay}
+        >
+          {verDetalhes ? "Ocultar detalhes" : `Ver detalhes (${detalhes.length})`}
+        </button>
       </div>
 
       {erro && <p className="text-xs text-red-400">{erro}</p>}
@@ -229,6 +288,40 @@ export default function HistoricoPeriodos({
           </tbody>
         </table>
       </div>
+
+      {verDetalhes && (
+        <div className="max-h-[380px] overflow-auto rounded-md border border-zinc-800">
+          <table className="w-full min-w-[620px] text-xs">
+            <thead className="sticky top-0 bg-[#13151e]">
+              <tr className="text-left text-[10px] uppercase tracking-widest text-zinc-500" style={fontDisplay}>
+                <th className="p-2">Horário</th>
+                <th className="p-2">Corretor</th>
+                <th className="p-2">Cliente / Lead</th>
+                <th className="p-2">Período</th>
+                <th className="p-2">Resultado</th>
+                <th className="p-2">Origem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detalhes.length === 0 && (
+                <tr><td colSpan={6} className="p-4 text-center text-zinc-500">Nenhum registro no período.</td></tr>
+              )}
+              {detalhes.map((d) => (
+                <tr key={d.id} className="border-t border-zinc-800/70">
+                  <td className="p-2 text-zinc-400" style={fontNumeric}>
+                    {new Date(d.when).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </td>
+                  <td className="p-2 text-zinc-300">{brokerNames.get(d.brokerId ?? "") ?? "—"}</td>
+                  <td className="p-2 text-zinc-200">{d.name}</td>
+                  <td className="p-2 text-zinc-400">{d.period === "manha" ? "Manhã" : d.period === "tarde" ? "Tarde" : "Fora"}</td>
+                  <td className="p-2 text-zinc-400">{d.result}</td>
+                  <td className="p-2 text-zinc-500">{d.origem}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
