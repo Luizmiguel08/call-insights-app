@@ -26,6 +26,8 @@ const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
 const importLeads = () => import("@/components/dialer/LeadsTab");
 const LeadsTab = lazy(importLeads);
+const importDiscador = () => import("@/components/dialer/DiscadorTab");
+const DiscadorTab = lazy(importDiscador);
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
