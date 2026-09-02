@@ -288,6 +288,40 @@ export default function HistoricoPeriodos({
           </tbody>
         </table>
       </div>
+
+      {verDetalhes && (
+        <div className="max-h-[380px] overflow-auto rounded-md border border-zinc-800">
+          <table className="w-full min-w-[620px] text-xs">
+            <thead className="sticky top-0 bg-[#13151e]">
+              <tr className="text-left text-[10px] uppercase tracking-widest text-zinc-500" style={fontDisplay}>
+                <th className="p-2">Horário</th>
+                <th className="p-2">Corretor</th>
+                <th className="p-2">Cliente / Lead</th>
+                <th className="p-2">Período</th>
+                <th className="p-2">Resultado</th>
+                <th className="p-2">Origem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detalhes.length === 0 && (
+                <tr><td colSpan={6} className="p-4 text-center text-zinc-500">Nenhum registro no período.</td></tr>
+              )}
+              {detalhes.map((d) => (
+                <tr key={d.id} className="border-t border-zinc-800/70">
+                  <td className="p-2 text-zinc-400" style={fontNumeric}>
+                    {new Date(d.when).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </td>
+                  <td className="p-2 text-zinc-300">{brokerNames.get(d.brokerId ?? "") ?? "—"}</td>
+                  <td className="p-2 text-zinc-200">{d.name}</td>
+                  <td className="p-2 text-zinc-400">{d.period === "manha" ? "Manhã" : d.period === "tarde" ? "Tarde" : "Fora"}</td>
+                  <td className="p-2 text-zinc-400">{d.result}</td>
+                  <td className="p-2 text-zinc-500">{d.origem}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
