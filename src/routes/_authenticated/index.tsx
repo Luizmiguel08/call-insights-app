@@ -56,10 +56,11 @@ function LigaCtrlApp() {
   const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: false, leads: true });
   useEffect(() => {
     if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
+    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
   }, [tab]);
-  // Pré-carrega o chunk da aba Leads logo no início
+  // Pré-carrega os chunks das abas principais logo no início
   useEffect(() => {
-    const t = setTimeout(() => { void importLeads(); }, 0);
+    const t = setTimeout(() => { void importLeads(); void importDiscador(); }, 0);
     return () => { clearTimeout(t); };
   }, []);
 
