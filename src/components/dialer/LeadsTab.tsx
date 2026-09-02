@@ -554,12 +554,20 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             </button>
           )}
           <button
+            onClick={() => setMode("dial")}
+            className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-white"
+            style={{ background: "#3b82f6" }}
+          >
+            <PhoneCall className="h-4 w-4" /> Modo discagem
+          </button>
+          <button
             onClick={() => void load()}
             className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium"
             style={{ background: "#f1f5f9", color: "#475569" }}
           >
             <RefreshCw className="h-4 w-4" /> Atualizar
           </button>
+
         </div>
       </div>
 
