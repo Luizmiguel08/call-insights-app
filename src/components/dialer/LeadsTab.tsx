@@ -155,6 +155,10 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // Espelho do tamanho atual da lista: usado no reload (realtime/troca de visão)
   // para não encolher a lista de volta à primeira página e jogar o scroll pro topo.
   const leadsLenRef = useRef(0);
+  // Tentativas registradas neste aparelho hoje: sobrevivem a qualquer recarga,
+  // então o lead nunca volta para a fila depois do clique.
+  const localAttemptsRef = useRef<Attempt[]>([]);
+  const localTotalsRef = useRef<Map<string, number>>(new Map());
 
   const today = spToday();
   const period = currentPeriod();
