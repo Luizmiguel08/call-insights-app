@@ -57,7 +57,34 @@ export type DialerLead = {
   tarde: PeriodState;
   totalAttempts: number;
   coldAfter: number;
+  /** Cobertura de 24h aberta (falta a 2ª ligação em outro período). */
+  coverageOpen: boolean;
+  coverageFirstPeriod: string | null;
+  coverageFirstAt: string | null;
+  coverageExpiresAt: string | null;
+  lastCoverageFirstAt: string | null;
+  lastCoverageSecondAt: string | null;
 };
+
+function fmtDT(iso: string | null) {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+function fmtRestante(iso: string | null) {
+  if (!iso) return "";
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "expirando";
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  return h > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${m}min`;
+}
 
 
 export default function LeadsDialer({
@@ -317,11 +344,34 @@ export default function LeadsDialer({
                   fontFamily: T.grotesk,
                 }}
               >
-                {current.totalAttempts} de {current.coldAfter} tentativas
+                Tentativas: {current.totalAttempts}/{current.coldAfter}
               </span>
             </div>
+
+            {current.coverageOpen ? (
+              <div
+                className="mx-auto mt-3 max-w-md rounded-2xl px-4 py-3 text-left"
+                style={{ background: T.blueSoft, border: `1px solid ${T.line}` }}
+              >
+                <p className="text-[12px] font-semibold" style={{ color: T.blueDeep, fontFamily: T.grotesk }}>
+                  Cobertura iniciada · falta a 2ª ligação
+                </p>
+                <p className="mt-1 text-[12px]" style={{ color: T.dim }}>
+                  1ª ligação: {fmtDT(current.coverageFirstAt)} ({current.coverageFirstPeriod === "manha" ? "manhã" : "tarde"})
+                  {" · "}expira em {fmtRestante(current.coverageExpiresAt)}
+                </p>
+                <p className="mt-1 text-[11px]" style={{ color: T.mute }}>
+                  Ligar agora (outro período) conclui a cobertura e conta a tentativa.
+                </p>
+              </div>
+            ) : current.lastCoverageSecondAt ? (
+              <p className="mt-3 text-[11px]" style={{ color: T.mute }}>
+                Última cobertura concluída: {fmtDT(current.lastCoverageFirstAt)} → {fmtDT(current.lastCoverageSecondAt)}
+              </p>
+            ) : null}
+
             <p className="mt-2 text-[11px]" style={{ color: T.mute }}>
-              Após {current.coldAfter} tentativas o lead vai automaticamente para a lista fria.
+              1 tentativa = 2 ligações em períodos diferentes dentro de 24h. Após {current.coldAfter} tentativas o lead vai para a lista fria.
             </p>
           </div>
 
