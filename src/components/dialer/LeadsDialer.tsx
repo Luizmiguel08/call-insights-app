@@ -42,6 +42,8 @@ const T = {
   sans: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
 };
 
+export type PeriodState = "pendente" | "nao_atendeu" | "atendeu";
+
 export type DialerLead = {
   id: string;
   name: string;
@@ -51,7 +53,12 @@ export type DialerLead = {
   brokerName?: string | null;
   triedBefore: number;
   isToday: boolean;
+  manha: PeriodState;
+  tarde: PeriodState;
+  totalAttempts: number;
+  coldAfter: number;
 };
+
 
 export default function LeadsDialer({
   queue,
