@@ -125,7 +125,8 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     loadingRef.current = true;
     try {
       const effectiveStatus = statusFilter ?? view;
-      const since = LEADS_FLOOR.slice(0, 10);
+      // Tentativas recentes (usadas para manhã/tarde e pendências do dia)
+      const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
       // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
       // não precisa mais clicar em "carregar mais".
