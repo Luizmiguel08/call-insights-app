@@ -287,7 +287,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       // A API corta qualquer consulta em 1.000 linhas, mesmo pedindo mais.
       // Sem paginar, as tentativas mais recentes do dia sumiam do app e o lead
       // voltava para a fila logo depois de "não atendeu" (efeito de looping).
-      const [attemptsRows, totalsRows] = await Promise.all([
+      const [attemptsRows, totalsRows, coverageRows] = await Promise.all([
         (async () => {
           const out: Attempt[] = [];
           for (let page = 0; page < MAX_PAGES; page++) {
