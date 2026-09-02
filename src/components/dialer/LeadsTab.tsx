@@ -656,7 +656,16 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
     // Aplica o resultado localmente na hora — o recarregamento do servidor pode
     // demorar (ou ser adiado), e sem isso a ação parecia não ter sido registrada.
-    const res = (data ?? {}) as { period?: string; attempts?: number; status?: string; counted_call?: boolean };
+    const res = (data ?? {}) as {
+      period?: string;
+      attempts?: number;
+      status?: string;
+      counted_call?: boolean;
+      coverage_status?: string;
+      coverage_first_called_at?: string | null;
+      coverage_second_called_at?: string | null;
+      coverage_expires_at?: string | null;
+    };
     const usedPeriod = res.period === "manha" || res.period === "tarde" ? res.period : period;
     const localAttempt = {
       id: `local-${lead.id}-${Date.now()}`,
@@ -675,6 +684,28 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       localTotalsRef.current.set(lead.id, total);
       return m;
     });
+    // Cobertura de 24h: guarda o estado devolvido pelo banco para a fila não
+    // repetir o mesmo lead no mesmo período.
+    setCoverageByLead((prev) => {
+      const m = new Map(prev);
+      const concluded = res.coverage_status === "COBERTURA_CONCLUIDA";
+      const next: CoverageState = {
+        attempts_done: res.attempts ?? (prev.get(lead.id)?.attempts_done ?? 0),
+        open_first_period: concluded ? null : usedPeriod,
+        open_first_called_at: concluded ? null : res.coverage_first_called_at ?? localAttempt.called_at,
+        open_expires_at: concluded ? null : res.coverage_expires_at ?? null,
+        last_first_called_at: concluded
+          ? res.coverage_first_called_at ?? prev.get(lead.id)?.last_first_called_at ?? null
+          : prev.get(lead.id)?.last_first_called_at ?? null,
+        last_second_called_at: concluded
+          ? res.coverage_second_called_at ?? localAttempt.called_at
+          : prev.get(lead.id)?.last_second_called_at ?? null,
+        last_attempt_number: concluded ? res.attempts ?? null : prev.get(lead.id)?.last_attempt_number ?? null,
+      };
+      m.set(lead.id, next);
+      localCoverageRef.current.set(lead.id, next);
+      return m;
+    });
     if (res.status && res.status !== "novo") {
       setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: res.status as string } : l)));
     }
@@ -686,7 +717,13 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       });
     }
 
-    toast.success(attended ? `${lead.name} atendeu — saiu dos novos` : `Tentativa registrada (${usedPeriod === "manha" ? "manhã" : "tarde"})`);
+    toast.success(
+      attended
+        ? `${lead.name} atendeu — saiu dos novos`
+        : res.coverage_status === "COBERTURA_CONCLUIDA"
+          ? `Cobertura concluída — tentativa ${res.attempts ?? "?"} de ${COLD_AFTER_ATTEMPTS}`
+          : `Ligação registrada (${usedPeriod === "manha" ? "manhã" : "tarde"}) — falta a 2ª em outro período (24h)`,
+    );
     void loadCallCounts();
     // A lista não é recarregada aqui: o estado local já reflete a ação e uma
     // recarga imediata era o que fazia a fila "piscar" e trocar de lead sozinho.
@@ -697,13 +734,33 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const hoje = useMemo(() => visible.filter((l) => spDate(l.received_at) === today), [visible, today]);
   const anteriores = useMemo(() => visible.filter((l) => spDate(l.received_at) !== today), [visible, today]);
 
-  /** Fila do modo discagem: leads "novo" ainda sem ligação no período atual. */
+  const coverageOf = useCallback(
+    (id: string): CoverageState => coverageByLead.get(id) ?? EMPTY_COVERAGE,
+    [coverageByLead],
+  );
+
+  /**
+   * Fila do modo discagem (regra de cobertura móvel de 24h):
+   * - lead com cobertura aberta iniciada em OUTRO período entra primeiro
+   *   (é a 2ª ligação que fecha a tentativa, e ela expira em 24h);
+   * - lead com cobertura aberta no MESMO período fica de fora (já ligou agora);
+   * - demais leads novos entram para iniciar uma cobertura.
+   */
   const dialQueue = useMemo<DialerLead[]>(() => {
+    const nowMs = Date.now();
     const rows = novos
-      .filter((l) => progressOf(l.id)[period] === "pendente")
-      .filter((l) => (totalsByLead.get(l.id) ?? 0) < COLD_AFTER_ATTEMPTS)
+      .filter((l) => coverageOf(l.id).attempts_done < COLD_AFTER_ATTEMPTS)
+      .filter((l) => {
+        const c = coverageOf(l.id);
+        const openValid = !!c.open_expires_at && new Date(c.open_expires_at).getTime() > nowMs;
+        if (openValid) return c.open_first_period !== period; // mesmo período: aguarda o outro
+        // Sem cobertura aberta: só entra se ainda não ligou neste período hoje.
+        return progressOf(l.id)[period] === "pendente";
+      })
       .map((l) => {
         const p = progressOf(l.id);
+        const c = coverageOf(l.id);
+        const openValid = !!c.open_expires_at && new Date(c.open_expires_at).getTime() > nowMs;
         return {
           id: l.id,
           name: l.name,
@@ -715,15 +772,25 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           isToday: spDate(l.received_at) === today,
           manha: p.manha,
           tarde: p.tarde,
-          totalAttempts: totalsByLead.get(l.id) ?? p.triedToday + p.triedBefore,
+          totalAttempts: c.attempts_done,
           coldAfter: COLD_AFTER_ATTEMPTS,
+          coverageOpen: openValid,
+          coverageFirstPeriod: openValid ? c.open_first_period : null,
+          coverageFirstAt: openValid ? c.open_first_called_at : null,
+          coverageExpiresAt: openValid ? c.open_expires_at : null,
+          lastCoverageFirstAt: c.last_first_called_at,
+          lastCoverageSecondAt: c.last_second_called_at,
         } satisfies DialerLead;
       });
-    // Dias anteriores primeiro (estão atrasados), depois os mais antigos do dia.
-    return rows.sort(
-      (a, b) => Number(a.isToday) - Number(b.isToday) || a.received_at.localeCompare(b.received_at),
-    );
-  }, [novos, progressOf, period, brokers, today, totalsByLead]);
+    // 1) coberturas abertas mais perto de expirar; 2) leads antigos; 3) do dia.
+    return rows.sort((a, b) => {
+      if (a.coverageOpen !== b.coverageOpen) return a.coverageOpen ? -1 : 1;
+      if (a.coverageOpen && b.coverageOpen) {
+        return (a.coverageExpiresAt ?? "").localeCompare(b.coverageExpiresAt ?? "");
+      }
+      return Number(a.isToday) - Number(b.isToday) || a.received_at.localeCompare(b.received_at);
+    });
+  }, [novos, progressOf, coverageOf, period, brokers, today]);
 
 
   const dialStats = useMemo(() => {
