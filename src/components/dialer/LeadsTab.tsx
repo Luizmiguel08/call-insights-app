@@ -332,8 +332,9 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       }
       return true;
     });
-    if (view !== "novo" || focus === "todos") return byView;
-    return byView.filter((l) => {
+    const byMonth = monthFilter === "all" ? byView : byView.filter((l) => spMonth(l.received_at) === monthFilter);
+    if (view !== "novo" || focus === "todos") return byMonth;
+    return byMonth.filter((l) => {
       const p = progressOf(l.id);
       if (focus === "falta_manha") return p.manha === "pendente";
       if (focus === "falta_tarde") return p.tarde === "pendente";
@@ -341,7 +342,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       if (focus === "pendentes_anteriores") return p.triedBefore > 0;
       return true;
     });
-  }, [leads, view, isAdmin, brokerFilter, focus, progressOf]);
+  }, [leads, view, isAdmin, brokerFilter, focus, progressOf, monthFilter]);
 
   const todayNew = useMemo(
     () => leads.filter((l) => l.status === "novo" && spDate(l.received_at) === today),
