@@ -144,15 +144,21 @@ export default function LeadsDialer({
   async function register(attended: boolean) {
     if (!current || busy || inFlightRef.current) return;
     inFlightRef.current = true;
+    const doneId = current.id;
     try {
       await onOutcome(current, attended);
       setDialing(false);
       dialStartRef.current = null;
       setCallSeconds(0);
+      // Libera o lead atual: se ele continuar na fila (ex.: falta o outro
+      // período), ele sai da vez e o próximo assume.
+      setSkipped((s) => (s.includes(doneId) ? s : [...s, doneId]));
+      setPinnedId(null);
     } finally {
       inFlightRef.current = false;
     }
   }
+
 
   function skip() {
     if (current) setSkipped((s) => [...s, current.id]);
