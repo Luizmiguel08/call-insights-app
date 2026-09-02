@@ -51,20 +51,18 @@ function TabFallback() {
 function LigaCtrlApp() {
   const navigate = useNavigate();
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
-  const [tab, setTab] = useState<Tab>("discador");
+  const [tab, setTab] = useState<Tab>("leads");
   // Abas pesadas ficam montadas depois da 1ª visita (troca instantânea, sem refetch)
-  const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: true, leads: false });
+  const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: false, leads: true });
   useEffect(() => {
     if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
-    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
   }, [tab]);
-  // Pré-carrega os chunks das duas abas principais logo no início
+  // Pré-carrega o chunk da aba Leads logo no início
   useEffect(() => {
-    const t = setTimeout(() => { void importDiscador(); void importLeads(); }, 0);
-    // Depois que o discador respira, monta a aba Leads em segundo plano
-    const t2 = setTimeout(() => setVisited((v) => (v.leads ? v : { ...v, leads: true })), 3000);
-    return () => { clearTimeout(t); clearTimeout(t2); };
+    const t = setTimeout(() => { void importLeads(); }, 0);
+    return () => { clearTimeout(t); };
   }, []);
+
   // Único subscriber Realtime para o estado vivo do discador (espelha mobile↔desktop)
   const dialerSession = useDialerSession(me?.userId ?? null);
 
