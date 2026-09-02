@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SessoesRouteImport } from './routes/sessoes'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ManutencaoRouteImport } from './routes/manutencao'
 import { Route as FilaRouteImport } from './routes/fila'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CorretoresRouteImport } from './routes/corretores'
@@ -36,6 +37,11 @@ const SessoesRoute = SessoesRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManutencaoRoute = ManutencaoRouteImport.update({
+  id: '/manutencao',
+  path: '/manutencao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FilaRoute = FilaRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/corretores': typeof CorretoresRoute
   '/dashboard': typeof DashboardRoute
   '/fila': typeof FilaRoute
+  '/manutencao': typeof ManutencaoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/corretores': typeof CorretoresRoute
   '/dashboard': typeof DashboardRoute
   '/fila': typeof FilaRoute
+  '/manutencao': typeof ManutencaoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/corretores': typeof CorretoresRoute
   '/dashboard': typeof DashboardRoute
   '/fila': typeof FilaRoute
+  '/manutencao': typeof ManutencaoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sessoes': typeof SessoesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/corretores'
     | '/dashboard'
     | '/fila'
+    | '/manutencao'
     | '/reset-password'
     | '/sessoes'
     | '/sitemap.xml'
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/corretores'
     | '/dashboard'
     | '/fila'
+    | '/manutencao'
     | '/reset-password'
     | '/sessoes'
     | '/sitemap.xml'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/corretores'
     | '/dashboard'
     | '/fila'
+    | '/manutencao'
     | '/reset-password'
     | '/sessoes'
     | '/sitemap.xml'
@@ -185,6 +197,7 @@ export interface RootRouteChildren {
   CorretoresRoute: typeof CorretoresRoute
   DashboardRoute: typeof DashboardRoute
   FilaRoute: typeof FilaRoute
+  ManutencaoRoute: typeof ManutencaoRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SessoesRoute: typeof SessoesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -215,6 +228,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manutencao': {
+      id: '/manutencao'
+      path: '/manutencao'
+      fullPath: '/manutencao'
+      preLoaderRoute: typeof ManutencaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fila': {
@@ -307,6 +327,7 @@ const rootRouteChildren: RootRouteChildren = {
   CorretoresRoute: CorretoresRoute,
   DashboardRoute: DashboardRoute,
   FilaRoute: FilaRoute,
+  ManutencaoRoute: ManutencaoRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SessoesRoute: SessoesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
