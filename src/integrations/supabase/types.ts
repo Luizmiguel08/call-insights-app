@@ -945,6 +945,22 @@ export type Database = {
           },
         ]
       }
+      crm_lead_attempt_totals: {
+        Row: {
+          last_called_at: string | null
+          lead_id: string | null
+          total_attempts: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_lead_attempts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hourly_call_stats: {
         Row: {
           answer_rate: number | null
