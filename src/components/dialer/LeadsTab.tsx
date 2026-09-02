@@ -67,7 +67,9 @@ const PAGE_SIZE = 100;
 export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmin: boolean; state: State }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [mode, setMode] = useState<"dial" | "lista">("dial");
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
+
   const [focus, setFocus] = useState<"todos" | "falta_manha" | "falta_tarde" | "sem_resposta" | "pendentes_anteriores">("todos");
   const [brokerFilter, setBrokerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
