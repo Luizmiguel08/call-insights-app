@@ -65,6 +65,7 @@ export default function LeadsDialer({
   period,
   brokerName,
   stats,
+  goal,
   busy,
   loading,
   onOutcome,
@@ -75,12 +76,14 @@ export default function LeadsDialer({
   period: "manha" | "tarde";
   brokerName: string;
   stats: { atendidos: number; restantes: number; semResposta: number; novosHoje: number };
+  goal?: { done: number; meta: number };
   busy: boolean;
   loading: boolean;
   onOutcome: (lead: DialerLead, attended: boolean) => Promise<void> | void;
   onRefresh: () => void;
   onOpenList: () => void;
 }) {
+
   const [skipped, setSkipped] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
