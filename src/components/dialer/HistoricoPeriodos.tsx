@@ -219,8 +219,9 @@ export default function HistoricoPeriodos({
           </Field>
           <Field label="Fonte" className="min-w-[190px]">
             <select value={fonte} onChange={(e) => setFonte(e.target.value as Fonte)} className={inputCls + " appearance-none"}>
-              <option value="calls" className="bg-[#13151e]">Ligações registradas</option>
-              <option value="leads" className="bg-[#13151e]">Tentativas de leads (C2S)</option>
+              <option value="todas" className="bg-[#13151e]">Todas (Fila + Discador)</option>
+              <option value="calls" className="bg-[#13151e]">Somente discador</option>
+              <option value="leads" className="bg-[#13151e]">Somente fila (C2S)</option>
             </select>
           </Field>
         </div>
