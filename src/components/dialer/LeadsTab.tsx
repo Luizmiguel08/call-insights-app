@@ -71,6 +71,8 @@ const COLD_AFTER_ATTEMPTS = 7;
 export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmin: boolean; state: State }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [totalsByLead, setTotalsByLead] = useState<Map<string, number>>(new Map());
+
   const [mode, setMode] = useState<"dial" | "lista">("dial");
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
 
