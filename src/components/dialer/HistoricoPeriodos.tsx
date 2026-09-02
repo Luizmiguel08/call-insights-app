@@ -3,7 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Field, fontDisplay, fontNumeric, inputCls, type State } from "@/lib/dialer-shared";
 import type { Me } from "@/lib/cloud-state";
 
-type Fonte = "calls" | "leads";
+type Fonte = "todas" | "calls" | "leads";
+
+type Detalhe = {
+  id: string;
+  brokerId: string | null;
+  name: string;
+  when: string;
+  day: string;
+  period: "manha" | "tarde" | "fora";
+  result: string;
+  origem: "Fila (C2S)" | "Discador";
+};
 
 type Linha = {
   brokerId: string;
