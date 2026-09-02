@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Me, State } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
 import { syncC2sNow } from "@/lib/c2s.functions";
+import LeadsDialer, { type DialerLead } from "@/components/dialer/LeadsDialer";
+
 
 
 
@@ -65,7 +67,9 @@ const PAGE_SIZE = 100;
 export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmin: boolean; state: State }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [mode, setMode] = useState<"dial" | "lista">("dial");
   const [view, setView] = useState<"novo" | "atendido" | "fria">("novo");
+
   const [focus, setFocus] = useState<"todos" | "falta_manha" | "falta_tarde" | "sem_resposta" | "pendentes_anteriores">("todos");
   const [brokerFilter, setBrokerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -388,6 +392,61 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const hoje = useMemo(() => visible.filter((l) => spDate(l.received_at) === today), [visible, today]);
   const anteriores = useMemo(() => visible.filter((l) => spDate(l.received_at) !== today), [visible, today]);
 
+  /** Fila do modo discagem: leads "novo" ainda sem ligação no período atual. */
+  const dialQueue = useMemo<DialerLead[]>(() => {
+    const rows = novos
+      .filter((l) => progressOf(l.id)[period] === "pendente")
+      .map((l) => {
+        const p = progressOf(l.id);
+        return {
+          id: l.id,
+          name: l.name,
+          phone: l.phone,
+          source: l.source,
+          received_at: l.received_at,
+          brokerName: brokers.find((b) => b.id === l.broker_id)?.name ?? null,
+          triedBefore: p.triedBefore,
+          isToday: spDate(l.received_at) === today,
+        } satisfies DialerLead;
+      });
+    // Dias anteriores primeiro (estão atrasados), depois os mais antigos do dia.
+    return rows.sort(
+      (a, b) => Number(a.isToday) - Number(b.isToday) || a.received_at.localeCompare(b.received_at),
+    );
+  }, [novos, progressOf, period, brokers, today]);
+
+  const dialStats = useMemo(() => {
+    let atendidos = 0;
+    let semResposta = 0;
+    for (const l of novos) {
+      const p = progressOf(l.id);
+      if (p.manha === "atendeu" || p.tarde === "atendeu") atendidos += 1;
+      if (p.manha === "nao_atendeu" && p.tarde === "nao_atendeu") semResposta += 1;
+    }
+    return { atendidos, semResposta, restantes: dialQueue.length, novosHoje: todayNew.length };
+  }, [novos, progressOf, dialQueue.length, todayNew.length]);
+
+  if (mode === "dial") {
+    return (
+      <LeadsDialer
+        queue={dialQueue}
+        period={period}
+        brokerName={me?.brokerName ?? "Corretor"}
+        stats={dialStats}
+        busy={busy !== null}
+        loading={loading}
+        onOutcome={async (lead, attended) => {
+          const full = leads.find((l) => l.id === lead.id);
+          if (full) await register(full, attended);
+        }}
+        onRefresh={() => void load()}
+        onOpenList={() => setMode("lista")}
+      />
+    );
+  }
+
+
+
   const LeadCard = ({ lead }: { lead: Lead }) => {
     const p = progressOf(lead.id);
     const broker = brokers.find((b) => b.id === lead.broker_id);
@@ -495,12 +554,20 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
             </button>
           )}
           <button
+            onClick={() => setMode("dial")}
+            className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-white"
+            style={{ background: "#3b82f6" }}
+          >
+            <PhoneCall className="h-4 w-4" /> Modo discagem
+          </button>
+          <button
             onClick={() => void load()}
             className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium"
             style={{ background: "#f1f5f9", color: "#475569" }}
           >
             <RefreshCw className="h-4 w-4" /> Atualizar
           </button>
+
         </div>
       </div>
 

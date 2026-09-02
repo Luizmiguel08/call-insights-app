@@ -24,9 +24,7 @@ const HistoricoTab = lazy(() => import("@/components/dialer/HistoricoTab"));
 const DashboardTab = lazy(() => import("@/components/dialer/DashboardTab"));
 const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
-const importDiscador = () => import("@/components/dialer/DiscadorTab");
 const importLeads = () => import("@/components/dialer/LeadsTab");
-const DiscadorTab = lazy(importDiscador);
 const LeadsTab = lazy(importLeads);
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
@@ -51,20 +49,18 @@ function TabFallback() {
 function LigaCtrlApp() {
   const navigate = useNavigate();
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
-  const [tab, setTab] = useState<Tab>("discador");
+  const [tab, setTab] = useState<Tab>("leads");
   // Abas pesadas ficam montadas depois da 1ª visita (troca instantânea, sem refetch)
-  const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: true, leads: false });
+  const [visited, setVisited] = useState<{ discador: boolean; leads: boolean }>({ discador: false, leads: true });
   useEffect(() => {
     if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
-    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
   }, [tab]);
-  // Pré-carrega os chunks das duas abas principais logo no início
+  // Pré-carrega o chunk da aba Leads logo no início
   useEffect(() => {
-    const t = setTimeout(() => { void importDiscador(); void importLeads(); }, 0);
-    // Depois que o discador respira, monta a aba Leads em segundo plano
-    const t2 = setTimeout(() => setVisited((v) => (v.leads ? v : { ...v, leads: true })), 3000);
-    return () => { clearTimeout(t); clearTimeout(t2); };
+    const t = setTimeout(() => { void importLeads(); }, 0);
+    return () => { clearTimeout(t); };
   }, []);
+
   // Único subscriber Realtime para o estado vivo do discador (espelha mobile↔desktop)
   const dialerSession = useDialerSession(me?.userId ?? null);
 
@@ -125,7 +121,7 @@ function LigaCtrlApp() {
   }, [me?.userId]);
 
   const primaryTabs: { id: Tab; label: string; icon: typeof Phone; badge?: number }[] = [
-    { id: "discador", label: "Discador", icon: PhoneCall },
+    { id: "discador", label: "Discador · manutenção", icon: PhoneCall },
     { id: "leads", label: "Leads", icon: Flame, badge: newLeads },
   ];
   const menuTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
@@ -298,11 +294,28 @@ function LigaCtrlApp() {
 
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        {visited.discador && (
-          <div style={{ display: tab === "discador" ? undefined : "none" }}>
-            <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} state={state} me={me} /></Suspense>
+        {tab === "discador" && (
+          <div className="mx-auto max-w-xl rounded-3xl bg-white p-8 text-center" style={{ border: "1px solid #e8ecf1" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "#94a3b8" }}>
+              Discador
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "#101725" }}>
+              Em manutenção
+            </h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm" style={{ color: "#64748b" }}>
+              O discador de listas está temporariamente desativado. Todas as ligações devem ser feitas pela aba
+              <strong> Leads</strong>, com os leads do C2S.
+            </p>
+            <button
+              onClick={() => setTab("leads")}
+              className="mt-5 rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+              style={{ background: "#3b82f6" }}
+            >
+              Ir para Leads
+            </button>
           </div>
         )}
+
         {visited.leads && (
           <div style={{ display: tab === "leads" ? undefined : "none" }}>
             <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} state={state} /></Suspense>
