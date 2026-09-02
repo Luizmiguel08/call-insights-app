@@ -113,8 +113,13 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   const today = spToday();
   const period = currentPeriod();
 
+  const loadFnRef = useRef<((statusFilter?: string, append?: boolean) => Promise<void>) | null>(null);
+
   const load = useCallback(async (statusFilter?: string, append = false) => {
-    if (loadingRef.current) return;
+    if (loadingRef.current) {
+      pendingLoadRef.current = true;
+      return;
+    }
     loadingRef.current = true;
     try {
       const effectiveStatus = statusFilter ?? view;
