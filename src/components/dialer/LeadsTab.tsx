@@ -125,7 +125,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     loadingRef.current = true;
     try {
       const effectiveStatus = statusFilter ?? view;
-      const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+      const since = LEADS_FLOOR.slice(0, 10);
 
       // Carrega TODOS os leads do corretor (paginando internamente) — o usuário
       // não precisa mais clicar em "carregar mais".
@@ -136,6 +136,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           .from("crm_leads")
           .select(LEAD_COLUMNS)
           .eq("status", effectiveStatus)
+          .gte("received_at", LEADS_FLOOR)
           .order("received_at", { ascending: false })
           .order("id", { ascending: true })
           .limit(PAGE_SIZE);
