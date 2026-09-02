@@ -296,11 +296,28 @@ function LigaCtrlApp() {
 
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        {visited.discador && (
-          <div style={{ display: tab === "discador" ? undefined : "none" }}>
-            <Suspense fallback={<TabFallback />}><DiscadorTab goFila={() => setTab("fila")} state={state} me={me} /></Suspense>
+        {tab === "discador" && (
+          <div className="mx-auto max-w-xl rounded-3xl bg-white p-8 text-center" style={{ border: "1px solid #e8ecf1" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: "#94a3b8" }}>
+              Discador
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: "#101725" }}>
+              Em manutenção
+            </h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm" style={{ color: "#64748b" }}>
+              O discador de listas está temporariamente desativado. Todas as ligações devem ser feitas pela aba
+              <strong> Leads</strong>, com os leads do C2S.
+            </p>
+            <button
+              onClick={() => setTab("leads")}
+              className="mt-5 rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+              style={{ background: "#3b82f6" }}
+            >
+              Ir para Leads
+            </button>
           </div>
         )}
+
         {visited.leads && (
           <div style={{ display: tab === "leads" ? undefined : "none" }}>
             <Suspense fallback={<TabFallback />}><LeadsTab me={me} isAdmin={isAdmin} state={state} /></Suspense>
