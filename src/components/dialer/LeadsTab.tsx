@@ -324,7 +324,29 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
           }
           return out;
         })(),
-      ]);
+        // Estado das coberturas de 24h (progresso X/7 + cobertura aberta)
+        (async () => {
+          const out: ({ lead_id: string } & CoverageState)[] = [];
+          for (let page = 0; page < MAX_PAGES; page++) {
+            const from = page * PAGE_ROWS;
+            let qc = db
+              .from("crm_lead_coverage_state")
+              .select(
+                "lead_id,attempts_done,open_first_period,open_first_called_at,open_expires_at,last_first_called_at,last_second_called_at,last_attempt_number",
+              )
+              .order("lead_id", { ascending: true })
+              .range(from, from + PAGE_ROWS - 1);
+            if (scopeBroker === "none") qc = qc.is("broker_id", null);
+            else if (scopeBroker) qc = qc.eq("broker_id", scopeBroker);
+            const r = await qc;
+            if (r.error) return out;
+            const rows = (r.data ?? []) as ({ lead_id: string } & CoverageState)[];
+            out.push(...rows);
+            if (rows.length < PAGE_ROWS) break;
+          }
+          return out;
+        })(),
+      ]) as [Attempt[], { lead_id: string; total_attempts: number }[], ({ lead_id: string } & CoverageState)[]];
 
       setLeads((prev) => {
         const next = append
