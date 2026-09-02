@@ -39,6 +39,27 @@ type Attempt = {
 
 type Broker = { id: string; name: string; color: string; email: string | null };
 
+/** Cobertura móvel de 24h: 2 ligações em períodos diferentes = 1 tentativa. */
+type CoverageState = {
+  attempts_done: number;
+  open_first_period: string | null;
+  open_first_called_at: string | null;
+  open_expires_at: string | null;
+  last_first_called_at: string | null;
+  last_second_called_at: string | null;
+  last_attempt_number: number | null;
+};
+
+const EMPTY_COVERAGE: CoverageState = {
+  attempts_done: 0,
+  open_first_period: null,
+  open_first_called_at: null,
+  open_expires_at: null,
+  last_first_called_at: null,
+  last_second_called_at: null,
+  last_attempt_number: null,
+};
+
 const SP_TZ = "America/Sao_Paulo";
 
 function spToday() {
