@@ -238,6 +238,13 @@ export default function HistoricoPeriodos({
             {label as string}
           </button>
         ))}
+        <button
+          onClick={() => setVerDetalhes((v) => !v)}
+          className="h-8 rounded-md border border-zinc-700 px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800"
+          style={fontDisplay}
+        >
+          {verDetalhes ? "Ocultar detalhes" : `Ver detalhes (${detalhes.length})`}
+        </button>
       </div>
 
       {erro && <p className="text-xs text-red-400">{erro}</p>}
