@@ -83,12 +83,12 @@ function toLocalDate(iso: string) {
 
 async function loadMe(): Promise<Me | null> {
   const { data: userData } = await supabase.auth.getUser();
-  let user = userData.user;
+  const user = userData.user;
   if (!user) {
-    // Pode ser apenas token expirado: tenta renovar antes de desistir
-    const { data: refreshed } = await supabase.auth.refreshSession();
-    user = refreshed?.user ?? null;
-    if (!user) return null;
+    // getUser já aguarda a inicialização/renovação automática do cliente.
+    // Chamar refreshSession aqui em paralelo consumia o mesmo refresh token
+    // duas vezes no iPhone e deixava as próximas consultas sem autenticação.
+    return null;
   }
 
   async function readProfile() {
@@ -100,11 +100,11 @@ async function loadMe(): Promise<Me | null> {
 
   let [rolesR, brokerR] = await readProfile();
 
-  // Sessão expirada / falha de rede: renova o token e tenta de novo antes de
-  // concluir qualquer coisa sobre o perfil (senão o app mostrava
-  // "Aguardando aprovação" para todo mundo).
+  // Uma falha transitória pode acontecer ao retornar do discador nativo.
+  // O cliente já renova a sessão automaticamente; apenas aguarda e repete as
+  // leituras, sem iniciar uma segunda rotação concorrente do refresh token.
   if (rolesR.error || brokerR.error) {
-    await supabase.auth.refreshSession().catch(() => undefined);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 700));
     [rolesR, brokerR] = await readProfile();
   }
 
