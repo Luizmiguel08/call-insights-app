@@ -259,7 +259,10 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         _broker: scopeBroker && scopeBroker !== "all" && scopeBroker !== "none" ? scopeBroker : null,
         _all_brokers: scopeBroker === "all",
         _floor: LEADS_FLOOR,
-        _limit: 20000,
+        // "Todos os corretores" é visão panorâmica do admin: teto menor para a
+        // resposta não passar de alguns MB (era o que travava a tela).
+        _limit: scopeBroker === "all" ? 4000 : 20000,
+
       });
       if (rpc.error) {
         toast.error(`Falha ao carregar leads: ${rpc.error.message}`);
