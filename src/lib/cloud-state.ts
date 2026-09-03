@@ -91,12 +91,13 @@ async function loadMe(): Promise<Me | null> {
     // duas vezes no iPhone e deixava as próximas consultas sem autenticação.
     return null;
   }
+  const userId = user.id;
 
   async function readProfile() {
     return withTimeout(
       Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", user.id),
-        supabase.from("brokers").select("id,name,approved").eq("user_id", user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+        supabase.from("brokers").select("id,name,approved").eq("user_id", userId).maybeSingle(),
       ]),
       8_000,
       "O carregamento do perfil",
