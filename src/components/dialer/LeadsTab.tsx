@@ -640,17 +640,45 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   async function register(lead: Lead, attended: boolean) {
     setBusy(lead.id);
     busyRef.current = true;
-    const { data, error } = await db.rpc("crm_register_lead_attempt", {
-      _lead_id: lead.id,
-      _attended: attended,
-      _result: attended ? "atendeu" : "nao_atendeu",
-    });
-    setBusy(null);
-    busyRef.current = false;
+    // A chamada pode travar (oscilação de rede no celular). Sem timeout o
+    // estado "ocupado" nunca era liberado e os botões ficavam inclicáveis.
+    const callRpc = () =>
+      Promise.race([
+        db.rpc("crm_register_lead_attempt", {
+          _lead_id: lead.id,
+          _attended: attended,
+          _result: attended ? "atendeu" : "nao_atendeu",
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("tempo esgotado")), 12_000),
+        ),
+      ]);
+
+    let data: unknown = null;
+    let error: { message: string } | null = null;
+    try {
+      const r = (await callRpc()) as { data: unknown; error: { message: string } | null };
+      data = r.data;
+      error = r.error;
+    } catch (e1) {
+      // Uma segunda tentativa cobre a queda momentânea de rede.
+      try {
+        const r = (await callRpc()) as { data: unknown; error: { message: string } | null };
+        data = r.data;
+        error = r.error;
+      } catch (e2) {
+        error = { message: (e2 as Error).message || (e1 as Error).message };
+      }
+    } finally {
+      setBusy(null);
+      busyRef.current = false;
+    }
+
     if (error) {
       toast.error(`Não foi possível registrar: ${error.message}`);
       return;
     }
+
 
     // Aplica o resultado localmente na hora — o recarregamento do servidor pode
     // demorar (ou ser adiado), e sem isso a ação parecia não ter sido registrada.
