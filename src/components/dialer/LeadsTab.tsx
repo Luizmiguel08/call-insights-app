@@ -268,12 +268,12 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
 
   const load = useCallback(async (statusFilter?: string, append = false) => {
+    const requestEpoch = ++requestEpochRef.current;
     if (loadingRef.current) {
       pendingLoadRef.current = true;
       return;
     }
     loadingRef.current = true;
-    const requestEpoch = ++requestEpochRef.current;
     try {
       const effectiveStatus = statusFilter ?? view;
 
