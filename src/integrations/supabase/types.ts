@@ -499,6 +499,92 @@ export type Database = {
             foreignKeyName: "crm_lead_attempts_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "crm_lead_coverage_state"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "crm_lead_attempts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_lead_coverages: {
+        Row: {
+          attempt_number: number | null
+          broker_id: string | null
+          counted_call_id: string | null
+          created_at: string
+          cycle_started_at: string | null
+          expires_at: string
+          first_attempt_id: string | null
+          first_called_at: string
+          first_period: string
+          id: string
+          lead_id: string
+          second_attempt_id: string | null
+          second_called_at: string | null
+          second_period: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_number?: number | null
+          broker_id?: string | null
+          counted_call_id?: string | null
+          created_at?: string
+          cycle_started_at?: string | null
+          expires_at: string
+          first_attempt_id?: string | null
+          first_called_at: string
+          first_period: string
+          id?: string
+          lead_id: string
+          second_attempt_id?: string | null
+          second_called_at?: string | null
+          second_period?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_number?: number | null
+          broker_id?: string | null
+          counted_call_id?: string | null
+          created_at?: string
+          cycle_started_at?: string | null
+          expires_at?: string
+          first_attempt_id?: string | null
+          first_called_at?: string
+          first_period?: string
+          id?: string
+          lead_id?: string
+          second_attempt_id?: string | null
+          second_called_at?: string | null
+          second_period?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_lead_coverages_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_lead_coverages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_lead_coverage_state"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "crm_lead_coverages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "crm_leads"
             referencedColumns: ["id"]
           },
@@ -959,7 +1045,37 @@ export type Database = {
             foreignKeyName: "crm_lead_attempts_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "crm_lead_coverage_state"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "crm_lead_attempts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_lead_coverage_state: {
+        Row: {
+          attempts_done: number | null
+          broker_id: string | null
+          last_attempt_number: number | null
+          last_first_called_at: string | null
+          last_second_called_at: string | null
+          lead_id: string | null
+          open_coverage_id: string | null
+          open_expires_at: string | null
+          open_first_called_at: string | null
+          open_first_period: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_leads_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
             referencedColumns: ["id"]
           },
         ]
@@ -1012,6 +1128,18 @@ export type Database = {
       claim_corretor_role_if_eligible: { Args: never; Returns: Json }
       crm_current_period: { Args: never; Returns: string }
       crm_expire_cold_leads: { Args: never; Returns: Json }
+      crm_expire_coverages: { Args: never; Returns: number }
+      crm_leads_snapshot: {
+        Args: {
+          _all_brokers?: boolean
+          _attempts_since?: string
+          _broker?: string
+          _floor?: string
+          _limit?: number
+          _status?: string
+        }
+        Returns: Json
+      }
       crm_register_lead_attempt: {
         Args: {
           _attended: boolean

@@ -94,6 +94,31 @@ const PAGE_ROWS = 1000;
 const LEADS_FLOOR = "2026-06-01T00:00:00.000Z";
 /** Após este número de tentativas o lead vai para a lista fria (regra também no banco). */
 const COLD_AFTER_ATTEMPTS = 7;
+const SNAPSHOT_RETRY_DELAYS = [700, 1800, 4000] as const;
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String(error.message);
+  return String(error ?? "Erro desconhecido");
+}
+
+function isTransientLoadError(error: unknown) {
+  const message = errorMessage(error).toLowerCase();
+  return (
+    message.includes("load failed") ||
+    message.includes("failed to fetch") ||
+    message.includes("network") ||
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("connection") ||
+    message.includes("gateway") ||
+    message.includes("temporarily")
+  );
+}
 
 
 export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmin: boolean; state: State }) {
@@ -164,6 +189,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
 
   // Debounce ref for realtime reload
   const reloadTimerRef = useRef<number | null>(null);
+  const recoveryTimerRef = useRef<number | null>(null);
   // Cursor da paginação guardado em ref: manter `leads` nas dependências de
   // `load` recriava a função a cada resultado e reiniciava o efeito de
   // carregamento/realtime em loop infinito.
@@ -254,7 +280,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       // UMA única chamada traz leads + tentativas + coberturas + totais +
       // ligações do dia. Antes eram até ~120 requisições sequenciais de 500/1000
       // linhas — isso saturava a API e deixava a aba lenta / falhando.
-      const rpc = await db.rpc("crm_leads_snapshot", {
+      const snapshotArgs = {
         _status: effectiveStatus,
         _broker: scopeBroker && scopeBroker !== "all" && scopeBroker !== "none" ? scopeBroker : null,
         _all_brokers: scopeBroker === "all",
@@ -262,11 +288,36 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         // "Todos os corretores" é visão panorâmica do admin: teto menor para a
         // resposta não passar de alguns MB (era o que travava a tela).
         _limit: scopeBroker === "all" ? 4000 : 20000,
+      };
 
-      });
+      // Safari/iPhone pode interromper um fetch ao voltar do discador nativo.
+      // Repete a leitura com espera progressiva; os dados atuais ficam na tela.
+      let rpc: any = null;
+      for (let attempt = 0; attempt <= SNAPSHOT_RETRY_DELAYS.length; attempt += 1) {
+        try {
+          rpc = await db.rpc("crm_leads_snapshot", snapshotArgs);
+        } catch (error) {
+          rpc = { data: null, error };
+        }
+        if (!rpc.error || !isTransientLoadError(rpc.error) || attempt === SNAPSHOT_RETRY_DELAYS.length) break;
+        await wait(SNAPSHOT_RETRY_DELAYS[attempt]);
+      }
       if (rpc.error) {
-        toast.error(`Falha ao carregar leads: ${rpc.error.message}`);
+        const transient = isTransientLoadError(rpc.error);
+        // Nunca apaga uma fila válida por uma falha momentânea. Agenda uma nova
+        // tentativa silenciosa; só mostra erro quando nem a carga inicial existe.
+        if (transient) {
+          if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
+          recoveryTimerRef.current = window.setTimeout(() => void loadFnRef.current?.(), 10_000);
+          if (leadsLenRef.current === 0) toast.warning("Conexão instável. Tentando carregar os leads novamente…");
+        } else {
+          toast.error(`Falha ao carregar leads: ${errorMessage(rpc.error)}`);
+        }
         return;
+      }
+      if (recoveryTimerRef.current) {
+        window.clearTimeout(recoveryTimerRef.current);
+        recoveryTimerRef.current = null;
       }
       const snap = (rpc.data ?? {}) as {
         leads?: Lead[];
@@ -407,6 +458,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     document.addEventListener("visibilitychange", onFocus);
     return () => {
       if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
+      if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current);
       db.removeChannel(ch);
       document.removeEventListener("visibilitychange", onFocus);
     };
