@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Phone, Mail, Lock, LogIn, UserPlus, User, KeyRound, ArrowLeft } from "lucide-react";
 import fortalLogo from "@/assets/fortal-logo.png.asset.json";
+import { withTimeout } from "@/lib/async-resilience";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -28,6 +29,7 @@ function AuthPage() {
   const [forgotSent, setForgotSent] = useState(false);
 
   useEffect(() => {
+    let redirected = false;
     function getPendingInvite(): string | null {
       try {
         const url = new URL(window.location.href);
@@ -41,6 +43,8 @@ function AuthPage() {
     }
 
     function redirectAfterAuth() {
+      if (redirected) return;
+      redirected = true;
       const token = getPendingInvite();
       if (token) {
         navigate({ to: "/convite/$token", params: { token }, replace: true });
@@ -49,12 +53,12 @@ function AuthPage() {
       }
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) redirectAfterAuth();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) redirectAfterAuth();
     });
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) redirectAfterAuth();
-    });
+    void withTimeout(supabase.auth.getUser(), 8_000, "A validação da sessão")
+      .then(({ data }) => { if (data.user) redirectAfterAuth(); })
+      .catch(() => undefined);
     return () => subscription.unsubscribe();
   }, [navigate]);
 

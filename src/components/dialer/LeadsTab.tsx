@@ -7,6 +7,7 @@ import type { Me, State } from "@/lib/cloud-state";
 import { fontDisplay, fontNumeric, inputCls, telHref, normalizePhone } from "@/lib/dialer-shared";
 import { syncC2sNow } from "@/lib/c2s.functions";
 import LeadsDialer, { type DialerLead } from "@/components/dialer/LeadsDialer";
+import { withTimeout } from "@/lib/async-resilience";
 
 
 
@@ -199,6 +200,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
   // silenciosamente — isso fazia a ação de "atendeu/não atendeu" parecer não
   // registrada. Agora a chamada fica pendente e roda logo após a atual.
   const pendingLoadRef = useRef(false);
+  const requestEpochRef = useRef(0);
   // Espelho do tamanho atual da lista: usado no reload (realtime/troca de visão)
   // para não encolher a lista de volta à primeira página e jogar o scroll pro topo.
   const leadsLenRef = useRef(0);
@@ -271,6 +273,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       return;
     }
     loadingRef.current = true;
+    const requestEpoch = ++requestEpochRef.current;
     try {
       const effectiveStatus = statusFilter ?? view;
 
@@ -295,7 +298,11 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
       let rpc: any = null;
       for (let attempt = 0; attempt <= SNAPSHOT_RETRY_DELAYS.length; attempt += 1) {
         try {
-          rpc = await db.rpc("crm_leads_snapshot", snapshotArgs);
+          rpc = await withTimeout(
+            db.rpc("crm_leads_snapshot", snapshotArgs),
+            12_000,
+            "O carregamento dos leads",
+          );
         } catch (error) {
           rpc = { data: null, error };
         }
@@ -319,6 +326,7 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
         window.clearTimeout(recoveryTimerRef.current);
         recoveryTimerRef.current = null;
       }
+      if (requestEpoch !== requestEpochRef.current) return;
       const snap = (rpc.data ?? {}) as {
         leads?: Lead[];
         attempts?: Attempt[];
@@ -414,13 +422,21 @@ export default function LeadsTab({ me, isAdmin, state }: { me: Me | null; isAdmi
     reloadTimerRef.current = window.setTimeout(() => {
       // Nunca recarrega no meio de um registro de resultado.
       if (busyRef.current || loadingRef.current) {
-        scheduleReload();
+        pendingLoadRef.current = true;
         return;
       }
       // Piso de 20s entre recargas completas: com vários corretores online os
       // eventos de tempo real chegavam em rajada e derrubavam a API.
-      if (Date.now() - lastLoadRef.current < 20_000) {
-        scheduleReload();
+      const waitFor = 20_000 - (Date.now() - lastLoadRef.current);
+      if (waitFor > 0) {
+        reloadTimerRef.current = window.setTimeout(() => {
+          reloadTimerRef.current = null;
+          if (busyRef.current || loadingRef.current) pendingLoadRef.current = true;
+          else {
+            lastLoadRef.current = Date.now();
+            void loadRef.current();
+          }
+        }, waitFor);
         return;
       }
       lastLoadRef.current = Date.now();

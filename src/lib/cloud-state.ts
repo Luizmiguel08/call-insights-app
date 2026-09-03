@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/async-resilience";
 
 export type Broker = { id: string; name: string; userId?: string | null; approved?: boolean };
 export type Call = {
@@ -82,7 +83,7 @@ function toLocalDate(iso: string) {
 }
 
 async function loadMe(): Promise<Me | null> {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await withTimeout(supabase.auth.getUser(), 8_000, "A validação da sessão");
   const user = userData.user;
   if (!user) {
     // getUser já aguarda a inicialização/renovação automática do cliente.
@@ -92,10 +93,14 @@ async function loadMe(): Promise<Me | null> {
   }
 
   async function readProfile() {
-    return Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", user!.id),
-      supabase.from("brokers").select("id,name,approved").eq("user_id", user!.id).maybeSingle(),
-    ]);
+    return withTimeout(
+      Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", user.id),
+        supabase.from("brokers").select("id,name,approved").eq("user_id", user.id).maybeSingle(),
+      ]),
+      8_000,
+      "O carregamento do perfil",
+    );
   }
 
   let [rolesR, brokerR] = await readProfile();
@@ -871,7 +876,9 @@ export function useCloudState() {
       pendingTimer.current = null;
       // Re-arma o mute pra cobrir a janela de gravação + eco do servidor.
       muteUntilRef.current = Date.now() + 120;
-      void syncTo(prev, next, meRef.current!)
+      const currentMe = meRef.current;
+      if (!currentMe) return;
+      void syncTo(prev, next, currentMe)
         .then(() => {
           if (syncSeq !== syncSeqRef.current) return;
         })

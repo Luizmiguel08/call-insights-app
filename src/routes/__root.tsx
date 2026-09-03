@@ -127,12 +127,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
-  React.useEffect(() => {
-    void import("@/lib/auth-resilience").then((m) => m.installAuthResilience());
-  }, []);
-
-
-
   return (
     <QueryClientProvider client={queryClient}>
       <AppErrorBoundary>

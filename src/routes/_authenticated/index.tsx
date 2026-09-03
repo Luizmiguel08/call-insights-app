@@ -100,29 +100,9 @@ function LigaCtrlApp() {
     return () => { alive = false; (supabase as any).removeChannel(ch); };
   }, [me?.userId, isAdmin]);
 
-  // Contagem de leads novos do C2S (badge)
-  const [newLeads, setNewLeads] = useState(0);
-  useEffect(() => {
-    if (!me?.userId) return;
-    let alive = true;
-    const load = async () => {
-      const { count } = await (supabase as any)
-        .from("crm_leads")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "novo");
-      if (alive) setNewLeads(count ?? 0);
-    };
-    void load();
-    const ch = (supabase as any)
-      .channel(`crm-leads-badge-${crypto.randomUUID()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "crm_leads" }, () => void load())
-      .subscribe();
-    return () => { alive = false; (supabase as any).removeChannel(ch); };
-  }, [me?.userId]);
-
   const primaryTabs: { id: Tab; label: string; icon: typeof Phone; badge?: number }[] = [
     { id: "discador", label: "Discador", icon: PhoneCall },
-    { id: "leads", label: "Leads", icon: Flame, badge: newLeads },
+    { id: "leads", label: "Leads", icon: Flame },
   ];
   const menuTabs: { id: Tab; label: string; icon: typeof Phone; admin?: boolean; badge?: number }[] = [
     { id: "fila", label: "Fila de contatos", icon: ListPlus },
