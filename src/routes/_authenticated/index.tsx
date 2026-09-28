@@ -26,6 +26,7 @@ const ErrosTab = lazy(() => import("@/components/dialer/ErrosTab"));
 const LembretesTab = lazy(() => import("@/components/dialer/LembretesTab"));
 const importLeads = () => import("@/components/dialer/LeadsTab");
 const LeadsTab = lazy(importLeads);
+const DiscadorTab = lazy(() => import("@/components/dialer/DiscadorTab"));
 import { ReminderForm, useReminderNotifier } from "@/components/dialer/LembretesTab";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -51,9 +52,10 @@ function LigaCtrlApp() {
   const { state, fullState, setState, hydrated, me, refetch: refetchCloud } = useCloudState();
   const [tab, setTab] = useState<Tab>("leads");
   // Abas pesadas ficam montadas depois da 1ª visita (troca instantânea, sem refetch)
-  const [visited, setVisited] = useState<{ leads: boolean }>({ leads: true });
+  const [visited, setVisited] = useState<{ leads: boolean; discador: boolean }>({ leads: true, discador: false });
   useEffect(() => {
     if (tab === "leads") setVisited((v) => (v.leads ? v : { ...v, leads: true }));
+    if (tab === "discador") setVisited((v) => (v.discador ? v : { ...v, discador: true }));
   }, [tab]);
   // Pré-carrega os chunks das abas principais logo no início
   useEffect(() => {
@@ -274,10 +276,9 @@ function LigaCtrlApp() {
 
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-        {tab === "discador" && (
-          <div className="rounded-3xl p-8 text-center" style={{ background: "#fff", border: "1px solid #e2e8f0" }}>
-            <p className="text-base font-semibold" style={{ color: "#0f172a" }}>Discador em manutenção</p>
-            <p className="mt-1 text-sm" style={{ color: "#64748b" }}>Use a aba Leads para fazer as ligações.</p>
+        {visited.discador && (
+          <div style={{ display: tab === "discador" ? undefined : "none" }}>
+            <Suspense fallback={<TabFallback />}><DiscadorTab state={state} me={me} /></Suspense>
           </div>
         )}
 
