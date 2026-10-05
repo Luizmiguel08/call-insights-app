@@ -9,53 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as CorretoresRouteImport } from './routes/corretores'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as FilaRouteImport } from './routes/fila'
-import { Route as ManutencaoRouteImport } from './routes/manutencao'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as SessoesRouteImport } from './routes/sessoes'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SessoesRouteImport } from './routes/sessoes'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ManutencaoRouteImport } from './routes/manutencao'
+import { Route as FilaRouteImport } from './routes/fila'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CorretoresRouteImport } from './routes/corretores'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as ConviteTokenRouteImport } from './routes/convite.$token'
-import { Route as ApiPublicC2sSyncRouteImport } from './routes/api/public/c2s-sync'
-import { Route as ApiPublicC2sWebhookRouteImport } from './routes/api/public/c2s-webhook'
 import { Route as ApiPublicExportMetricasDiariasRouteImport } from './routes/api/public/export-metricas-diarias'
+import { Route as ApiPublicC2sWebhookRouteImport } from './routes/api/public/c2s-webhook'
+import { Route as ApiPublicC2sSyncRouteImport } from './routes/api/public/c2s-sync'
 
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CorretoresRoute = CorretoresRouteImport.update({
-  id: '/corretores',
-  path: '/corretores',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FilaRoute = FilaRouteImport.update({
-  id: '/fila',
-  path: '/fila',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ManutencaoRoute = ManutencaoRouteImport.update({
-  id: '/manutencao',
-  path: '/manutencao',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessoesRoute = SessoesRouteImport.update({
@@ -63,9 +34,38 @@ const SessoesRoute = SessoesRouteImport.update({
   path: '/sessoes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ManutencaoRoute = ManutencaoRouteImport.update({
+  id: '/manutencao',
+  path: '/manutencao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FilaRoute = FilaRouteImport.update({
+  id: '/fila',
+  path: '/fila',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CorretoresRoute = CorretoresRouteImport.update({
+  id: '/corretores',
+  path: '/corretores',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -78,22 +78,22 @@ const ConviteTokenRoute = ConviteTokenRouteImport.update({
   path: '/convite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicC2sSyncRoute = ApiPublicC2sSyncRouteImport.update({
-  id: '/api/public/c2s-sync',
-  path: '/api/public/c2s-sync',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicC2sWebhookRoute = ApiPublicC2sWebhookRouteImport.update({
-  id: '/api/public/c2s-webhook',
-  path: '/api/public/c2s-webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicExportMetricasDiariasRoute =
   ApiPublicExportMetricasDiariasRouteImport.update({
     id: '/api/public/export-metricas-diarias',
     path: '/api/public/export-metricas-diarias',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicC2sWebhookRoute = ApiPublicC2sWebhookRouteImport.update({
+  id: '/api/public/c2s-webhook',
+  path: '/api/public/c2s-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicC2sSyncRoute = ApiPublicC2sSyncRouteImport.update({
+  id: '/api/public/c2s-sync',
+  path: '/api/public/c2s-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -209,53 +209,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/corretores': {
-      id: '/corretores'
-      path: '/corretores'
-      fullPath: '/corretores'
-      preLoaderRoute: typeof CorretoresRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/fila': {
-      id: '/fila'
-      path: '/fila'
-      fullPath: '/fila'
-      preLoaderRoute: typeof FilaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/manutencao': {
-      id: '/manutencao'
-      path: '/manutencao'
-      fullPath: '/manutencao'
-      preLoaderRoute: typeof ManutencaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sessoes': {
@@ -265,11 +223,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessoesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/manutencao': {
+      id: '/manutencao'
+      path: '/manutencao'
+      fullPath: '/manutencao'
+      preLoaderRoute: typeof ManutencaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fila': {
+      id: '/fila'
+      path: '/fila'
+      fullPath: '/fila'
+      preLoaderRoute: typeof FilaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/corretores': {
+      id: '/corretores'
+      path: '/corretores'
+      fullPath: '/corretores'
+      preLoaderRoute: typeof CorretoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -286,11 +286,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/c2s-sync': {
-      id: '/api/public/c2s-sync'
-      path: '/api/public/c2s-sync'
-      fullPath: '/api/public/c2s-sync'
-      preLoaderRoute: typeof ApiPublicC2sSyncRouteImport
+    '/api/public/export-metricas-diarias': {
+      id: '/api/public/export-metricas-diarias'
+      path: '/api/public/export-metricas-diarias'
+      fullPath: '/api/public/export-metricas-diarias'
+      preLoaderRoute: typeof ApiPublicExportMetricasDiariasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/c2s-webhook': {
@@ -300,11 +300,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicC2sWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/export-metricas-diarias': {
-      id: '/api/public/export-metricas-diarias'
-      path: '/api/public/export-metricas-diarias'
-      fullPath: '/api/public/export-metricas-diarias'
-      preLoaderRoute: typeof ApiPublicExportMetricasDiariasRouteImport
+    '/api/public/c2s-sync': {
+      id: '/api/public/c2s-sync'
+      path: '/api/public/c2s-sync'
+      fullPath: '/api/public/c2s-sync'
+      preLoaderRoute: typeof ApiPublicC2sSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
